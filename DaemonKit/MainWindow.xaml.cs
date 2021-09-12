@@ -1,9 +1,9 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Linq;
 using System.Reactive.Disposables;
+using System.Windows;
+using System.Windows.Controls;
 using DaemonKit.Core;
-using DNHper;
+using ReactiveMarbles.ObservableEvents;
 using ReactiveUI;
 
 namespace DaemonKit {
@@ -30,7 +30,14 @@ namespace DaemonKit {
                 this.ProcssTree.ContextMenuOpening += ((_1, _2) => {
                     _2.Handled = false;
                 });
+                this.ProcssTree.Events ().SelectedItemChanged.Subscribe (_ => {
+                    MessageBox.Show (((ProcessItem) _.NewValue).Name);
+                });
             });
+        }
+
+        public void OnSelectedTreeItem () {
+            //this.
         }
 
     }

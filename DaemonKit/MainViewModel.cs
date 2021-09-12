@@ -6,6 +6,7 @@ using System.Text;
 using System.Threading.Tasks;
 using System.Windows;
 using ReactiveUI;
+using DaemonKit.Core;
 
 namespace DaemonKit {
     public class MainViewModel : ReactiveObject {

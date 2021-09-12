@@ -81,7 +81,7 @@
                                                     <Setter Property="ContextMenu">
                                                         <Setter.Value>
                                                             <ContextMenu>
-                                                                <MenuItem Header="添加子节点" />
+                                                                <MenuItem Header="添加子节点"   />
                                                             </ContextMenu>
                                                         </Setter.Value>
                                                     </Setter>
@@ -94,7 +94,7 @@
                                                                 <MenuItem Header="编辑进程信息"/>
                                                                 <Separator/>
                                                                 <MenuItem Header="节点操作">
-                                                                    <MenuItem Header="添加子节点" />
+                                                                    <MenuItem Header="添加子节点" Command="" />
                                                                     <MenuItem Header="删除该节点"/>
                                                                 </MenuItem>
                                                             </ContextMenu>
