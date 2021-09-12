@@ -1,0 +1,3 @@
+[submodule "DaemonKit/DNHper"]
+	path = DaemonKit/DNHper
+	url = https://github.com/mrbaoquan/dnhper.git
