@@ -11,7 +11,7 @@ namespace DaemonKit.Core {
             WinAPI.SetWindowPos (_process.MainWindowHandle, (int) HWndInsertAfter.HWND_TOPMOST,
                 0, 0, 0, 0,
                 SetWindowPosFlags.SWP_SHOWWINDOW | SetWindowPosFlags.SWP_NOMOVE | SetWindowPosFlags.SWP_NOSIZE | SetWindowPosFlags.SWP_FRAMECHANGED);
-            WinAPI.ShowWindow (_process.MainWindowHandle, (int) CMDShow.SW_SHOWNORMAL);
+            WinAPI.ShowWindow (_process.MainWindowHandle, (int) CMDShow.SW_SHOW);
             return true;
         }
 
@@ -21,9 +21,16 @@ namespace DaemonKit.Core {
             if (System.IO.Path.IsPathRooted (Path)) {
                 // 如果进程未打开则打开该程序
                 if (WinAPI.OpenProcessIfNotOpend (Path, Args, runas)) {
-                    NLogger.Info ("[DK]: 已打开进程{0}", Path);
+                    NLogger.Info ("已打开进程{0}", Path);
                 }
             }
+        }
+
+        public static void KillProcess (string Path) {
+            var _process = WinAPI.FindProcess (Path);
+            if (_process == default (Process)) return;
+            _process.Kill ();
+            NLogger.Info ("已终止进程: {0}", Path);
         }
     }
 }
