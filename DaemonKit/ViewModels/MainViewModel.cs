@@ -22,7 +22,7 @@ namespace DaemonKit {
         private ProcessCommandParameter openPowerShell_args = new ProcessCommandParameter { Path = "powershell.exe", RunAs = true };
         public ProcessCommandParameter OpenPowerShell_args { get => openPowerShell_args; }
 
-        private ProcessCommandParameter openUpdatePage_args = new ProcessCommandParameter { Path = "explorer.exe", Arguments = "https://github.com/MrBaoquan/DaemonApps/releases", RunAs = true };
+        private ProcessCommandParameter openUpdatePage_args = new ProcessCommandParameter { Path = "explorer.exe", Arguments = "https://gitee.com/MrBaoquan/daemon-apps/releases", RunAs = true };
         public ProcessCommandParameter OpenUpdatePage_args { get => openUpdatePage_args; }
         public MainViewModel () {
 

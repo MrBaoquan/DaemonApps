@@ -308,6 +308,7 @@ namespace DaemonKit {
         }
 
         protected override void OnClosing (CancelEventArgs e) {
+            rootProcessNode.KillNode ();
             UnRegisterHotKey ();
             base.OnClosing (e);
         }
