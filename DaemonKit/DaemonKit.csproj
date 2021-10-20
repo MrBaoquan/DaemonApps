@@ -8,6 +8,10 @@
     <ApplicationIcon>logo.ico</ApplicationIcon>
     <StartupObject>DaemonKit.App</StartupObject>
     <ApplicationManifest>app.manifest</ApplicationManifest>
+    <Authors>MrBaoquan</Authors>
+    <Company>@mrma617@gamil.com</Company>
+    <Copyright>@mrbaoquan</Copyright>
+    <PackageProjectUrl>https://github.com/MrBaoquan/DaemonApps</PackageProjectUrl>
   </PropertyGroup>
 
   <ItemGroup>

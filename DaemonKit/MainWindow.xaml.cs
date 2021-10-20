@@ -274,7 +274,7 @@ namespace DaemonKit {
             rootProcessNode.SyncRelationships ();
 
             if (!System.IO.File.Exists (AppSettingPath)) {
-                USerialization.SerializeXML (new AppSettings (), AppSettingPath);
+                USerialization.SerializeXML (new AppSettings { StartUp = true, ShortCut = true }, AppSettingPath);
             }
             if (System.IO.File.ReadAllText (AppSettingPath).Length == 0 && System.IO.File.Exists (AppSettingPath_Backup)) {
                 System.IO.File.Copy (AppSettingPath_Backup, AppSettingPath, true);
