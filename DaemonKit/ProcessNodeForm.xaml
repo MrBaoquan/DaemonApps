@@ -1,0 +1,64 @@
+﻿<reactiveui:ReactiveWindow
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:local="clr-namespace:DaemonKit"
+    
+        xmlns:reactiveui="http://reactiveui.net"
+        x:Class="DaemonKit.ProcessNodeForm"
+        x:TypeArguments="local:PNFViewModel"
+        xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes"
+        mc:Ignorable="d"
+        Title="{Binding Title}" Height="460" Width="500" MinHeight="460" MinWidth="500">
+
+    <materialDesign:Card Margin="0 1 0 0" Padding="15 30 15 15">
+        <StackPanel Orientation="Vertical">
+
+            <TextBox Style="{StaticResource MaterialDesignFloatingHintTextBox}" FontSize="17" Text="{Binding Path}" Margin="0 10" VerticalAlignment="Center">
+                <TextBox.InputBindings>
+                    <MouseBinding Command="{Binding SelectProcess}" MouseAction="LeftClick" />
+                </TextBox.InputBindings>
+                <materialDesign:HintAssist.Hint>
+                    <StackPanel Orientation="Horizontal" Margin="-2 0 0 0">
+                        <TextBlock Text="进程路径" />
+                    </StackPanel>
+                </materialDesign:HintAssist.Hint>
+            </TextBox>
+            
+            <TextBox Style="{StaticResource MaterialDesignFloatingHintTextBox}" FontSize="17" Text="{Binding Name}" Margin="0 10" VerticalAlignment="Center">
+                <materialDesign:HintAssist.Hint>
+                    <StackPanel Orientation="Horizontal" Margin="-2 0 0 0">
+                        <TextBlock Text="进程名(友好名称)"/>
+                    </StackPanel>
+                </materialDesign:HintAssist.Hint>
+            </TextBox>
+
+            <TextBox Style="{StaticResource MaterialDesignFloatingHintTextBox}" Margin="0 10" FontSize="17" Text="{Binding Arguments}" VerticalAlignment="Center" >
+                <materialDesign:HintAssist.Hint>
+                    <StackPanel Orientation="Horizontal" Margin="-2 0 0 0">
+                        <TextBlock Text="启动参数" />
+                    </StackPanel>
+                </materialDesign:HintAssist.Hint>
+            </TextBox>
+            <TextBox Style="{StaticResource MaterialDesignFloatingHintTextBox}" Margin="0 10" FontSize="17" Text="{Binding Delay}" VerticalAlignment="Center" materialDesign:TextFieldAssist.SuffixText="ms">
+                <materialDesign:HintAssist.Hint>
+                    <StackPanel Orientation="Horizontal" Margin="-2 0 0 0">
+                        <TextBlock Text="延迟启动 (相对上级节点)" />
+                    </StackPanel>
+                </materialDesign:HintAssist.Hint>
+            </TextBox>
+
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Left">
+                <CheckBox IsChecked="{Binding Path=KeepTop, Mode=TwoWay}" Margin="0 0 5 0" Content="窗口置顶" FontSize="15" />
+                <CheckBox IsChecked="{Binding Path=RunAs, Mode=TwoWay}" Margin="0 0 5 0" Content="管理员身份运行" FontSize="15" />
+            </StackPanel>
+
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="0 30 0 0">
+                <Button Style="{StaticResource MaterialDesignRaisedButton}" Margin="15 0" Content="确认" Command="{Binding Confirm}" />
+                <Button Margin="15 0" Style="{StaticResource MaterialDesignRaisedButton}" Content="取消" Command="{Binding Cancel}" />
+            </StackPanel>
+
+        </StackPanel>
+    </materialDesign:Card>
+</reactiveui:ReactiveWindow>

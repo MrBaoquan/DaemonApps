@@ -36,4 +36,9 @@ namespace DaemonKit.Core {
         public string Name = "快速访问";
         public List<Extension> Extensions = new List<Extension> () { };
     }
+
+    public class TreeNode {
+        public string Name = "测试名";
+        public List<TreeNode> Childs = new List<TreeNode> ();
+    }
 }

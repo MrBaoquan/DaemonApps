@@ -1,0 +1,20 @@
+﻿<?xml version="1.0"?>
+<ExtensionConfig xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+  <Name>快速访问</Name>
+  <Extensions>
+    <Extension Name="控制面板项" Path="control.exe" Args="" />
+	<Extension Name="设备管理器" Path="control.exe" Args="hdwwiz.cpl" />
+    <Extension Name="程序和功能" Path="control.exe" Args="appwiz.cpl" />
+	<Extension Name="网络和共享中心" Path="control.exe" Args="/name Microsoft.NetworkAndSharingCenter" />
+	
+	<Extension Name="相机" Path="cmd.exe" Args="/c start microsoft.windows.camera:" />
+	<Extension Name="计算器" Path="calc.exe" Args="" />
+	  
+	<Extension Name="网络调试助手" Path="NetAssist.exe" Args="" />
+    <Extension Name="串口调试助手" Path="UartAssist.exe" Args="" />
+	
+	<Extension Name="设置IP" Path="IPSettings.bat" Args="" />
+	<Extension Name="下载文件" Path="Downloader.bat" Args="" />
+  
+  </Extensions>
+</ExtensionConfig>

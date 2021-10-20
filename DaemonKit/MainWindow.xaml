@@ -6,12 +6,13 @@
         xmlns:local="clr-namespace:DaemonKit"
         xmlns:core="clr-namespace:DaemonKit.Core"
         xmlns:System="clr-namespace:System;assembly=System.Runtime" 
+        xmlns:fa="http://schemas.fontawesome.io/icons/"
         xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes"
         xmlns:reactiveui="http://reactiveui.net"
         x:Class="DaemonKit.MainWindow"
         x:TypeArguments="local:MainViewModel"
         mc:Ignorable="d"
-        Title="DaemonKit" Height="500" Width="1000" ResizeMode="CanResizeWithGrip" MinWidth="800" MinHeight="450"
+        Title="软件运维中心" Height="500" Width="1000" ResizeMode="CanResizeWithGrip" MinWidth="800" MinHeight="450"
         TextElement.Foreground="{DynamicResource MaterialDesignBody}"
         TextElement.FontWeight="Regular"
         TextElement.FontSize="13"
@@ -20,130 +21,206 @@
         Background="{DynamicResource MaterialDesignPaper}"
         FontFamily="{DynamicResource MaterialDesignFont}">
 
-    <Window.InputBindings >
-        <KeyBinding Key="E" Modifiers="Ctrl" Command="{Binding DisplayCommand}" />
-    </Window.InputBindings>
 
-    <Grid ShowGridLines="True">
+    <Window.Resources>
+        <local:MainViewModel x:Key="MainVM" />
+    </Window.Resources>
+
+    <Grid ShowGridLines="False">
         <DockPanel>
-            <Menu DockPanel.Dock="Top" IsMainMenu="True">
-                <MenuItem Header="_打开">
-                    <MenuItem Header="Save" Icon="{materialDesign:PackIcon Kind=ContentSave}"></MenuItem>
-                    <MenuItem Header="Save As.." />
-                    <MenuItem Header="Exit" InputGestureText="Ctrl+E" Icon="{materialDesign:PackIcon Kind=ExitToApp}" />
-                    <Separator />
-                    <MenuItem Header="Excellent" IsCheckable="True" IsChecked="True" />
-                    <MenuItem Header="Rubbish" IsCheckable="True" />
-                    <MenuItem Header="Dig Deeper" InputGestureText="Ctrl+D">
-                        <MenuItem Header="Enlightenment?" IsCheckable="True" />
-                        <MenuItem Header="Disappointment" IsCheckable="True" />
+            <Menu x:Name="MainMenu" DockPanel.Dock="Top" IsMainMenu="True" BorderBrush="LightGray" >
+                <MenuItem Header="_文件">
+                    <MenuItem Header="_打开" InputGestureText="Ctrl+D"  Icon="{materialDesign:PackIcon Kind=OpenInNew}">
+                        <MenuItem Header="命令行(CMD)" InputGestureText="Ctrl+T"  Command="{Binding RunProcess}" CommandParameter="{Binding OpenCMD_args}"/>
+                        <MenuItem Header="命令行(PowerShell)" InputGestureText="Ctrl+P" Command="{Binding RunProcess}" CommandParameter="{Binding OpenPowerShell_args}" />
                     </MenuItem>
-                    <MenuItem Header="Look Deeper" InputGestureText="Ctrl+D">
-                        <MenuItem Header="Plain" />
-                        <MenuItem Header="Ice Cream" />
-                    </MenuItem>
+                    <Separator/>
+                    <MenuItem Icon="{materialDesign:PackIcon Kind=Settings}" Header="设置" Command="{Binding OpenSettings}"/>
                 </MenuItem>
-                <MenuItem Header="_操作">
-                    <MenuItem x:Name="menu_cut" Header="_Cut" Command="{Binding DisplayCommand}" Icon="{materialDesign:PackIcon}" />
-                    <MenuItem Header="_Copy" Command="Copy" Icon="{materialDesign:PackIcon Kind=ContentCopy}" />
-                    <MenuItem Header="_Paste" Command="Paste" Icon="{materialDesign:PackIcon Kind=ContentPaste}" />
+                <MenuItem Header="_帮助">
+                    <MenuItem Header="版本更新" Icon="{materialDesign:PackIcon Kind=Update}" Command="{Binding RunProcess}" CommandParameter="{Binding OpenUpdatePage_args}" />
+                    <MenuItem Header="关于DaemonKit" Icon="{materialDesign:PackIcon Kind=Help}" />
                 </MenuItem>
             </Menu>
             <StatusBar x:Name="statusbar" DockPanel.Dock="Bottom" Height="20" VerticalAlignment="Bottom">
-                <System:String>状态栏</System:String>
+                
             </StatusBar>
-            <Grid ShowGridLines="True">
+            <Grid ShowGridLines="False">
                 <Grid.RowDefinitions>
                     <RowDefinition Height="*"/>
                 </Grid.RowDefinitions>
                 <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="40*"/>
-                    <ColumnDefinition Width="60*"/>
+                    <ColumnDefinition Width="45*"/>
+                    <ColumnDefinition Width="55*"/>
                 </Grid.ColumnDefinitions>
-                <materialDesign:ColorZone
-                      Mode="SecondaryMid"
-                    HorizontalAlignment="Stretch"
-	                  VerticalAlignment="Stretch"
-                      HorizontalContentAlignment="Stretch"
-                      VerticalContentAlignment="Stretch"
-                      Padding="15">
+                <materialDesign:ColorZone BorderBrush="LightGray" BorderThickness=" 0 1 0 0" 
+                                          HorizontalAlignment="Stretch" VerticalAlignment="Stretch" HorizontalContentAlignment="Stretch" 
+                                          VerticalContentAlignment="Stretch" Padding="15">
                     <!--<TextBox x:Name="textbox" Text="{Binding Name, UpdateSourceTrigger=PropertyChanged}" Width="204" />-->
-                    <TreeView x:Name="ProcssTree" Margin="0 0 0 0" VerticalContentAlignment="Stretch">
+                    <TreeView x:Name="ProcessTree" VerticalContentAlignment="Stretch" HorizontalAlignment="Stretch" DataContext="{Binding}">
+                        <TreeView.Resources>
+                            <ContextMenu x:Key="RootMenu">
+                                <MenuItem Header="添加子节点" 
+Command="{Binding RelativeSource={RelativeSource FindAncestor, AncestorType={x:Type Window}, AncestorLevel=1}, Path=DataContext.AddTreeNode}"
+                                          />
+                            </ContextMenu>
+                            <ContextMenu x:Key="ChildMenu">
+                                <MenuItem Header="打开所在文件夹" 
+Command="{Binding RelativeSource={RelativeSource FindAncestor, AncestorType={x:Type Window}, AncestorLevel=1}, Path=DataContext.ShowInExplorer}"
+                                          />
+                                <MenuItem Header="编辑结点信息"
+Command="{Binding RelativeSource={RelativeSource FindAncestor, AncestorType={x:Type Window}, AncestorLevel=1}, Path=DataContext.EditTreeNode}" 
+                                          />
+                                <Separator/>
+                                <MenuItem Header="节点操作">
+                                    <MenuItem Header="添加子节点" 
+Command="{Binding RelativeSource={RelativeSource FindAncestor, AncestorType={x:Type Window}, AncestorLevel=1}, Path=DataContext.AddTreeNode}"
+                                              />
+                                    <MenuItem Header="删除该节点" 
+Command="{Binding RelativeSource={RelativeSource FindAncestor, AncestorType={x:Type Window}, AncestorLevel=1}, Path=DataContext.DeleteTreeNode}"
+                                              />
+                                </MenuItem>
+                            </ContextMenu>
+                        </TreeView.Resources>
+                        <TreeView.ItemContainerStyle>
+                            <Style TargetType="{x:Type TreeViewItem}" BasedOn="{StaticResource MaterialDesignTreeViewItem}">
+                                <Setter Property="IsExpanded" Value="True"/>
+                                <Setter Property="HorizontalAlignment" Value="Stretch"/>
+                                <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+                                <Setter Property="Margin" Value="0 10 0 0"/>
+
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding IsSuperRoot}" Value="True">
+                                        <Setter Property="ContextMenu" Value="{StaticResource RootMenu}" />
+                                    </DataTrigger>
+                                    <DataTrigger Binding="{Binding IsSuperRoot}" Value="False">
+                                        <Setter Property="ContextMenu" Value="{StaticResource ChildMenu}" />
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </TreeView.ItemContainerStyle>
                         <TreeView.ItemTemplate>
                             <HierarchicalDataTemplate DataType="{x:Type core:ProcessItem}" ItemsSource="{Binding Childs}">
-                                <StackPanel Orientation="Horizontal" Height="25" HorizontalAlignment="Stretch">
-                                    <StackPanel.Style>
+                                <Grid Height="20">
 
+                                    <TextBlock VerticalAlignment="Center" Style="{StaticResource MaterialDesignSubtitle2TextBlock}" Text="{Binding Name}"  />
 
-                                        <Style TargetType="StackPanel">
+                                    <StackPanel HorizontalAlignment="Right" Orientation="Horizontal">
+                                        <ToggleButton
+                                            
+                                            Height="15"
+                                            Margin="0 0 20 0"
+                                            Cursor="Hand"
+  Style="{StaticResource MaterialDesignSwitchLightToggleButton}"
+  Command="{Binding RelativeSource={RelativeSource FindAncestor, AncestorType={x:Type Window}, AncestorLevel=1}, Path=DataContext.ToggleEnable}" 
+                                            CommandParameter="{Binding RelativeSource={RelativeSource Self},Path=DataContext}"
+  ToolTip="[启用|忽略]该进程"
+  IsChecked="{Binding Enable}" />
+                                        <Button Width="20" Height="20" 
+                                                Command="{Binding RunNodeCommand}"  ToolTip="启动该进程"
+                                                Style="{DynamicResource MaterialDesignIconButton}" 
+                                                Visibility="{Binding BtnRunVisibility}">
+                                            <fa:ImageAwesome Icon="Play" Width="12" Height="12" Foreground="ForestGreen"/>
+                                        </Button>
+                                        <Button Width="20" Height="20" Style="{StaticResource MaterialDesignIconButton}" IsEnabled="False" Visibility="{Binding BtnLoadingVisibility}">
+                                            <fa:ImageAwesome Icon="Spinner" Width="15" Height="15" Spin="True" SpinDuration="1" />
+                                        </Button>
+                                        <Button Width="20" Height="20" 
+                                                ToolTip="结束该进程"
+                                                Command="{Binding KillNodeCommand}" 
+                                                Style="{StaticResource MaterialDesignIconButton}" IsEnabled="True" Visibility="{Binding BtnStopVisibility}">
+                                            <fa:ImageAwesome Icon="Stop" Width="12" Height="12" Foreground="Red"/>
+                                        </Button>
+                                    </StackPanel>
+
+                                </Grid>
+                            </HierarchicalDataTemplate>
+                        </TreeView.ItemTemplate>
+                        <materialDesign:TreeViewAssist.AdditionalTemplate>
+                            <DataTemplate>
+                                <ContentControl Content="{Binding}">
+                                    <ContentControl.Style>
+                                        <Style TargetType="ContentControl">
                                             <Style.Triggers>
-                                                <DataTrigger Binding="{Binding IsSuperRoot}" Value="True">
-                                                    <Setter Property="ContextMenu">
+                                                <DataTrigger Binding="{Binding IsSuperRoot}" Value="False">
+                                                    <Setter Property="ContentTemplate">
                                                         <Setter.Value>
-                                                            <ContextMenu>
-                                                                <MenuItem Header="添加子节点"   />
-                                                            </ContextMenu>
+                                                            <DataTemplate>
+                                                                <StackPanel Orientation="Horizontal" Margin="8 2 0 2">
+                                                                    <TextBlock Style="{StaticResource MaterialDesignOverlineTextBlock}" VerticalAlignment="Bottom" Text="进程名:"  />
+                                                                    <TextBlock Style="{StaticResource MaterialDesignOverlineTextBlock}" VerticalAlignment="Bottom" Text="{Binding Path}" />
+
+                                                                    <TextBlock Style="{StaticResource MaterialDesignOverlineTextBlock}" Padding="8 0 0 0" VerticalAlignment="Bottom" Text="延时:"  />
+                                                                    <TextBlock Style="{StaticResource MaterialDesignOverlineTextBlock}" VerticalAlignment="Bottom" Text="{Binding Delay}" />
+                                                                    <TextBlock Style="{StaticResource MaterialDesignOverlineTextBlock}" VerticalAlignment="Bottom" Text="ms" />
+                                                                </StackPanel>
+                                                            </DataTemplate>
+                                                            
                                                         </Setter.Value>
                                                     </Setter>
                                                 </DataTrigger>
-                                                <DataTrigger Binding="{Binding IsSuperRoot}" Value="False">
-                                                    <Setter Property="ContextMenu">
+                                                <DataTrigger Binding="{Binding IsSuperRoot}" Value="True">
+                                                    <Setter Property="ContentTemplate">
                                                         <Setter.Value>
-                                                            <ContextMenu>
-                                                                <MenuItem Header="打开进程所在目录"/>
-                                                                <MenuItem Header="编辑进程信息"/>
-                                                                <Separator/>
-                                                                <MenuItem Header="节点操作">
-                                                                    <MenuItem Header="添加子节点" Command="" />
-                                                                    <MenuItem Header="删除该节点"/>
-                                                                </MenuItem>
-                                                            </ContextMenu>
+                                                            <DataTemplate>
+                                                                <StackPanel Orientation="Horizontal" Margin="8 2 0 2">
+                                                                    <TextBlock Style="{StaticResource MaterialDesignOverlineTextBlock}" VerticalAlignment="Bottom" Text=""  />
+                                                                </StackPanel>
+                                                            </DataTemplate>
+
                                                         </Setter.Value>
                                                     </Setter>
                                                 </DataTrigger>
                                             </Style.Triggers>
                                         </Style>
-
-                                    </StackPanel.Style>
-                                    <TextBlock VerticalAlignment="Center" Text="{Binding Name}" />
-                                    <Button
-                                                Style="{DynamicResource MaterialDesignToolForegroundButton}"
-                                                Margin="8 -6 0 -6"
-                                                Content="{materialDesign:PackIcon Kind=Play}" />
-                                </StackPanel>
-                            </HierarchicalDataTemplate>
-                        </TreeView.ItemTemplate>
-
-                        <materialDesign:DialogHost
-                    VerticalAlignment="Center"
-                    IsOpen="True"
-                    DialogContent="1234556"
-                    CloseOnClickAway="True"
-                    OverlayBackground="{DynamicResource PrimaryHueDarkBrush}"
-                    DialogTheme="Inherit">
-
-                            <Border
-                        BorderThickness="1"
-                        BorderBrush="{DynamicResource PrimaryHueMidBrush}"
-                        MinWidth="256"
-                        MinHeight="256"
-                        ClipToBounds="True">
-                                <Button
-                            HorizontalAlignment="Center"
-                            VerticalAlignment="Center"
-                            Content="RUN"/>
-                            </Border>
-                        </materialDesign:DialogHost>
+                                    </ContentControl.Style>
+                                </ContentControl>
+                            </DataTemplate>
+                            
+                        </materialDesign:TreeViewAssist.AdditionalTemplate>
                     </TreeView>
 
                 </materialDesign:ColorZone>
                 
-                <Grid Grid.Column="1" ShowGridLines="True" >
+                <Grid Grid.Column="1" ShowGridLines="False" >
                     <Grid.RowDefinitions>
                         <RowDefinition Height="60*" />
                         <RowDefinition Height="40*" />
                     </Grid.RowDefinitions>
+
+                    <TextBox
+                        x:Name="hardwareInfoBox"
+                        Grid.Row="0"
+                        Grid.Column="0"
+                        Style="{StaticResource MaterialDesignOutlinedTextBox}"
+                        VerticalAlignment="Stretch"
+                        Text=""
+                        TextWrapping="Wrap"
+                        VerticalScrollBarVisibility="Auto"
+                        materialDesign:HintAssist.Hint="计算机配置信息"
+                        Margin="0 0 0 0"
+                        Opacity="0.8"
+                        BorderBrush="LightGray"
+                        IsReadOnly="True"
+                        IsEnabled="True" Cursor="IBeam" IsUndoEnabled="False" />
+
+                    <TextBox
+                        x:Name="logBox"
+                        Grid.Row="1"
+                        Grid.Column="0"
+                        BorderBrush="LightGray"
+                        Opacity="0.8"
+                        Style="{StaticResource MaterialDesignOutlinedTextBox}"
+                        VerticalAlignment="Stretch"
+                        Text=""
+                        TextWrapping="Wrap"
+                        VerticalScrollBarVisibility="Auto"
+                        materialDesign:HintAssist.Hint="实时日志"
+                        IsReadOnly="True"
+                        IsEnabled="True" Cursor="IBeam" IsUndoEnabled="False"/>
                 </Grid>
+               
+
             </Grid>
         </DockPanel>
     </Grid>
