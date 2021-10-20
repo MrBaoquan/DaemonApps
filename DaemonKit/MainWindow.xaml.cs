@@ -265,7 +265,7 @@ namespace DaemonKit {
                 if (!Directory.Exists (Path.GetDirectoryName (TreeViewDataPath)))
                     Directory.CreateDirectory (Path.GetDirectoryName (TreeViewDataPath));
                 rootProcessNode = new ProcessItem { MetaData = new ProcessMetaData { Name = "[ 进程树 ]", Delay = 0, Path = string.Empty } };
-                saveConfig ();
+                USerialization.SerializeXML (rootProcessNode, TreeViewDataPath);
             }
             if (System.IO.File.ReadAllText (TreeViewDataPath).Length == 0 && System.IO.File.Exists (TreeViewDataPath_Backup)) {
                 System.IO.File.Copy (TreeViewDataPath_Backup, TreeViewDataPath, true);
@@ -287,7 +287,6 @@ namespace DaemonKit {
         // 数据持久化
         private void saveConfig () {
             USerialization.SerializeXML (rootProcessNode, TreeViewDataPath);
-
             USerialization.SerializeXML (AppSettings, AppSettingPath);
             if (!Directory.Exists (Path.GetDirectoryName (TreeViewDataPath_Backup))) {
                 Directory.CreateDirectory (Path.GetDirectoryName (TreeViewDataPath_Backup));
