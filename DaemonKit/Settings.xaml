@@ -10,7 +10,7 @@
         xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes"
         xmlns:reactiveui="http://reactiveui.net"
         mc:Ignorable="d"
-        Title="设置" Height="250" Width="350">
+        Title="设置" Height="400" Width="400">
     <Grid>
         <Grid.ColumnDefinitions>
             <ColumnDefinition Width="1*"/>
@@ -26,6 +26,28 @@
                 <TextBlock VerticalAlignment="Center" Padding="0 0 20 0">桌面快捷方式</TextBlock>
                 <ToggleButton HorizontalAlignment="Right" Style="{StaticResource MaterialDesignSwitchLightToggleButton}" ToolTip="开机启动" IsChecked="{Binding Path=ShortCut, Mode=TwoWay}" />
             </DockPanel>
+
+            <TextBox Style="{StaticResource MaterialDesignFloatingHintTextBox}" Margin="0 0" FontSize="15" Text="{Binding DelayDaemon}" VerticalAlignment="Center" materialDesign:TextFieldAssist.SuffixText="ms" Cursor="IBeam">
+                <materialDesign:HintAssist.Hint>
+                    <StackPanel Orientation="Horizontal" Margin="-2 0 0 0">
+                        <TextBlock Text="延迟守护" />
+                    </StackPanel>
+                </materialDesign:HintAssist.Hint>
+            </TextBox>
+            <TextBox Style="{StaticResource MaterialDesignFloatingHintTextBox}" Margin="0 0" FontSize="15" Text="{Binding DaemonInterval}" VerticalAlignment="Center" materialDesign:TextFieldAssist.SuffixText="ms" Cursor="IBeam">
+                <materialDesign:HintAssist.Hint>
+                    <StackPanel Orientation="Horizontal" Margin="-2 0 0 0">
+                        <TextBlock Text="守护间隔" />
+                    </StackPanel>
+                </materialDesign:HintAssist.Hint>
+            </TextBox>
+            <TextBox Style="{StaticResource MaterialDesignFloatingHintTextBox}" Margin="0 0" FontSize="15" Text="{Binding ErrorCount}" VerticalAlignment="Center" materialDesign:TextFieldAssist.SuffixText="次" Cursor="IBeam">
+                <materialDesign:HintAssist.Hint>
+                    <StackPanel Orientation="Horizontal" Margin="-2 0 0 0">
+                        <TextBlock Text="错误容忍" />
+                    </StackPanel>
+                </materialDesign:HintAssist.Hint>
+            </TextBox>
 
             <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="0 50 0 0">
                 <Button Style="{StaticResource MaterialDesignRaisedButton}" Margin="15 0" Content="应用" Command="{Binding Confirm}" />

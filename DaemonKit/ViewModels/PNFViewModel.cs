@@ -115,7 +115,7 @@ namespace DaemonKit {
         private int delay = 500;
         public int Delay {
             get => delay;
-            set => this.RaiseAndSetIfChanged (ref delay, value);
+            set => this.RaiseAndSetIfChanged (ref delay, Math.Max(value, 0));
         }
 
         public ReactiveCommand<Unit, Unit> SelectProcess { get; protected set; }

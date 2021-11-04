@@ -42,7 +42,7 @@ namespace DaemonKit {
         public string AppSettingPath_Backup { get => Path.Combine (AppPath, ".cache/settings.xml"); }
         // 拓展路径
         public string ExtensionPath { get => Path.Combine (ResDir, "Extensions"); }
-        public AppSettings AppSettings { get; set; }
+        public static AppSettings AppSettings { get; set; }
 
         ProcessItem rootProcessNode = null;
 
@@ -115,9 +115,11 @@ namespace DaemonKit {
                     settingsWindow.ViewModel.SyncSettings (AppSettings);
                     settingsWindow.ViewModel.Confirm.Subscribe (_appSettings => {
                         AppSettings = _appSettings;
+                        rootProcessNode.SyncSettings(AppSettings);
                         settingsWindow.Hide ();
                         saveConfig ();
                         syncSettings ();
+                        
                     });
                 });
 
@@ -274,7 +276,7 @@ namespace DaemonKit {
             rootProcessNode.SyncRelationships ();
 
             if (!System.IO.File.Exists (AppSettingPath)) {
-                USerialization.SerializeXML (new AppSettings { StartUp = true, ShortCut = true }, AppSettingPath);
+                USerialization.SerializeXML (new AppSettings { StartUp = true, ShortCut = true, DelayDaemon=5000,DaemonInterval=500, ErrorCount=1 }, AppSettingPath);
             }
             if (System.IO.File.ReadAllText (AppSettingPath).Length == 0 && System.IO.File.Exists (AppSettingPath_Backup)) {
                 System.IO.File.Copy (AppSettingPath_Backup, AppSettingPath, true);
@@ -282,6 +284,7 @@ namespace DaemonKit {
             AppSettings = USerialization.DeserializeXML<AppSettings> (AppSettingPath);
 
             syncSettings ();
+            rootProcessNode.SyncSettings(AppSettings);
         }
 
         // 数据持久化
