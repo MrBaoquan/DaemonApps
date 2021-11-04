@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.Diagnostics;
 using System.Linq;
 using System.Reactive;
 using System.Reactive.Linq;
@@ -159,15 +160,34 @@ namespace DaemonKit.Core {
             });
         }
 
+        private int delayDaemon = 5000;
+        private int daemonInterval = 500;
+        private int maxError = 1;
+
         // 守护当前进程节点
         IDisposable daemonHandler = null;
+        private int currentError = 0;
+
         private void daemonNode () {
             if (IsSuperRoot) return;
-            daemonHandler = Observable.Interval (TimeSpan.FromMilliseconds (500)).Subscribe (_ => {
-                if (!WinAPI.ProcessExists (metaData.Path)) {
-                    NLogger.Warn ("进程:{0} 已退出，正在尝试重新启动进程链...", metaData.Path);
-                    RootNode.KillNode ();
-                    RootNode.RunNode ();
+            NLogger.Info("守护进程:{0}, Delay:{1}, Interval:{2}", metaData.Path, delayDaemon, daemonInterval);
+            currentError = 0;
+
+            daemonHandler = Observable.Timer (TimeSpan.FromMilliseconds(delayDaemon),TimeSpan.FromMilliseconds (daemonInterval)).Subscribe (_ => {
+                var _process = WinAPI.FindProcess(MetaData.Path);
+                if (_process == default(Process)) {
+                    NLogger.Warn("进程:{0} 已退出，正在尝试重新启动进程链...", metaData.Path);
+                    RootNode.KillNode();
+                    RootNode.RunNode();
+                }else if(!_process.Responding) {
+                    ++currentError;
+                    NLogger.Warn("进程:{0} 未响应，容忍度: {1}/{2}", metaData.Path, currentError, maxError);
+                    if (currentError >= maxError)
+                    {
+                        NLogger.Warn("进程:{0} 未响应，正在尝试重新启动进程链...", metaData.Path);
+                        RootNode.KillNode();
+                        RootNode.RunNode();
+                    }
                 }
                 if (metaData.KeepTop)
                     ProcManager.KeepTopWindow (metaData.Path);
@@ -281,8 +301,18 @@ namespace DaemonKit.Core {
                     }
                 });
             };
-
             _sync (this);
+        }
+
+        public void SyncSettings(AppSettings appSettings)
+        {
+            this.delayDaemon = appSettings.DelayDaemon;
+            this.daemonInterval = appSettings.DaemonInterval;
+            this.maxError = appSettings.ErrorCount;
+            this.Childs.ToList().ForEach(_childNode =>
+            {
+                _childNode.SyncSettings(appSettings);
+            });
         }
 
     }
