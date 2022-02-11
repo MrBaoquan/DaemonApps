@@ -12,6 +12,7 @@
 	  
 	<Extension Name="网络调试助手" Path="NetAssist.exe" Args="" />
     <Extension Name="串口调试助手" Path="UartAssist.exe" Args="" />
+	<Extension Name="Joystick助手" Path="Joystick.exe" Args="" />
 	
 	<Extension Name="设置IP" Path="IPSettings.bat" Args="" />
 	<Extension Name="下载文件" Path="Downloader.bat" Args="" />
