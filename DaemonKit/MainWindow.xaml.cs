@@ -414,8 +414,8 @@ namespace DaemonKit {
 
             WshShellClass wsh = new WshShellClass ();
             IWshShortcut _shortcut = (IWshShortcut) wsh.CreateShortcut (_execLink);
-            _shortcut.IconLocation = Path.Combine (AppPath, "logo.ico");
-            _shortcut.TargetPath = ExecutorPath;
+            _shortcut.IconLocation = Path.Combine (AppPathes.AppRoot, "logo.ico");
+            _shortcut.TargetPath = AppPathes.ExecutorPath;
             _shortcut.Save ();
         }
 
