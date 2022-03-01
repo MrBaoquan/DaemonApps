@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Reactive;
@@ -17,6 +18,7 @@ namespace DaemonKit {
         Edit
     }
     public class PNFViewModel : ReactiveObject {
+        const string DEFAULT_APP_NAME = "示例程序";
         private FormType formType = FormType.Create;
         private OpenFileDialog openFileDialog = new OpenFileDialog ();
         public PNFViewModel () {
@@ -41,9 +43,10 @@ namespace DaemonKit {
             openFileDialog.InitialDirectory = System.IO.Path.GetDirectoryName (Path);
             openFileDialog.Filter = "可执行文件(*.exe)|*.exe";
             openFileDialog.FileOk += (o, args) => {
-                Path = openFileDialog.FileName;
-                DNHper.NLogger.Info (Name);
-                if (Name == "notepad" || Name == string.Empty)
+                var _path = openFileDialog.FileName;
+                Path = _path.Replace (AppPathes.AppDir + "\\", "");
+                DNHper.NLogger.Info (Path);
+                if (Name == DEFAULT_APP_NAME || Name == string.Empty)
                     Name = System.IO.Path.GetFileNameWithoutExtension (Path);
                 openFileDialog.InitialDirectory = System.IO.Path.GetDirectoryName (Path);
             };
@@ -56,12 +59,14 @@ namespace DaemonKit {
             formType = FormType.Create;
             this.Title = "新建进程结点";
 
-            this.Name = "notepad";
+            this.Name = DEFAULT_APP_NAME;
             this.KeepTop = false;
             this.RunAs = true;
-            this.Path = @"C:\Windows\System32\notepad.exe";
-
+            this.Path = System.IO.Path.Combine (AppPathes.AppDir, "demo.exe");
             openFileDialog.InitialDirectory = System.IO.Path.GetDirectoryName (Path);
+            if (!File.Exists (Path)) {
+                openFileDialog.ShowDialog ();
+            }
         }
 
         public void SyncEditFormProperties (ProcessMetaData InMeta) {
@@ -85,14 +90,14 @@ namespace DaemonKit {
             set { this.RaiseAndSetIfChanged (ref title, value); }
         }
 
-        private string name = "notepad";
+        private string name = string.Empty;
         public string Name {
             get { return name; }
             set { this.RaiseAndSetIfChanged (ref name, value); }
         }
 
         // 进程路径
-        private string path = @"C:\Windows\System32\notepad.exe";
+        private string path = string.Empty;
         public string Path {
             get { return path; }
             set { this.RaiseAndSetIfChanged (ref path, value); }
@@ -115,7 +120,7 @@ namespace DaemonKit {
         private int delay = 500;
         public int Delay {
             get => delay;
-            set => this.RaiseAndSetIfChanged (ref delay, Math.Max(value, 0));
+            set => this.RaiseAndSetIfChanged (ref delay, Math.Max (value, 0));
         }
 
         public ReactiveCommand<Unit, Unit> SelectProcess { get; protected set; }

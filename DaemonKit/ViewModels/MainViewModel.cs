@@ -22,6 +22,12 @@ namespace DaemonKit {
         private ProcessCommandParameter openPowerShell_args = new ProcessCommandParameter { Path = "powershell.exe", RunAs = true };
         public ProcessCommandParameter OpenPowerShell_args { get => openPowerShell_args; }
 
+        private ProcessCommandParameter openAppRoot_args = new ProcessCommandParameter { Path = "explorer.exe", RunAs = true, Arguments = AppPathes.AppRoot };
+        public ProcessCommandParameter OpenAppRoot_args { get => openAppRoot_args; }
+
+        private ProcessCommandParameter openFileExplorer_args = new ProcessCommandParameter { Path = "explorer.exe", RunAs = false };
+        public ProcessCommandParameter OpenFileExplorer_args { get => openFileExplorer_args; }
+
         private ProcessCommandParameter openUpdatePage_args = new ProcessCommandParameter { Path = "explorer.exe", Arguments = "https://gitee.com/MrBaoquan/daemon-apps/releases", RunAs = true };
         public ProcessCommandParameter OpenUpdatePage_args { get => openUpdatePage_args; }
         public MainViewModel () {
@@ -53,7 +59,6 @@ namespace DaemonKit {
         /// </summary>
         /// <value></value>
         public ReactiveCommand<Unit, Unit> ShowInExplorer { get; protected set; }
-
         public ReactiveCommand<Unit, Unit> ShowAppDirectory { get; protected set; }
         public ReactiveCommand<Unit, Unit> RunNodeTree { get; protected set; }
         public ReactiveCommand<Unit, Unit> KillNodeTree { get; protected set; }

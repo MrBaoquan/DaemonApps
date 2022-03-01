@@ -20,32 +20,33 @@
     <GenerateSerializationAssemblies>Auto</GenerateSerializationAssemblies>
   </PropertyGroup>
 
-  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'">
-    <WarningLevel>2</WarningLevel>
-  </PropertyGroup>
-
   <ItemGroup>
-    <Compile Remove="新文件夹\**" />
-    <EmbeddedResource Remove="新文件夹\**" />
-    <None Remove="新文件夹\**" />
-    <Page Remove="新文件夹\**" />
+    <COMReference Include="IWshRuntimeLibrary">
+      <WrapperTool>tlbimp</WrapperTool>
+      <VersionMinor>0</VersionMinor>
+      <VersionMajor>1</VersionMajor>
+      <Guid>f935dc20-1cf0-11d0-adb9-00c04fd58a0b</Guid>
+      <Lcid>0</Lcid>
+      <Isolated>false</Isolated>
+      <EmbedInteropTypes>false</EmbedInteropTypes>
+    </COMReference>
   </ItemGroup>
 	    
   <ItemGroup>
     <PackageReference Include="FontAwesome.WPF" Version="4.7.0.9" />
-    <PackageReference Include="Hardware.Info" Version="10.0.0" />
-    <PackageReference Include="MaterialDesignColors" Version="2.0.4" />
-    <PackageReference Include="MaterialDesignThemes" Version="4.3.0" />
+    <PackageReference Include="Hardware.Info" Version="1.1.1.1" />
+    <PackageReference Include="MaterialDesignColors" Version="2.0.1" />
+    <PackageReference Include="MaterialDesignThemes" Version="4.1.0" />
     <PackageReference Include="NLog" Version="4.7.11" />
 
     <PackageReference Include="ReactiveMarbles.ObservableEvents.SourceGenerator" Version="1.1.4">
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
     </PackageReference>
-    <PackageReference Include="ReactiveMarbles.PropertyChanged" Version="2.0.6" />
+    <PackageReference Include="ReactiveMarbles.PropertyChanged" Version="1.4.1" />
     
-    <PackageReference Include="ReactiveUI" Version="16.4.15" />
-    <PackageReference Include="ReactiveUI.WPF" Version="16.4.15" />
+    <PackageReference Include="ReactiveUI" Version="16.2.1" />
+    <PackageReference Include="ReactiveUI.WPF" Version="16.2.1" />
     <PackageReference Include="System.Reactive" Version="5.0.0" />
     <PackageReference Include="System.Reactive.Linq" Version="5.0.0" />
     <PackageReference Include="TaskScheduler" Version="2.9.2" />
@@ -58,21 +59,6 @@
   </ItemGroup>
 	    
   <ItemGroup>
-    <None Update="Applications\demo.exe">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </None>
-    <None Update="Applications\README.md">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </None>
-    <None Update="Hooks\Awake\README.md">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </None>
-    <None Update="Hooks\Destroy\README.md">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </None>
-    <None Update="Hooks\StartUp\README.md">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </None>
     <None Update="logo.ico">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
