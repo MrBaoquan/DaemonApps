@@ -1,6 +1,5 @@
 ﻿using System;
 using System.ComponentModel;
-using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Reactive.Linq;
@@ -24,24 +23,6 @@ namespace DaemonKit {
     /// </summary>
     public partial class MainWindow : ReactiveWindow<MainViewModel> {
 
-        public string ExecutorPath { get => Process.GetCurrentProcess ().MainModule.FileName; }
-        // 进程根目录
-        public string AppPath { get => System.IO.Path.GetDirectoryName (ExecutorPath); }
-        // 资源目录
-        public string ResDir { get => Path.Combine (AppPath, "Resources"); }
-        // 配置文件目录
-        public string ConfigDir { get => Path.Combine (ResDir, "Configs"); }
-        // 目录树持久化路径
-        public string TreeViewDataPath { get => Path.Combine (ConfigDir, "treeview.xml"); }
-        public string TreeViewDataPath_Backup { get => Path.Combine (AppPath, ".cache/treeview.xml"); }
-        // 拓展配置文件路径
-        public string ExtensionConfigPath { get => Path.Combine (ConfigDir, "extension.xml"); }
-        public string ExtensionConfigPath_Backup { get => Path.Combine (AppPath, ".cache/extension.xml"); }
-
-        public string AppSettingPath { get => Path.Combine (ConfigDir, "settings.xml"); }
-        public string AppSettingPath_Backup { get => Path.Combine (AppPath, ".cache/settings.xml"); }
-        // 拓展路径
-        public string ExtensionPath { get => Path.Combine (ResDir, "Extensions"); }
         public static AppSettings AppSettings { get; set; }
 
         ProcessItem rootProcessNode = null;
@@ -77,6 +58,7 @@ namespace DaemonKit {
                     });
 
                 NLogger.Info ("DaemonKit 已启动");
+                this.executeProgramsBeforeStart ();
 
                 FetchHardwareInfo ();
                 this.hardwareInfoBox.Events ().MouseDoubleClick.Subscribe (_contentLoaded => {
@@ -86,7 +68,7 @@ namespace DaemonKit {
                 //this.BindCommand (this.ViewModel, vm => vm.DisplayCommand, v => v.menu_cut).DisposeWith (disposables);
                 //this.Bind (this.ViewModel, vm => vm.Text, v => v.textbox.Text).DisposeWith (disposables);
                 this.ProcessTree.DataContext = this.DataContext;
-                NLogger.Info ("DaemonKit 加载进程树..");
+                NLogger.Info ("加载进程树..");
                 loadExtensions ();
                 loadConfig ();
                 this.ProcessTree.Items.Add (rootProcessNode);
@@ -115,11 +97,11 @@ namespace DaemonKit {
                     settingsWindow.ViewModel.SyncSettings (AppSettings);
                     settingsWindow.ViewModel.Confirm.Subscribe (_appSettings => {
                         AppSettings = _appSettings;
-                        rootProcessNode.SyncSettings(AppSettings);
+                        rootProcessNode.SyncSettings (AppSettings);
                         settingsWindow.Hide ();
                         saveConfig ();
                         syncSettings ();
-                        
+
                     });
                 });
 
@@ -166,14 +148,16 @@ namespace DaemonKit {
                 });
 
                 ViewModel.ShowAppDirectory.Subscribe (_ => {
-                    WinAPI.OpenProcess ("explorer.exe", AppPath);
+                    WinAPI.OpenProcess ("explorer.exe", AppPathes.AppRoot);
                 });
 
                 ViewModel.RunNodeTree.Subscribe (_ => {
+                    NLogger.Info ("启动进程树..");
                     rootProcessNode.RunNode ();
                 });
 
                 ViewModel.KillNodeTree.Subscribe (_ => {
+                    NLogger.Info ("终止进程树..");
                     rootProcessNode.KillNode ();
                 });
 
@@ -181,16 +165,38 @@ namespace DaemonKit {
                     WinAPI.OpenProcess (_.Path, _.Arguments, _.RunAs);
                 });
 
+                NLogger.Info ("启动进程树..");
+                // 进程根节点启动守护
                 rootProcessNode.RunNode ();
+
+                // var _helper = new WindowInteropHelper (this);
+                // _helper.EnsureHandle ();
+
+                // if (!WinAPI.ShutdownBlockReasonCreate (_helper.Handle, "Testing Stack Overflow Block Reason")) {
+                //     MessageBox.Show ("Failed to create shutdown-block reason. Error: " +
+                //         Marshal.GetExceptionForHR (Marshal.GetLastWin32Error ()).Message);
+                // }
+
+                this.Events ().Closing.Subscribe (_ => {
+                    // WinAPI.ShutdownBlockReasonDestroy(_helper.Handle);
+                });
+
+                this.Events ().Closed.Subscribe (_ => { });
 
             });
 
             InputBindings.Add (new KeyBinding { Command = ViewModel.ShowAppDirectory, Key = Key.D1, Modifiers = ModifierKeys.Control });
+            InputBindings.Add (new KeyBinding { Command = ViewModel.RunProcess, Key = Key.D2, Modifiers = ModifierKeys.Control, CommandParameter = ViewModel.OpenFileExplorer_args });
+
             InputBindings.Add (new KeyBinding { Command = ViewModel.RunProcess, Key = Key.T, Modifiers = ModifierKeys.Control, CommandParameter = ViewModel.OpenCMD_args });
             InputBindings.Add (new KeyBinding { Command = ViewModel.RunProcess, Key = Key.P, Modifiers = ModifierKeys.Control, CommandParameter = ViewModel.OpenPowerShell_args });
         }
 
         static readonly HardwareInfo hardwareInfo = new HardwareInfo ();
+
+        /// <summary>
+        /// 拉取硬件信息
+        /// </summary>
         private void FetchHardwareInfo () {
             this.hardwareInfoBox.Text = "硬件信息玩命读取中...";
 
@@ -219,21 +225,24 @@ namespace DaemonKit {
 
         }
 
+        /// <summary>
+        /// 加载拓展菜单
+        /// </summary>
         private void loadExtensions () {
 
-            if (!System.IO.File.Exists (ExtensionConfigPath)) {
-                USerialization.SerializeXML (new ExtensionConfig (), ExtensionConfigPath);
+            if (!System.IO.File.Exists (AppPathes.ExtensionConfigPath)) {
+                USerialization.SerializeXML (new ExtensionConfig (), AppPathes.ExtensionConfigPath);
             };
 
             try {
-                var _extConfig = USerialization.DeserializeXML<ExtensionConfig> (ExtensionConfigPath);
+                var _extConfig = USerialization.DeserializeXML<ExtensionConfig> (AppPathes.ExtensionConfigPath);
                 var _cusMenu = new MenuItem { Header = _extConfig.Name };
 
                 _extConfig.Extensions.WithIndex ().ToList ().ForEach (_extention => {
                     var _menuItem = new MenuItem { Header = _extention.item.Name };
 
                     Action < (Extension item, int index) > _handleMenuClick = (_ext) => {
-                        var _extensionPath = Path.Combine (ExtensionPath, _ext.item.Path);
+                        var _extensionPath = Path.Combine (AppPathes.ExtensionPath, _ext.item.Path);
                         if (!Path.IsPathRooted (_ext.item.Path) && System.IO.File.Exists (_extensionPath)) {
                             WinAPI.OpenProcess (_extensionPath, _ext.item.Args, _ext.item.RunAs);
                         } else {
@@ -261,43 +270,45 @@ namespace DaemonKit {
             } catch (System.Exception) { }
         }
 
-        // 加载配置文件
+        /// <summary>
+        /// 加载配置文件
+        /// </summary>
         private void loadConfig () {
-            if (!System.IO.File.Exists (TreeViewDataPath)) {
-                if (!Directory.Exists (Path.GetDirectoryName (TreeViewDataPath)))
-                    Directory.CreateDirectory (Path.GetDirectoryName (TreeViewDataPath));
+            if (!System.IO.File.Exists (AppPathes.TreeViewDataPath)) {
+                if (!Directory.Exists (Path.GetDirectoryName (AppPathes.TreeViewDataPath)))
+                    Directory.CreateDirectory (Path.GetDirectoryName (AppPathes.TreeViewDataPath));
                 rootProcessNode = new ProcessItem { MetaData = new ProcessMetaData { Name = "[ 进程树 ]", Delay = 0, Path = string.Empty } };
-                USerialization.SerializeXML (rootProcessNode, TreeViewDataPath);
+                USerialization.SerializeXML (rootProcessNode, AppPathes.TreeViewDataPath);
             }
-            if (System.IO.File.ReadAllText (TreeViewDataPath).Length == 0 && System.IO.File.Exists (TreeViewDataPath_Backup)) {
-                System.IO.File.Copy (TreeViewDataPath_Backup, TreeViewDataPath, true);
+            if (System.IO.File.ReadAllText (AppPathes.TreeViewDataPath).Length == 0 && System.IO.File.Exists (AppPathes.TreeViewDataPath_Backup)) {
+                System.IO.File.Copy (AppPathes.TreeViewDataPath_Backup, AppPathes.TreeViewDataPath, true);
             }
-            rootProcessNode = USerialization.DeserializeXML<ProcessItem> (TreeViewDataPath);
+            rootProcessNode = USerialization.DeserializeXML<ProcessItem> (AppPathes.TreeViewDataPath);
             rootProcessNode.SyncRelationships ();
 
-            if (!System.IO.File.Exists (AppSettingPath)) {
-                USerialization.SerializeXML (new AppSettings { StartUp = true, ShortCut = true, DelayDaemon=5000,DaemonInterval=500, ErrorCount=1 }, AppSettingPath);
+            if (!System.IO.File.Exists (AppPathes.AppSettingPath)) {
+                USerialization.SerializeXML (new AppSettings { StartUp = true, ShortCut = true, DelayDaemon = 5000, DaemonInterval = 500, ErrorCount = 1 }, AppPathes.AppSettingPath);
             }
-            if (System.IO.File.ReadAllText (AppSettingPath).Length == 0 && System.IO.File.Exists (AppSettingPath_Backup)) {
-                System.IO.File.Copy (AppSettingPath_Backup, AppSettingPath, true);
+            if (System.IO.File.ReadAllText (AppPathes.AppSettingPath).Length == 0 && System.IO.File.Exists (AppPathes.AppSettingPath_Backup)) {
+                System.IO.File.Copy (AppPathes.AppSettingPath_Backup, AppPathes.AppSettingPath, true);
             }
-            AppSettings = USerialization.DeserializeXML<AppSettings> (AppSettingPath);
+            AppSettings = USerialization.DeserializeXML<AppSettings> (AppPathes.AppSettingPath);
 
             syncSettings ();
-            rootProcessNode.SyncSettings(AppSettings);
+            rootProcessNode.SyncSettings (AppSettings);
         }
 
         // 数据持久化
         private void saveConfig () {
-            USerialization.SerializeXML (rootProcessNode, TreeViewDataPath);
-            USerialization.SerializeXML (AppSettings, AppSettingPath);
-            if (!Directory.Exists (Path.GetDirectoryName (TreeViewDataPath_Backup))) {
-                Directory.CreateDirectory (Path.GetDirectoryName (TreeViewDataPath_Backup));
+            USerialization.SerializeXML (rootProcessNode, AppPathes.TreeViewDataPath);
+            USerialization.SerializeXML (AppSettings, AppPathes.AppSettingPath);
+            if (!Directory.Exists (Path.GetDirectoryName (AppPathes.TreeViewDataPath_Backup))) {
+                Directory.CreateDirectory (Path.GetDirectoryName (AppPathes.TreeViewDataPath_Backup));
             }
             // 备份配置文件
-            System.IO.File.Copy (TreeViewDataPath, TreeViewDataPath_Backup, true);
-            System.IO.File.Copy (ExtensionConfigPath, ExtensionConfigPath_Backup, true);
-            System.IO.File.Copy (AppSettingPath, AppSettingPath_Backup, true);
+            System.IO.File.Copy (AppPathes.TreeViewDataPath, AppPathes.TreeViewDataPath_Backup, true);
+            System.IO.File.Copy (AppPathes.ExtensionConfigPath, AppPathes.ExtensionConfigPath_Backup, true);
+            System.IO.File.Copy (AppPathes.AppSettingPath, AppPathes.AppSettingPath_Backup, true);
         }
 
         private HwndSource _source;
@@ -331,6 +342,8 @@ namespace DaemonKit {
 
         private IntPtr HwndHook (IntPtr hwnd, int msg, IntPtr wParam, IntPtr lParam, ref bool handled) {
             const int WM_HOTKEY = 0x0312;
+            const int WM_QUERYENDSESSION = 0x0011;
+            const int WM_ENDSESSION = 0x0016;
             switch (msg) {
                 case WM_HOTKEY:
                     if (wParam.ToInt32 () == 100) {
@@ -345,6 +358,10 @@ namespace DaemonKit {
                         ViewModel.KillNodeTree.Execute ().Subscribe ();
                     }
                     break;
+                case WM_QUERYENDSESSION:
+                    break;
+                case WM_ENDSESSION:
+                    break;
             }
             return IntPtr.Zero;
         }
@@ -353,11 +370,11 @@ namespace DaemonKit {
         const string appKey = "DaemonKit";
         private void syncSettings () {
             if (AppSettings.StartUp) {
-                runKey.SetValue (appKey, ExecutorPath);
+                runKey.SetValue (appKey, AppPathes.ExecutorPath);
                 if (!TaskService.Instance.AllTasks.ToList ().Exists (_task => _task.Name == appKey)) {
                     TaskDefinition td = TaskService.Instance.NewTask ();
                     td.Principal.RunLevel = TaskRunLevel.Highest;
-                    td.Actions.Add (ExecutorPath);
+                    td.Actions.Add (AppPathes.ExecutorPath);
 
                     LogonTrigger lt = new LogonTrigger ();
                     td.Triggers.Add (lt);
@@ -385,6 +402,9 @@ namespace DaemonKit {
             }
         }
 
+        /// <summary>
+        /// 创建桌面快捷方式
+        /// </summary>
         private void createShortcutIfNotExists () {
             var _desktopDir = Environment.GetFolderPath (Environment.SpecialFolder.DesktopDirectory);
             var _execLink = Path.Combine (_desktopDir, "软件运维中心.lnk");
@@ -397,6 +417,28 @@ namespace DaemonKit {
             _shortcut.IconLocation = Path.Combine (AppPath, "logo.ico");
             _shortcut.TargetPath = ExecutorPath;
             _shortcut.Save ();
+        }
+
+        /// <summary>
+        /// 在进程树启动前执行的脚本文件
+        /// </summary>
+        private void executeProgramsBeforeStart () {
+            if (!Directory.Exists (AppPathes.StartUpHooksDir)) return;
+            var _files = Directory.GetFiles (AppPathes.StartUpHooksDir, "*.*", SearchOption.TopDirectoryOnly);
+
+            _files.Where (_path => _path.EndsWith (".bat") || _path.EndsWith (".cmd"))
+                .ToList ()
+                .ForEach (_script => {
+                    WinAPI.OpenProcess ("cmd.exe", $"/c {_script}", true, false);
+                    NLogger.Info ("StartUp Hook 执行脚本:{0}", Path.GetFileName (_script));
+                });
+
+            _files.Where (_path => _path.EndsWith (".exe"))
+                .ToList ()
+                .ForEach (_program => {
+                    WinAPI.OpenProcess (_program, "", true);
+                    NLogger.Info ("StartUp Hook 执行程序:{0}", Path.GetFileName (_program));
+                });
         }
 
     }

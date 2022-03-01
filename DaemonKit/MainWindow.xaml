@@ -19,7 +19,8 @@
         TextOptions.TextFormattingMode="Ideal" 
         TextOptions.TextRenderingMode="Auto"        
         Background="{DynamicResource MaterialDesignPaper}"
-        FontFamily="{DynamicResource MaterialDesignFont}">
+        FontFamily="{DynamicResource MaterialDesignFont}"
+    >
 
 
     <Window.Resources>
@@ -31,8 +32,10 @@
             <Menu x:Name="MainMenu" DockPanel.Dock="Top" IsMainMenu="True" BorderBrush="LightGray" >
                 <MenuItem Header="_文件">
                     <MenuItem Header="_打开" InputGestureText="Ctrl+D"  Icon="{materialDesign:PackIcon Kind=OpenInNew}">
-                        <MenuItem Header="命令行(CMD)" InputGestureText="Ctrl+T"  Command="{Binding RunProcess}" CommandParameter="{Binding OpenCMD_args}"/>
-                        <MenuItem Header="命令行(PowerShell)" InputGestureText="Ctrl+P" Command="{Binding RunProcess}" CommandParameter="{Binding OpenPowerShell_args}" />
+                        <MenuItem Header="进程目录" InputGestureText="Ctrl+1"  Icon="{materialDesign:PackIcon Kind=FolderOpenOutline}" Command="{Binding RunProcess}" CommandParameter="{Binding OpenAppRoot_args}"/>
+                        <MenuItem Header="资源管理器" InputGestureText="Ctrl+2"  Icon="{materialDesign:PackIcon Kind=FolderSearchOutline}" Command="{Binding RunProcess}" CommandParameter="{Binding OpenFileExplorer_args}"/>
+                        <MenuItem Header="命令行(CMD)" InputGestureText="Ctrl+T" Icon="{materialDesign:PackIcon Kind=ApplicationBracketsOutline}"  Command="{Binding RunProcess}" CommandParameter="{Binding OpenCMD_args}"/>
+                        <MenuItem Header="命令行(PowerShell)" InputGestureText="Ctrl+P" Icon="{materialDesign:PackIcon Kind=ApplicationBracketsOutline}" Command="{Binding RunProcess}" CommandParameter="{Binding OpenPowerShell_args}" />
                     </MenuItem>
                     <Separator/>
                     <MenuItem Icon="{materialDesign:PackIcon Kind=Settings}" Header="设置" Command="{Binding OpenSettings}"/>

@@ -37,7 +37,6 @@ namespace DaemonKit.Core {
     }
 
     public class ProcessItem : ReactiveObject {
-
         [XmlIgnore]
         public ProcessItem Parent { get; set; }
 
@@ -58,6 +57,16 @@ namespace DaemonKit.Core {
 
         [XmlIgnore]
         public bool IsLeaf { get => Childs.Count <= 0; }
+
+        [XmlIgnore]
+        private string nodePath {
+            get {
+                if (!System.IO.Path.IsPathRooted (MetaData.Path)) {
+                    return System.IO.Path.Combine (AppPathes.AppDir, MetaData.Path);
+                }
+                return MetaData.Path;
+            }
+        }
 
         private List<ProcessItem> TraceToRoot (ProcessItem InItem) {
             List<ProcessItem> _list = new List<ProcessItem> () { InItem };
@@ -131,7 +140,7 @@ namespace DaemonKit.Core {
         // 执行节点任务
         public void RunNode () {
             if (Enable) {
-                ProcManager.DaemonProcess (metaData.Path, metaData.Arguments, metaData.RunAs);
+                ProcManager.DaemonProcess (nodePath, metaData.Arguments, metaData.RunAs);
                 daemonNode ();
             }
 
@@ -170,27 +179,26 @@ namespace DaemonKit.Core {
 
         private void daemonNode () {
             if (IsSuperRoot) return;
-            NLogger.Info("守护进程:{0}, Delay:{1}, Interval:{2}", metaData.Path, delayDaemon, daemonInterval);
+            NLogger.Info ("守护进程:{0}, Delay:{1}, Interval:{2}", nodePath, delayDaemon, daemonInterval);
             currentError = 0;
 
-            daemonHandler = Observable.Timer (TimeSpan.FromMilliseconds(delayDaemon),TimeSpan.FromMilliseconds (daemonInterval)).Subscribe (_ => {
-                var _process = WinAPI.FindProcess(MetaData.Path);
-                if (_process == default(Process)) {
-                    NLogger.Warn("进程:{0} 已退出，正在尝试重新启动进程链...", metaData.Path);
-                    RootNode.KillNode();
-                    RootNode.RunNode();
-                }else if(!_process.Responding) {
+            daemonHandler = Observable.Timer (TimeSpan.FromMilliseconds (delayDaemon), TimeSpan.FromMilliseconds (daemonInterval)).Subscribe (_ => {
+                var _process = WinAPI.FindProcess (nodePath);
+                if (_process == default (Process)) {
+                    NLogger.Warn ("进程:{0} 已退出，正在尝试重新启动进程链...", nodePath);
+                    RootNode.KillNode ();
+                    RootNode.RunNode ();
+                } else if (!_process.Responding) {
                     ++currentError;
-                    NLogger.Warn("进程:{0} 未响应，容忍度: {1}/{2}", metaData.Path, currentError, maxError);
-                    if (currentError >= maxError)
-                    {
-                        NLogger.Warn("进程:{0} 未响应，正在尝试重新启动进程链...", metaData.Path);
-                        RootNode.KillNode();
-                        RootNode.RunNode();
+                    NLogger.Warn ("进程:{0} 未响应，容忍度: {1}/{2}", nodePath, currentError, maxError);
+                    if (currentError >= maxError) {
+                        NLogger.Warn ("进程:{0} 未响应，正在尝试重新启动进程链...", nodePath);
+                        RootNode.KillNode ();
+                        RootNode.RunNode ();
                     }
                 }
                 if (metaData.KeepTop)
-                    ProcManager.KeepTopWindow (metaData.Path);
+                    ProcManager.KeepTopWindow (nodePath);
             });
         }
 
@@ -207,7 +215,7 @@ namespace DaemonKit.Core {
             }
 
             Status = -1;
-            ProcManager.KillProcess (metaData.Path);
+            ProcManager.KillProcess (nodePath);
             Childs.ToList ().ForEach (_child => {
                 _child.KillNode ();
             });
@@ -304,14 +312,12 @@ namespace DaemonKit.Core {
             _sync (this);
         }
 
-        public void SyncSettings(AppSettings appSettings)
-        {
+        public void SyncSettings (AppSettings appSettings) {
             this.delayDaemon = appSettings.DelayDaemon;
             this.daemonInterval = appSettings.DaemonInterval;
             this.maxError = appSettings.ErrorCount;
-            this.Childs.ToList().ForEach(_childNode =>
-            {
-                _childNode.SyncSettings(appSettings);
+            this.Childs.ToList ().ForEach (_childNode => {
+                _childNode.SyncSettings (appSettings);
             });
         }
 
