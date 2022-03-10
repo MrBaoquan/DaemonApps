@@ -34,6 +34,15 @@ namespace DaemonKit.Core {
         [XmlAttribute]
         public bool Enable = true;
 
+        [XmlAttribute]
+        public int PosX = 0;
+        [XmlAttribute]
+        public int PosY = 0;
+        [XmlAttribute]
+        public int Width = 0;
+        [XmlAttribute]
+        public int Height = 0;
+
     }
 
     public class ProcessItem : ReactiveObject {
@@ -175,11 +184,13 @@ namespace DaemonKit.Core {
 
         // 守护当前进程节点
         IDisposable daemonHandler = null;
+        [XmlIgnore]
         private int currentError = 0;
 
         private void daemonNode () {
             if (IsSuperRoot) return;
             NLogger.Info ("守护进程:{0}, Delay:{1}, Interval:{2}", nodePath, delayDaemon, daemonInterval);
+
             currentError = 0;
 
             daemonHandler = Observable.Timer (TimeSpan.FromMilliseconds (delayDaemon), TimeSpan.FromMilliseconds (daemonInterval)).Subscribe (_ => {
@@ -197,8 +208,12 @@ namespace DaemonKit.Core {
                         RootNode.RunNode ();
                     }
                 }
-                if (metaData.KeepTop)
-                    ProcManager.KeepTopWindow (nodePath);
+                if ((metaData.KeepTop || metaData.PosX != metaData.PosY || metaData.Width != metaData.Height) && _ == 1) {
+                    ProcManager.KeepTopWindow (
+                        nodePath, metaData.PosX, metaData.PosY, metaData.Width, metaData.Height,
+                        (int) (metaData.KeepTop?HWndInsertAfter.HWND_TOPMOST : HWndInsertAfter.HWND_NOTOPMOST)
+                    );
+                }
             });
         }
 

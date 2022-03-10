@@ -29,7 +29,11 @@ namespace DaemonKit {
                 Arguments = this.Arguments,
                 RunAs = this.RunAs,
                 KeepTop = this.KeepTop,
-                Delay = this.Delay
+                Delay = this.Delay,
+                PosX = this.PosX,
+                PosY = this.PosY,
+                Width = this.Width,
+                Height = this.Height,
                 };
             });
 
@@ -62,9 +66,9 @@ namespace DaemonKit {
             this.Name = DEFAULT_APP_NAME;
             this.KeepTop = false;
             this.RunAs = true;
-            this.Path = System.IO.Path.Combine (AppPathes.AppDir, "demo.exe");
-            openFileDialog.InitialDirectory = System.IO.Path.GetDirectoryName (Path);
-            if (!File.Exists (Path)) {
+            this.Path = "demo.exe";
+            openFileDialog.InitialDirectory = AppPathes.AppDir;
+            if (!File.Exists (System.IO.Path.Combine (AppPathes.AppDir, "demo.exe"))) {
                 openFileDialog.ShowDialog ();
             }
         }
@@ -79,6 +83,11 @@ namespace DaemonKit {
             this.RunAs = InMeta.RunAs;
             this.Path = InMeta.Path;
             this.Arguments = InMeta.Arguments;
+            this.Delay = InMeta.Delay;
+            this.PosX = InMeta.PosX;
+            this.PosY = InMeta.PosY;
+            this.Width = InMeta.Width;
+            this.Height = InMeta.Height;
 
             openFileDialog.InitialDirectory = System.IO.Path.GetDirectoryName (Path);
         }
@@ -121,6 +130,29 @@ namespace DaemonKit {
         public int Delay {
             get => delay;
             set => this.RaiseAndSetIfChanged (ref delay, Math.Max (value, 0));
+        }
+
+        private int posX = 0;
+        public int PosX {
+            get => posX;
+            set => this.RaiseAndSetIfChanged (ref posX, value);
+        }
+        private int posY = 0;
+        public int PosY {
+            get => posY;
+            set => this.RaiseAndSetIfChanged (ref posY, value);
+        }
+
+        private int width = 0;
+        public int Width {
+            get => width;
+            set => this.RaiseAndSetIfChanged (ref width, value);
+        }
+
+        private int height = 0;
+        public int Height {
+            get => height;
+            set => this.RaiseAndSetIfChanged (ref height, value);
         }
 
         public ReactiveCommand<Unit, Unit> SelectProcess { get; protected set; }

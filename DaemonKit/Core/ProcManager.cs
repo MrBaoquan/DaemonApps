@@ -4,15 +4,28 @@ using DNHper;
 
 namespace DaemonKit.Core {
     class ProcManager {
-        public static bool KeepTopWindow (string ProcessFileName) {
+        public static bool KeepTopWindow (string ProcessFileName, int posX = 0, int posY = 0, int width = 0, int height = 0, int topMost = (int) HWndInsertAfter.HWND_TOPMOST) {
+            var _process = WinAPI.FindProcess (ProcessFileName);
+            return KeepTopWindow (_process, posX, posY, width, height, topMost);
+        }
+
+        public static bool KeepTopWindow (Process process, int posX = 0, int posY = 0, int width = 0, int height = 0, int topMost = (int) HWndInsertAfter.HWND_TOPMOST) {
+            if (process == default (Process)) return false;
+            //WinAPI.SetWindowLong (_process.MainWindowHandle, (int) SetWindowLongIndex.GWL_STYLE, (UInt32) GWL_STYLE.WS_POPUP);
+            var _noMove = posX == posY && posX == 0 ? SetWindowPosFlags.SWP_NOMOVE : 0x00;
+            var _noSize = width == height && width == 0 ? SetWindowPosFlags.SWP_NOSIZE : 0x00;
+
+            WinAPI.SetWindowPos (process.MainWindowHandle, topMost,
+                posX, posY, width, height,
+                SetWindowPosFlags.SWP_SHOWWINDOW | _noMove | _noSize | SetWindowPosFlags.SWP_FRAMECHANGED);
+            WinAPI.ShowWindow (process.MainWindowHandle, (int) CMDShow.SW_SHOW);
+            return true;
+        }
+
+        public static bool IsWindowTopMost (string ProcessFileName) {
             var _process = WinAPI.FindProcess (ProcessFileName);
             if (_process == default (Process)) return false;
-            //WinAPI.SetWindowLong (_process.MainWindowHandle, (int) SetWindowLongIndex.GWL_STYLE, (UInt32) GWL_STYLE.WS_POPUP);
-            WinAPI.SetWindowPos (_process.MainWindowHandle, (int) HWndInsertAfter.HWND_TOPMOST,
-                0, 0, 0, 0,
-                SetWindowPosFlags.SWP_SHOWWINDOW | SetWindowPosFlags.SWP_NOMOVE | SetWindowPosFlags.SWP_NOSIZE | SetWindowPosFlags.SWP_FRAMECHANGED);
-            WinAPI.ShowWindow (_process.MainWindowHandle, (int) CMDShow.SW_SHOW);
-            return true;
+            return WinAPI.IsWindowTopMost (_process.MainWindowHandle);
         }
 
         // 守护进程

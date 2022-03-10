@@ -10,7 +10,7 @@
         x:TypeArguments="local:PNFViewModel"
         xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes"
         mc:Ignorable="d"
-        Title="{Binding Title}" Height="460" Width="500" MinHeight="460" MinWidth="500">
+        Title="{Binding Title}" Height="520" Width="500" MinHeight="460" MinWidth="500">
 
     <materialDesign:Card Margin="0 1 0 0" Padding="15 30 15 15">
         <StackPanel Orientation="Vertical">
@@ -48,6 +48,43 @@
                     </StackPanel>
                 </materialDesign:HintAssist.Hint>
             </TextBox>
+            <Grid Margin="0 0 0 10">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="25*"/>
+                    <ColumnDefinition Width="25*"/>
+                    <ColumnDefinition Width="25*"/>
+                    <ColumnDefinition Width="25*"/>
+                </Grid.ColumnDefinitions>
+                <TextBox Style="{StaticResource MaterialDesignFloatingHintTextBox}" Grid.Row="0" Grid.Column="0" Margin="5 10" FontSize="17" Text="{Binding PosX}" VerticalAlignment="Center" >
+                    <materialDesign:HintAssist.Hint>
+                        <StackPanel Orientation="Horizontal" Margin="-2 0 0 0">
+                            <TextBlock Text="位置X" />
+                        </StackPanel>
+                    </materialDesign:HintAssist.Hint>
+                </TextBox>
+                <TextBox Style="{StaticResource MaterialDesignFloatingHintTextBox}" Grid.Row="0" Grid.Column="1" Margin="5 10" FontSize="17" Text="{Binding PosY}" VerticalAlignment="Center" >
+                    <materialDesign:HintAssist.Hint>
+                        <StackPanel Orientation="Horizontal" Margin="-2 0 0 0">
+                            <TextBlock Text="位置Y" />
+                        </StackPanel>
+                    </materialDesign:HintAssist.Hint>
+                </TextBox>
+                <TextBox Style="{StaticResource MaterialDesignFloatingHintTextBox}" Grid.Row="0" Grid.Column="2" Margin="5 10" FontSize="17" Text="{Binding Width}" VerticalAlignment="Center" >
+                    <materialDesign:HintAssist.Hint>
+                        <StackPanel Orientation="Horizontal" Margin="-2 0 0 0">
+                            <TextBlock Text="宽" />
+                        </StackPanel>
+                    </materialDesign:HintAssist.Hint>
+                </TextBox>
+                <TextBox Style="{StaticResource MaterialDesignFloatingHintTextBox}" Grid.Row="0" Grid.Column="3" Margin="5 10" FontSize="17" Text="{Binding Height}" VerticalAlignment="Center" >
+                    <materialDesign:HintAssist.Hint>
+                        <StackPanel Orientation="Horizontal" Margin="-2 0 0 0">
+                            <TextBlock Text="高" />
+                        </StackPanel>
+                    </materialDesign:HintAssist.Hint>
+                </TextBox>
+            </Grid>
+            
 
             <StackPanel Orientation="Horizontal" HorizontalAlignment="Left">
                 <CheckBox IsChecked="{Binding Path=KeepTop, Mode=TwoWay}" Margin="0 0 5 0" Content="窗口置顶" FontSize="15" />
