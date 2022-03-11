@@ -3,6 +3,7 @@ using System.ComponentModel;
 using System.IO;
 using System.Linq;
 using System.Reactive.Linq;
+using System.Reflection;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
@@ -166,21 +167,15 @@ namespace DaemonKit {
                 // 进程根节点启动守护
                 rootProcessNode.RunNode ();
 
-                // var _helper = new WindowInteropHelper (this);
-                // _helper.EnsureHandle ();
-
-                // if (!WinAPI.ShutdownBlockReasonCreate (_helper.Handle, "Testing Stack Overflow Block Reason")) {
-                //     MessageBox.Show ("Failed to create shutdown-block reason. Error: " +
-                //         Marshal.GetExceptionForHR (Marshal.GetLastWin32Error ()).Message);
-                // }
-
                 this.Events ().Closing.Subscribe (_ => {
-                    // WinAPI.ShutdownBlockReasonDestroy(_helper.Handle);
+
                 });
 
                 this.Events ().Closed.Subscribe (_ => { });
 
             });
+
+            this.Title = $"软件运维中心 v{Assembly.GetExecutingAssembly().GetName().Version}";
 
             InputBindings.Add (new KeyBinding { Command = ViewModel.ShowAppDirectory, Key = Key.D1, Modifiers = ModifierKeys.Control });
             InputBindings.Add (new KeyBinding { Command = ViewModel.RunProcess, Key = Key.D2, Modifiers = ModifierKeys.Control, CommandParameter = ViewModel.OpenFileExplorer_args });
