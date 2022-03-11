@@ -12,6 +12,8 @@
     <Company>@mrma617@gamil.com</Company>
     <Copyright>@mrbaoquan</Copyright>
     <PackageProjectUrl>https://github.com/MrBaoquan/DaemonApps</PackageProjectUrl>
+    <Version>0.0.7</Version>
+    <Description>windows应用程序依赖编排软件</Description>
   </PropertyGroup>
 
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|AnyCPU'">
