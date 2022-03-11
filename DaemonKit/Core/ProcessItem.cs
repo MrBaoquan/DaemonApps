@@ -65,10 +65,10 @@ namespace DaemonKit.Core {
         public bool IsSuperRoot { get => Parent == null; }
 
         [XmlIgnore]
-        public bool IsLeaf { get => Childs.Count <= 0; }
+        public bool IsLeaf { get => Children.Count <= 0; }
 
         [XmlIgnore]
-        private string nodePath {
+        public string NodePath {
             get {
                 if (!System.IO.Path.IsPathRooted (MetaData.Path)) {
                     return System.IO.Path.Combine (AppPathes.AppDir, MetaData.Path);
@@ -87,7 +87,7 @@ namespace DaemonKit.Core {
         }
 
         public ProcessItem () {
-            this.Childs = new ObservableCollection<ProcessItem> ();
+            this.Children = new ObservableCollection<ProcessItem> ();
 
             this.RunNodeCommand = ReactiveCommand.Create (() => { });
             this.KillNodeCommand = ReactiveCommand.Create (() => { });
@@ -104,7 +104,7 @@ namespace DaemonKit.Core {
             });
 
             this.ToggleEnableCommand.Subscribe (_isEnable => {
-                Childs.ToList ().ForEach (_child => {
+                Children.ToList ().ForEach (_child => {
                     _child.MetaData.Enable = _isEnable;
                     _child.Enable = _isEnable;
                 });
@@ -146,10 +146,11 @@ namespace DaemonKit.Core {
             }
         }
 
+        private IDisposable m_runChildDisposables;
         // 执行节点任务
         public void RunNode () {
             if (Enable) {
-                ProcManager.DaemonProcess (nodePath, metaData.Arguments, metaData.RunAs);
+                ProcManager.DaemonProcess (NodePath, metaData.Arguments, metaData.RunAs);
                 daemonNode ();
             }
 
@@ -158,24 +159,42 @@ namespace DaemonKit.Core {
                 _runNodeHandler = null;
             }
 
-            Status = 1;
-            Childs.ToList ().ForEach (_child => {
-                _child.KillNode ();
-                _child.Status = 0;
-            });
-            _runNodeHandler = Observable.Merge (
-                Childs.Select (
-                    _child => Observable.Timer (TimeSpan.FromMilliseconds (_child.MetaData.Delay))
-                    .Select (_ => _child)
-                )
-            ).Subscribe (_childNode => {
-                _childNode.RunNode ();
-            }, () => {
-                if (_runNodeHandler != null) {
-                    _runNodeHandler.Dispose ();
-                    _runNodeHandler = null;
+            Action _runChildNode = () => {
+                Children.ToList ().ForEach (_child => {
+                    _child.KillNode ();
+                    _child.Status = 0;
+                });
+                _runNodeHandler = Observable.Merge (
+                    Children.Select (
+                        _child => Observable.Timer (TimeSpan.FromMilliseconds (_child.MetaData.Delay))
+                        .Select (_ => _child)
+                    )
+                ).Subscribe (_childNode => {
+                    _childNode.RunNode ();
+                }, () => {
+                    if (_runNodeHandler != null) {
+                        _runNodeHandler.Dispose ();
+                        _runNodeHandler = null;
+                    }
+                });
+            };
+
+            // 进程树ROOT根节点延迟启动
+            if (this.IsSuperRoot) {
+                if (m_runChildDisposables != null) {
+                    m_runChildDisposables.Dispose ();
                 }
-            });
+                Status = 0;
+                NLogger.Info ("启动进程树, Delay:{0}", delayDaemon);
+                m_runChildDisposables = Observable.Timer (TimeSpan.FromMilliseconds (delayDaemon)).Subscribe (_ => {
+                    _runChildNode ();
+                    Status = 1;
+                    m_runChildDisposables = null;
+                });
+                return;
+            }
+            Status = 1;
+            _runChildNode ();
         }
 
         private int delayDaemon = 5000;
@@ -189,28 +208,28 @@ namespace DaemonKit.Core {
 
         private void daemonNode () {
             if (IsSuperRoot) return;
-            NLogger.Info ("守护进程:{0}, Delay:{1}, Interval:{2}", nodePath, delayDaemon, daemonInterval);
+            NLogger.Info ("守护进程:{0}, Delay:{1}, Interval:{2}", NodePath, metaData.Delay, daemonInterval);
 
             currentError = 0;
 
-            daemonHandler = Observable.Timer (TimeSpan.FromMilliseconds (delayDaemon), TimeSpan.FromMilliseconds (daemonInterval)).Subscribe (_ => {
-                var _process = WinAPI.FindProcess (nodePath);
+            daemonHandler = Observable.Timer (TimeSpan.FromMilliseconds (daemonInterval), TimeSpan.FromMilliseconds (daemonInterval)).Subscribe (_ => {
+                var _process = WinAPI.FindProcess (NodePath);
                 if (_process == default (Process)) {
-                    NLogger.Warn ("进程:{0} 已退出，正在尝试重新启动进程链...", nodePath);
+                    NLogger.Warn ("进程:{0} 已退出，正在尝试重新启动进程链...", NodePath);
                     RootNode.KillNode ();
                     RootNode.RunNode ();
                 } else if (!_process.Responding) {
                     ++currentError;
-                    NLogger.Warn ("进程:{0} 未响应，容忍度: {1}/{2}", nodePath, currentError, maxError);
+                    NLogger.Warn ("进程:{0} 未响应，容忍度: {1}/{2}", NodePath, currentError, maxError);
                     if (currentError >= maxError) {
-                        NLogger.Warn ("进程:{0} 未响应，正在尝试重新启动进程链...", nodePath);
+                        NLogger.Warn ("进程:{0} 未响应，正在尝试重新启动进程链...", NodePath);
                         RootNode.KillNode ();
                         RootNode.RunNode ();
                     }
                 }
                 if ((metaData.KeepTop || metaData.PosX != metaData.PosY || metaData.Width != metaData.Height) && _ == 1) {
                     ProcManager.KeepTopWindow (
-                        nodePath, metaData.PosX, metaData.PosY, metaData.Width, metaData.Height,
+                        NodePath, metaData.PosX, metaData.PosY, metaData.Width, metaData.Height,
                         (int) (metaData.KeepTop?HWndInsertAfter.HWND_TOPMOST : HWndInsertAfter.HWND_NOTOPMOST)
                     );
                 }
@@ -230,14 +249,14 @@ namespace DaemonKit.Core {
             }
 
             Status = -1;
-            ProcManager.KillProcess (nodePath);
-            Childs.ToList ().ForEach (_child => {
+            ProcManager.KillProcess (NodePath);
+            Children.ToList ().ForEach (_child => {
                 _child.KillNode ();
             });
         }
 
         public void SyncEnable () {
-            new List<ProcessItem> { this }.Flatten<ProcessItem> (_item => _item.Childs).ToList ().ForEach (_child => {
+            new List<ProcessItem> { this }.Flatten<ProcessItem> (_item => _item.Children).ToList ().ForEach (_child => {
                 _child.MetaData.Enable = Enable;
                 _child.Enable = Enable;
             });
@@ -292,7 +311,7 @@ namespace DaemonKit.Core {
         [XmlIgnore]
         public Visibility BtnStopVisibility { get => btnStopVisibility; set => this.RaiseAndSetIfChanged (ref btnStopVisibility, value); }
 
-        public ObservableCollection<ProcessItem> Childs { set; get; }
+        public ObservableCollection<ProcessItem> Children { set; get; }
 
         /// <summary>
         /// 添加子节点
@@ -300,7 +319,7 @@ namespace DaemonKit.Core {
         /// <param name="InChild"></param>
         public void AddChild (ProcessItem InChild) {
             InChild.Parent = this;
-            Childs.Add (InChild);
+            Children.Add (InChild);
         }
 
         /// <summary>
@@ -308,7 +327,7 @@ namespace DaemonKit.Core {
         /// </summary>
         /// <param name="InChild"></param>
         public void RemoveChild (ProcessItem InChild) {
-            Childs.Remove (InChild);
+            Children.Remove (InChild);
         }
 
         /// <summary>
@@ -317,9 +336,9 @@ namespace DaemonKit.Core {
         public void SyncRelationships () {
             Action<ProcessItem> _sync = null;
             _sync = (ProcessItem InItem) => {
-                InItem.Childs.ToList ().ForEach (_child => {
+                InItem.Children.ToList ().ForEach (_child => {
                     _child.Parent = InItem;
-                    if (_child.Childs.Count > 0) {
+                    if (_child.Children.Count > 0) {
                         _sync (_child);
                     }
                 });
@@ -331,7 +350,7 @@ namespace DaemonKit.Core {
             this.delayDaemon = appSettings.DelayDaemon;
             this.daemonInterval = appSettings.DaemonInterval;
             this.maxError = appSettings.ErrorCount;
-            this.Childs.ToList ().ForEach (_childNode => {
+            this.Children.ToList ().ForEach (_childNode => {
                 _childNode.SyncSettings (appSettings);
             });
         }
