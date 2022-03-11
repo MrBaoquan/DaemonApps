@@ -111,7 +111,7 @@ namespace DaemonKit {
                 });
 
                 ViewModel.ShowInExplorer.Subscribe (_ => {
-                    WinAPI.OpenProcess ("explorer.exe", " /select," + _selectedTreeNode.MetaData.Path);
+                    WinAPI.OpenProcess ("explorer.exe", " /select," + _selectedTreeNode.NodePath);
                 });
 
                 // 添加进程结点
@@ -152,7 +152,6 @@ namespace DaemonKit {
                 });
 
                 ViewModel.RunNodeTree.Subscribe (_ => {
-                    NLogger.Info ("启动进程树..");
                     rootProcessNode.RunNode ();
                 });
 
@@ -164,8 +163,6 @@ namespace DaemonKit {
                 ViewModel.RunProcess.Subscribe (_ => {
                     WinAPI.OpenProcess (_.Path, _.Arguments, _.RunAs);
                 });
-
-                NLogger.Info ("启动进程树..");
                 // 进程根节点启动守护
                 rootProcessNode.RunNode ();
 

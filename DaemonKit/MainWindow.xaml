@@ -103,7 +103,7 @@ Command="{Binding RelativeSource={RelativeSource FindAncestor, AncestorType={x:T
                             </Style>
                         </TreeView.ItemContainerStyle>
                         <TreeView.ItemTemplate>
-                            <HierarchicalDataTemplate DataType="{x:Type core:ProcessItem}" ItemsSource="{Binding Childs}">
+                            <HierarchicalDataTemplate DataType="{x:Type core:ProcessItem}" ItemsSource="{Binding Children}">
                                 <Grid Height="20">
 
                                     <TextBlock VerticalAlignment="Center" Style="{StaticResource MaterialDesignSubtitle2TextBlock}" Text="{Binding Name}"  />
