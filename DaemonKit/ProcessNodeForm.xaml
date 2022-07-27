@@ -84,11 +84,12 @@
                     </materialDesign:HintAssist.Hint>
                 </TextBox>
             </Grid>
-            
+
 
             <StackPanel Orientation="Horizontal" HorizontalAlignment="Left">
                 <CheckBox IsChecked="{Binding Path=KeepTop, Mode=TwoWay}" Margin="0 0 5 0" Content="窗口置顶" FontSize="15" />
                 <CheckBox IsChecked="{Binding Path=RunAs, Mode=TwoWay}" Margin="0 0 5 0" Content="管理员身份运行" FontSize="15" />
+                <CheckBox IsChecked="{Binding Path=NoDaemon, Mode=TwoWay}" Margin="0 0 5 0" Content="仅启动,无需守护" FontSize="15" />
             </StackPanel>
 
             <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="0 30 0 0">

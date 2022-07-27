@@ -41,8 +41,13 @@ namespace DaemonKit {
             KillNodeTree = ReactiveCommand.Create (() => { });
             OpenSettings = ReactiveCommand.Create (() => { });
             ToggleEnable = ReactiveCommand.Create<ProcessItem, ProcessItem> (_item => _item);
-
             RunProcess = ReactiveCommand.Create<ProcessCommandParameter, ProcessCommandParameter> (_parameter => _parameter);
+            SMBShare = ReactiveCommand.Create (() => { });
+            SMBUnshare = ReactiveCommand.Create (() => { });
+            OpenRemotePanel = ReactiveCommand.Create (() => { });
+
+            this.EnableNameInput = ReactiveCommand.Create<ProcessItem, ProcessItem> (_item => _item);
+            this.ConfirmNameInput = ReactiveCommand.Create<ProcessItem, ProcessItem> (_item => _item);
         }
 
         private string _Text = "测试内容";
@@ -65,6 +70,12 @@ namespace DaemonKit {
         public ReactiveCommand<ProcessItem, ProcessItem> ToggleEnable { get; protected set; }
         public ReactiveCommand<Unit, Unit> OpenSettings { get; protected set; }
         public ReactiveCommand<ProcessCommandParameter, ProcessCommandParameter> RunProcess { get; protected set; }
+        public ReactiveCommand<ProcessItem, ProcessItem> EnableNameInput { get; protected set; }
+        public ReactiveCommand<ProcessItem, ProcessItem> ConfirmNameInput { get; protected set; }
 
+        public ReactiveCommand<Unit, Unit> SMBShare { get; protected set; }
+        public ReactiveCommand<Unit, Unit> SMBUnshare { get; protected set; }
+
+        public ReactiveCommand<Unit, Unit> OpenRemotePanel { get; protected set; }
     }
 }

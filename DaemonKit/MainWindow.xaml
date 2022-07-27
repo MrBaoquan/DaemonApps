@@ -40,6 +40,14 @@
                     <Separator/>
                     <MenuItem Icon="{materialDesign:PackIcon Kind=Settings}" Header="设置" Command="{Binding OpenSettings}"/>
                 </MenuItem>
+                <MenuItem Header="_功能">
+                    <MenuItem Icon="{materialDesign:PackIcon Kind=RemoteDesktop}" Header="联调面板" Command="{Binding OpenRemotePanel}"/>
+                    <Separator/>
+                    <MenuItem Header="_文件夹共享" InputGestureText="Ctrl+D"  Icon="{materialDesign:PackIcon Kind=ShareVariant}">
+                        <MenuItem Header="打开共享"  Command="{Binding SMBShare}" />
+                        <MenuItem Header="关闭共享"  Command="{Binding SMBUnshare}"/>
+                    </MenuItem>
+                </MenuItem>
                 <MenuItem Header="_帮助">
                     <MenuItem Header="版本更新" Icon="{materialDesign:PackIcon Kind=Update}" Command="{Binding RunProcess}" CommandParameter="{Binding OpenUpdatePage_args}" />
                     <MenuItem Header="关于DaemonKit" Icon="{materialDesign:PackIcon Kind=Help}" />
@@ -63,25 +71,23 @@
                     <TreeView x:Name="ProcessTree" VerticalContentAlignment="Stretch" HorizontalAlignment="Stretch" DataContext="{Binding}">
                         <TreeView.Resources>
                             <ContextMenu x:Key="RootMenu">
+                                <MenuItem Header="设置备注" 
+Command="{Binding RelativeSource={RelativeSource FindAncestor, AncestorType={x:Type Window}, AncestorLevel=1}, Path=DataContext.EnableNameInput}"
+CommandParameter="{Binding RelativeSource={RelativeSource Self},Path=DataContext}" />
                                 <MenuItem Header="添加子节点" 
-Command="{Binding RelativeSource={RelativeSource FindAncestor, AncestorType={x:Type Window}, AncestorLevel=1}, Path=DataContext.AddTreeNode}"
-                                          />
+Command="{Binding RelativeSource={RelativeSource FindAncestor, AncestorType={x:Type Window}, AncestorLevel=1}, Path=DataContext.AddTreeNode}" />
                             </ContextMenu>
                             <ContextMenu x:Key="ChildMenu">
                                 <MenuItem Header="打开所在文件夹" 
-Command="{Binding RelativeSource={RelativeSource FindAncestor, AncestorType={x:Type Window}, AncestorLevel=1}, Path=DataContext.ShowInExplorer}"
-                                          />
+Command="{Binding RelativeSource={RelativeSource FindAncestor, AncestorType={x:Type Window}, AncestorLevel=1}, Path=DataContext.ShowInExplorer}" />
                                 <MenuItem Header="编辑结点信息"
-Command="{Binding RelativeSource={RelativeSource FindAncestor, AncestorType={x:Type Window}, AncestorLevel=1}, Path=DataContext.EditTreeNode}" 
-                                          />
+Command="{Binding RelativeSource={RelativeSource FindAncestor, AncestorType={x:Type Window}, AncestorLevel=1}, Path=DataContext.EditTreeNode}" />
                                 <Separator/>
                                 <MenuItem Header="节点操作">
                                     <MenuItem Header="添加子节点" 
-Command="{Binding RelativeSource={RelativeSource FindAncestor, AncestorType={x:Type Window}, AncestorLevel=1}, Path=DataContext.AddTreeNode}"
-                                              />
+Command="{Binding RelativeSource={RelativeSource FindAncestor, AncestorType={x:Type Window}, AncestorLevel=1}, Path=DataContext.AddTreeNode}" />
                                     <MenuItem Header="删除该节点" 
-Command="{Binding RelativeSource={RelativeSource FindAncestor, AncestorType={x:Type Window}, AncestorLevel=1}, Path=DataContext.DeleteTreeNode}"
-                                              />
+Command="{Binding RelativeSource={RelativeSource FindAncestor, AncestorType={x:Type Window}, AncestorLevel=1}, Path=DataContext.DeleteTreeNode}" />
                                 </MenuItem>
                             </ContextMenu>
                         </TreeView.Resources>
@@ -105,20 +111,54 @@ Command="{Binding RelativeSource={RelativeSource FindAncestor, AncestorType={x:T
                         <TreeView.ItemTemplate>
                             <HierarchicalDataTemplate DataType="{x:Type core:ProcessItem}" ItemsSource="{Binding Children}">
                                 <Grid Height="20">
+                                    <StackPanel Orientation="Horizontal">
+                                        <TextBlock VerticalAlignment="Center" Style="{StaticResource MaterialDesignSubtitle2TextBlock}" Text="{Binding Name}"  />
+                                        <StackPanel HorizontalAlignment="Left" Orientation="Horizontal" Visibility="{Binding NameInputVisibility}">
+                                            <!--<StackPanel.Style>
+                                                <Style TargetType="StackPanel">
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding NameInputVisibility}" Value="True">
+                                                            <Setter Property="Visibility" Value="Visible"/>
+                                                            <Setter Property="Background" Value="Azure"/>
+                                                        </DataTrigger>
+                                                        <DataTrigger Binding="{Binding NameInputVisibility}" Value="False">
+                                                            <Setter Property="Visibility" Value="Hidden"/>
+                                                            <Setter Property="Background" Value="Azure"/>
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                                
+                                            </StackPanel.Style>-->
 
-                                    <TextBlock VerticalAlignment="Center" Style="{StaticResource MaterialDesignSubtitle2TextBlock}" Text="{Binding Name}"  />
-
+                                            <TextBox Text="{Binding NameField}" VerticalAlignment="Bottom" FontSize="11" MinWidth="100" MaxWidth="400" />
+                                            <Button
+                                                Style="{StaticResource MaterialDesignFloatingActionMiniButton}"
+                                                Width="20" Height="20" Margin="0 0 5 0"
+                                                Command="{Binding RelativeSource={RelativeSource FindAncestor, AncestorType={x:Type Window}, AncestorLevel=1}, Path=DataContext.ConfirmNameInput}" 
+                                                CommandParameter="{Binding RelativeSource={RelativeSource Self},Path=DataContext}"
+                                            >
+                                                <materialDesign:PackIcon Kind="CheckBold" />
+                                            </Button>
+                                            <Button
+                                                Style="{StaticResource MaterialDesignFloatingActionMiniButton}"
+                                                Width="20" Height="20"
+                                                Command="{Binding DisableNameInput}"
+                                            >
+                                                <materialDesign:PackIcon Kind="CloseThick" />
+                                            </Button>
+                                        </StackPanel>
+                                    </StackPanel>
+                                    
                                     <StackPanel HorizontalAlignment="Right" Orientation="Horizontal">
                                         <ToggleButton
-                                            
                                             Height="15"
                                             Margin="0 0 20 0"
                                             Cursor="Hand"
-  Style="{StaticResource MaterialDesignSwitchLightToggleButton}"
-  Command="{Binding RelativeSource={RelativeSource FindAncestor, AncestorType={x:Type Window}, AncestorLevel=1}, Path=DataContext.ToggleEnable}" 
+                                            Style="{StaticResource MaterialDesignSwitchLightToggleButton}"
+                                            Command="{Binding RelativeSource={RelativeSource FindAncestor, AncestorType={x:Type Window}, AncestorLevel=1}, Path=DataContext.ToggleEnable}" 
                                             CommandParameter="{Binding RelativeSource={RelativeSource Self},Path=DataContext}"
-  ToolTip="[启用|忽略]该进程"
-  IsChecked="{Binding Enable}" />
+                                            ToolTip="[启用|忽略]该进程"
+                                            IsChecked="{Binding Enable}" />
                                         <Button Width="20" Height="20" 
                                                 Command="{Binding RunNodeCommand}"  ToolTip="启动该进程"
                                                 Style="{DynamicResource MaterialDesignIconButton}" 
@@ -152,7 +192,6 @@ Command="{Binding RelativeSource={RelativeSource FindAncestor, AncestorType={x:T
                                                                 <StackPanel Orientation="Horizontal" Margin="8 2 0 2">
                                                                     <TextBlock Style="{StaticResource MaterialDesignOverlineTextBlock}" VerticalAlignment="Bottom" Text="进程名:"  />
                                                                     <TextBlock Style="{StaticResource MaterialDesignOverlineTextBlock}" VerticalAlignment="Bottom" Text="{Binding Path}" />
-
                                                                     <TextBlock Style="{StaticResource MaterialDesignOverlineTextBlock}" Padding="8 0 0 0" VerticalAlignment="Bottom" Text="延时:"  />
                                                                     <TextBlock Style="{StaticResource MaterialDesignOverlineTextBlock}" VerticalAlignment="Bottom" Text="{Binding Delay}" />
                                                                     <TextBlock Style="{StaticResource MaterialDesignOverlineTextBlock}" VerticalAlignment="Bottom" Text="ms" />

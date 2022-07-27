@@ -1,0 +1,134 @@
+﻿<reactiveui:ReactiveWindow
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:local="clr-namespace:DaemonKit"
+        x:Class="DaemonKit.DaemonTable"
+        x:TypeArguments="local:DaemonTableViewModel"
+        xmlns:fa="http://schemas.fontawesome.io/icons/"
+        xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes"
+        xmlns:reactiveui="http://reactiveui.net"
+        mc:Ignorable="d" Title="联调面板" Height="720" Width="1580">
+    <Grid>
+        <!--This is the hidden helper Grid which does the resizing -->
+        <Grid Visibility="Hidden">
+            <Grid.ColumnDefinitions>
+                <!--Width is bound to width of the first GridViewColumn -->
+                <ColumnDefinition Width="150"/>
+                <!--Width is set to "Fill"-->
+                <ColumnDefinition Width="140"/>
+                <!--Correction Width-->
+                <ColumnDefinition Width="1*" MinWidth="250"/>
+                <ColumnDefinition Width="1*" MinWidth="250"/>
+                <ColumnDefinition Width="1*" MinWidth="250"/>
+                <ColumnDefinition Width="2*"/>
+            </Grid.ColumnDefinitions>
+            <!--This is the hidden helper Field which is used to bind to, using the "Fill" column of the helper grid-->
+            <Grid Grid.Column="0" x:Name="col_name"/>
+            <Grid Grid.Column="1" x:Name="col_ip"/>
+            <Grid Grid.Column="2" x:Name="col_cpu"/>
+            <Grid Grid.Column="3" x:Name="col_gpu"/>
+            <Grid Grid.Column="4" x:Name="col_memory"/>
+            <Grid Grid.Column="5" x:Name="col_option"/>
+        </Grid>
+        <ListView HorizontalAlignment="Stretch" Padding="15 0 15 0" VerticalAlignment="Stretch" ItemsSource="{Binding Machines}">
+            <ListView.ItemContainerStyle>
+                <Style TargetType="ListViewItem">
+                    <Setter Property="VerticalAlignment" Value="Center"/>
+                    <Setter Property="BorderBrush" Value="LightGray"/>
+                    <Setter Property="BorderThickness" Value="0,0,0,1" />
+                </Style>
+            </ListView.ItemContainerStyle>
+
+            <ListView.View>
+                <GridView>
+                    <GridViewColumn Header="设备" DisplayMemberBinding="{Binding Name}"  Width="{Binding ElementName=col_name, Path=ActualWidth}" />
+                    <GridViewColumn Header="IP"  Width="{Binding ElementName=col_ip, Path=ActualWidth}" >
+                        <GridViewColumn.CellTemplate>
+                            <DataTemplate>
+                                <ListView ItemsSource="{Binding IPs}" IsHitTestVisible="False">
+                                    <ListView.ItemTemplate>
+                                        <DataTemplate>
+                                            <TextBlock Text="{Binding}"/>
+                                        </DataTemplate>
+                                    </ListView.ItemTemplate>
+                                </ListView>
+                            </DataTemplate>
+                        </GridViewColumn.CellTemplate>
+                    </GridViewColumn>
+                    <GridViewColumn Header="CPU" Width="{Binding ElementName=col_cpu, Path=ActualWidth}" >
+                        <GridViewColumn.CellTemplate>
+                            <DataTemplate>
+                                <ListView ItemsSource="{Binding CPUs}" IsHitTestVisible="False">
+                                    <ListView.ItemTemplate>
+                                        <DataTemplate>
+                                            <TextBlock Text="{Binding}"/>
+                                        </DataTemplate>
+                                    </ListView.ItemTemplate>
+                                </ListView>
+                            </DataTemplate>
+                        </GridViewColumn.CellTemplate>
+                    </GridViewColumn>
+                    <GridViewColumn Header="GPU" Width="{Binding ElementName=col_gpu, Path=ActualWidth}" >
+                        <GridViewColumn.CellTemplate>
+                            <DataTemplate>
+                                <ListView ItemsSource="{Binding GPUs}">
+                                    <ListView.ItemTemplate>
+                                        <DataTemplate>
+                                            <TextBlock Text="{Binding}"/>
+                                        </DataTemplate>
+                                    </ListView.ItemTemplate>
+                                </ListView>
+                            </DataTemplate>
+                        </GridViewColumn.CellTemplate>
+                    </GridViewColumn>
+                    <GridViewColumn Header="内存" Width="{Binding ElementName=col_memory, Path=ActualWidth}" >
+                        <GridViewColumn.CellTemplate>
+                            <DataTemplate>
+                                <ListView ItemsSource="{Binding Memories}">
+                                    <ListView.ItemTemplate>
+                                        <DataTemplate>
+                                            <TextBlock Text="{Binding}"/>
+                                        </DataTemplate>
+                                    </ListView.ItemTemplate>
+                                </ListView>
+                            </DataTemplate>
+                        </GridViewColumn.CellTemplate>
+                    </GridViewColumn>
+                    <GridViewColumn Header="操作" Width="{Binding ElementName=col_option, Path=ActualWidth}">
+                        <GridViewColumn.CellTemplate>
+                            <DataTemplate>
+                                <StackPanel Orientation="Horizontal" Margin="0 0 5 0" >
+                                    <Button  Style="{StaticResource MaterialDesignPaperLightButton}" Content="连接" Margin="0 0 5 0" 
+                                                Command="{Binding RelativeSource={RelativeSource FindAncestor, AncestorType={x:Type Window},AncestorLevel=1},Path=DataContext.TryConnectCommand}"
+                                                CommandParameter="{Binding}"
+                                             />
+                                    <Button  Style="{StaticResource MaterialDesignPaperLightButton}" Content="重启电脑" Margin="0 0 5 0"
+                                                Command="{Binding RelativeSource={RelativeSource FindAncestor, AncestorType={x:Type Window},AncestorLevel=1},Path=DataContext.TryRestartCommand}"
+                                                CommandParameter="{Binding}"
+                                            />
+
+                                    <Button  Style="{StaticResource MaterialDesignPaperLightButton}"  Content="关机" Margin="0 0 5 0"
+                                                Command="{Binding RelativeSource={RelativeSource FindAncestor, AncestorType={x:Type Window},AncestorLevel=1},Path=DataContext.TryShutdownCommand}"
+                                                CommandParameter="{Binding}"
+                                             />
+                                    <Button  Style="{StaticResource MaterialDesignPaperLightButton}"  Content="共享" Margin="0 0 5 0"
+                                                Command="{Binding RelativeSource={RelativeSource FindAncestor, AncestorType={x:Type Window},AncestorLevel=1},Path=DataContext.OpenSMBShareCommand}"
+                                                CommandParameter="{Binding}"
+                                             />
+                                    <Button  Style="{StaticResource MaterialDesignPaperLightButton}" Content="重启软件" Margin="0 0 5 0"
+                                                Command="{Binding RelativeSource={RelativeSource FindAncestor, AncestorType={x:Type Window},AncestorLevel=1},Path=DataContext.TryRestartNodeTree}"
+                                                CommandParameter="{Binding}"
+                                            />
+                                </StackPanel>
+                            </DataTemplate>
+                        </GridViewColumn.CellTemplate>
+                    </GridViewColumn>
+                </GridView>
+            </ListView.View>
+        </ListView>
+    </Grid>
+    
+  
+</reactiveui:ReactiveWindow>

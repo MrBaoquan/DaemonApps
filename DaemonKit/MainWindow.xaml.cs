@@ -1,9 +1,16 @@
 ﻿using System;
 using System.ComponentModel;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
+using System.Management.Automation;
+using System.Net;
+using System.Net.Sockets;
 using System.Reactive.Linq;
 using System.Reflection;
+using System.Text;
+using System.Threading;
+using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
@@ -15,6 +22,7 @@ using Hardware.Info;
 using IWshRuntimeLibrary;
 using Microsoft.Win32;
 using Microsoft.Win32.TaskScheduler;
+using Newtonsoft.Json;
 using ReactiveMarbles.ObservableEvents;
 using ReactiveUI;
 
@@ -25,10 +33,8 @@ namespace DaemonKit {
     public partial class MainWindow : ReactiveWindow<MainViewModel> {
 
         public static AppSettings AppSettings { get; set; }
-
         ProcessItem rootProcessNode = null;
 
-        //public static RoutedCommand OpenProcess = new RoutedCommand ();
         public MainWindow () {
             InitializeComponent ();
 
@@ -40,6 +46,9 @@ namespace DaemonKit {
             // 节点编辑窗口
             ProcessNodeForm processNodeForm = new ProcessNodeForm ();
             Settings settingsWindow = new Settings ();
+
+            var _table = new DaemonTable ();
+
             this.WhenActivated (disposables => {
                 DataContext = this.ViewModel;
 
@@ -66,8 +75,6 @@ namespace DaemonKit {
                     FetchHardwareInfo ();
                 });
 
-                //this.BindCommand (this.ViewModel, vm => vm.DisplayCommand, v => v.menu_cut).DisposeWith (disposables);
-                //this.Bind (this.ViewModel, vm => vm.Text, v => v.textbox.Text).DisposeWith (disposables);
                 this.ProcessTree.DataContext = this.DataContext;
                 NLogger.Info ("加载进程树..");
                 loadExtensions ();
@@ -111,6 +118,10 @@ namespace DaemonKit {
                     saveConfig ();
                 });
 
+                ViewModel.EnableNameInput.Subscribe (_item => {
+                    _item.EnableNameInput ();
+                });
+
                 ViewModel.ShowInExplorer.Subscribe (_ => {
                     WinAPI.OpenProcess ("explorer.exe", " /select," + _selectedTreeNode.NodePath);
                 });
@@ -133,12 +144,19 @@ namespace DaemonKit {
                     saveConfig ();
                 });
 
+                ViewModel.ConfirmNameInput.Subscribe (_ => {
+                    _.ConfirmNameInput ();
+                    saveConfig ();
+                });
+
                 // 进程表单提交
                 processNodeForm.VM.Confirm.Subscribe (_ => {
                     if (processNodeForm.VM.IsCreateMode) {
-                        _selectedTreeNode.AddChild (new ProcessItem {
-                            MetaData = _
-                        });
+                    var _item = new ProcessItem {
+                    MetaData = _
+                        };
+                        _selectedTreeNode.AddChild (_item);
+                        _item.SyncSettings (AppSettings);
                     } else {
                         _.Enable = _selectedTreeNode.Enable;
                         _selectedTreeNode.MetaData = _;
@@ -150,6 +168,18 @@ namespace DaemonKit {
 
                 ViewModel.ShowAppDirectory.Subscribe (_ => {
                     WinAPI.OpenProcess ("explorer.exe", AppPathes.AppRoot);
+                });
+
+                ViewModel.SMBShare.Subscribe (_ => {
+                    WinAPI.OpenProcess (Path.Combine (AppPathes.ExtensionPath, "SMBShare.bat"), "", true);
+                });
+
+                ViewModel.SMBUnshare.Subscribe (_ => {
+                    WinAPI.OpenProcess (Path.Combine (AppPathes.ExtensionPath, "SMBUnshare.bat"), "", true);
+                });
+
+                ViewModel.OpenRemotePanel.Subscribe (_ => {
+                    _table.Show ();
                 });
 
                 ViewModel.RunNodeTree.Subscribe (_ => {
@@ -167,11 +197,68 @@ namespace DaemonKit {
                 // 进程根节点启动守护
                 rootProcessNode.RunNode ();
 
-                this.Events ().Closing.Subscribe (_ => {
+                this.Events ().Closed.Subscribe (_ => { });
 
+                // 广播设备信息
+                UdpClient _metaDataClient = new UdpClient ();
+                MachineInfo _machineInfo = new MachineInfo ();
+                _metaDataClient.EnableBroadcast = true;
+
+                Observable.Timer (TimeSpan.FromMilliseconds (AppSettings.DaemonInterval), TimeSpan.FromSeconds (3))
+                    .Subscribe (_ => {
+                        _machineInfo.Name = rootProcessNode.Name;
+                        var _ipList = HardwareInfo.GetLocalIPv4Addresses ().Aggregate (string.Empty, (_cur, _next) => _cur + _next);
+                        _machineInfo.IPs = new System.Collections.ObjectModel.ObservableCollection<string> (HardwareInfo.GetLocalIPv4Addresses ().Select (_ipAddress => _ipAddress.ToString ()));
+                        _machineInfo.CPUs = new System.Collections.ObjectModel.ObservableCollection<string> (hardwareInfo.CpuList.Select (_cpu => _cpu.Name));
+                        _machineInfo.GPUs = new System.Collections.ObjectModel.ObservableCollection<string> (hardwareInfo.VideoControllerList.Select (_ => _.Name));
+                        _machineInfo.Memories = new System.Collections.ObjectModel.ObservableCollection<string> (hardwareInfo.MemoryList.Select (_ => _.Manufacturer + _.PartNumber + _.Capacity.FormatBytes ()));
+                        var _data = Encoding.UTF8.GetBytes (JsonConvert.SerializeObject (_machineInfo));
+                        _metaDataClient.Send (_data, _data.Count (), new System.Net.IPEndPoint (System.Net.IPAddress.Broadcast, 7007));
+
+                        // crash进程检测
+                        if (AppSettings.CrashWindows != null) {
+
+                            var _crashWindows = AppSettings.CrashWindows.Split ("|")
+                                .Select (_crashWindow => WinAPI.FindProcess (_crashWindow))
+                                .Where (_process => _process != default (Process)).ToList ();
+
+                            if (rootProcessNode.IsRuning && _crashWindows.Count > 0) {
+                                _crashWindows.ForEach (_crashWindow => {
+                                    _crashWindow.Kill ();
+                                });
+                                NLogger.Info ("检测到崩溃进程，尝试重启..");
+                                rootProcessNode.KillNode ();
+                                rootProcessNode.RunNode ();
+                            }
+                        }
+
+                    });
+
+                // 命令控制
+                var _recvCommandDisposable = onRecvCommand ()
+                    .Subscribe (_command => {
+                        if (_command.ID == Command.RESTART) {
+                            WinAPI.OpenProcess ("shutdown.exe", "/r /t 0");
+                        } else if (_command.ID == Command.SHUTDOWN) {
+                            WinAPI.OpenProcess ("shutdown.exe", "/s /t 0");
+                        } else if (_command.ID == Command.RESTART_NODE_TREE) {
+                            rootProcessNode.RunNode ();
+                        }
+                    });
+
+                this.Events ().Closing.Subscribe (_ => {
+                    _metaDataClient.Close ();
+                    _metaDataClient.Dispose ();
+
+                    _recvCommandDisposable.Dispose ();
                 });
 
-                this.Events ().Closed.Subscribe (_ => { });
+                //PowerShell ps = PowerShell.Create ();
+                //var _script = "" +
+                //    "";
+                //ps.AddCommand ("Get-Process").AddParameter ("Name", "PowerShell");
+                //ps.AddStatement ().AddCommand ("Get-Service");
+                //ps.Invoke ();
 
             });
 
@@ -182,6 +269,24 @@ namespace DaemonKit {
 
             InputBindings.Add (new KeyBinding { Command = ViewModel.RunProcess, Key = Key.T, Modifiers = ModifierKeys.Control, CommandParameter = ViewModel.OpenCMD_args });
             InputBindings.Add (new KeyBinding { Command = ViewModel.RunProcess, Key = Key.P, Modifiers = ModifierKeys.Control, CommandParameter = ViewModel.OpenPowerShell_args });
+        }
+
+        private IObservable<Command> onRecvCommand () {
+            return Observable.Create<Command> (_observer => {
+                CancellationTokenSource _cts = new CancellationTokenSource ();
+                UdpClient _commandClient = new UdpClient (7008);
+                Observable.Start (async () => {
+                    while (!_cts.IsCancellationRequested) {
+                        var _command = await _commandClient.ReceiveAsync ();
+                        var _commandStr = Encoding.UTF8.GetString (_command.Buffer);
+                        _observer.OnNext (JsonConvert.DeserializeObject<Command> (_commandStr));
+                    }
+                    _observer.OnCompleted ();
+                    _commandClient.Close ();
+                    _commandClient.Dispose ();
+                });
+                return _cts;
+            });
         }
 
         static readonly HardwareInfo hardwareInfo = new HardwareInfo ();
@@ -213,6 +318,8 @@ namespace DaemonKit {
                 return _description;
             }).ObserveOn (RxApp.MainThreadScheduler).Subscribe (_description => {
                 hardwareInfoBox.Text = _description;
+            }, _ => {
+                hardwareInfoBox.Text = "硬件信息获取失败！";
             });
 
         }
@@ -279,7 +386,7 @@ namespace DaemonKit {
             rootProcessNode.SyncRelationships ();
 
             if (!System.IO.File.Exists (AppPathes.AppSettingPath)) {
-                USerialization.SerializeXML (new AppSettings { StartUp = true, ShortCut = true, DelayDaemon = 5000, DaemonInterval = 500, ErrorCount = 1 }, AppPathes.AppSettingPath);
+                USerialization.SerializeXML (new AppSettings { StartUp = true, ShortCut = true, DelayDaemon = 500, DaemonInterval = 5000, ErrorCount = 1, CrashWindows = string.Empty }, AppPathes.AppSettingPath);
             }
             if (System.IO.File.ReadAllText (AppPathes.AppSettingPath).Length == 0 && System.IO.File.Exists (AppPathes.AppSettingPath_Backup)) {
                 System.IO.File.Copy (AppPathes.AppSettingPath_Backup, AppPathes.AppSettingPath, true);
