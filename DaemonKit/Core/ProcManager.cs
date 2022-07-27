@@ -19,6 +19,7 @@ namespace DaemonKit.Core {
                 posX, posY, width, height,
                 SetWindowPosFlags.SWP_SHOWWINDOW | _noMove | _noSize | SetWindowPosFlags.SWP_FRAMECHANGED);
             WinAPI.ShowWindow (process.MainWindowHandle, (int) CMDShow.SW_SHOW);
+            var _ret = WinAPI.SetFocus (process.MainWindowHandle);
             return true;
         }
 

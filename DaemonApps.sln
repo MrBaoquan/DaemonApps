@@ -3,7 +3,11 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 16
 VisualStudioVersion = 16.0.31613.86
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DaemonKit", "DaemonKit\DaemonKit.csproj", "{C7BDDD71-5FB7-4FA6-A685-817B6B742236}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "DaemonKit", "DaemonKit\DaemonKit.csproj", "{C7BDDD71-5FB7-4FA6-A685-817B6B742236}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SimulateClick", "SimulateClick\SimulateClick.csproj", "{A14FFA86-80B1-4D4C-B368-5B26B9FA5D76}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ClickSimulator", "ClickSimulator\ClickSimulator.csproj", "{42DF5857-8D35-47E5-81A3-FDB0B2C2F4F3}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -15,6 +19,14 @@ Global
 		{C7BDDD71-5FB7-4FA6-A685-817B6B742236}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{C7BDDD71-5FB7-4FA6-A685-817B6B742236}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{C7BDDD71-5FB7-4FA6-A685-817B6B742236}.Release|Any CPU.Build.0 = Release|Any CPU
+		{A14FFA86-80B1-4D4C-B368-5B26B9FA5D76}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{A14FFA86-80B1-4D4C-B368-5B26B9FA5D76}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{A14FFA86-80B1-4D4C-B368-5B26B9FA5D76}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{A14FFA86-80B1-4D4C-B368-5B26B9FA5D76}.Release|Any CPU.Build.0 = Release|Any CPU
+		{42DF5857-8D35-47E5-81A3-FDB0B2C2F4F3}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{42DF5857-8D35-47E5-81A3-FDB0B2C2F4F3}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{42DF5857-8D35-47E5-81A3-FDB0B2C2F4F3}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{42DF5857-8D35-47E5-81A3-FDB0B2C2F4F3}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

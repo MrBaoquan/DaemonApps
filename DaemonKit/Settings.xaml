@@ -44,7 +44,14 @@
             <TextBox Style="{StaticResource MaterialDesignFloatingHintTextBox}" Margin="0 0" FontSize="15" Text="{Binding ErrorCount}" VerticalAlignment="Center" materialDesign:TextFieldAssist.SuffixText="次" Cursor="IBeam">
                 <materialDesign:HintAssist.Hint>
                     <StackPanel Orientation="Horizontal" Margin="-2 0 0 0">
-                        <TextBlock Text="错误容忍" />
+                        <TextBlock Text="无响应容忍度" />
+                    </StackPanel>
+                </materialDesign:HintAssist.Hint>
+            </TextBox>
+            <TextBox Style="{StaticResource MaterialDesignFloatingHintTextBox}" Margin="0 0" FontSize="15" Text="{Binding CrashWindows}" VerticalAlignment="Center" Cursor="IBeam">
+                <materialDesign:HintAssist.Hint>
+                    <StackPanel Orientation="Horizontal" Margin="-2 0 0 0">
+                        <TextBlock Text="Crash进程(多个进程以|隔开)" />
                     </StackPanel>
                 </materialDesign:HintAssist.Hint>
             </TextBox>

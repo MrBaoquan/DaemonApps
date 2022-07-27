@@ -29,6 +29,7 @@ namespace DaemonKit {
                 Arguments = this.Arguments,
                 RunAs = this.RunAs,
                 KeepTop = this.KeepTop,
+                NoDaemon = this.NoDaemon,
                 Delay = this.Delay,
                 PosX = this.PosX,
                 PosY = this.PosY,
@@ -65,8 +66,10 @@ namespace DaemonKit {
 
             this.Name = DEFAULT_APP_NAME;
             this.KeepTop = false;
+            this.NoDaemon = false;
             this.RunAs = true;
             this.Path = "demo.exe";
+
             openFileDialog.InitialDirectory = AppPathes.AppDir;
             if (!File.Exists (System.IO.Path.Combine (AppPathes.AppDir, "demo.exe"))) {
                 openFileDialog.ShowDialog ();
@@ -80,6 +83,7 @@ namespace DaemonKit {
             this.Title = "进程结点编辑";
             this.Name = InMeta.Name;
             this.KeepTop = InMeta.KeepTop;
+            this.NoDaemon = InMeta.NoDaemon;
             this.RunAs = InMeta.RunAs;
             this.Path = InMeta.Path;
             this.Arguments = InMeta.Arguments;
@@ -124,6 +128,12 @@ namespace DaemonKit {
         public bool RunAs {
             get { return runAs; }
             set { this.RaiseAndSetIfChanged (ref runAs, value); }
+        }
+
+        private bool noDaemon = false;
+        public bool NoDaemon {
+            get { return noDaemon; }
+            set { this.RaiseAndSetIfChanged (ref noDaemon, value); }
         }
 
         private int delay = 500;

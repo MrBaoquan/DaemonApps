@@ -29,6 +29,9 @@ namespace DaemonKit.Core {
         public bool KeepTop = false;
 
         [XmlAttribute]
+        public bool NoDaemon = false;
+
+        [XmlAttribute]
         public int Delay = 500;
 
         [XmlAttribute]
@@ -91,6 +94,7 @@ namespace DaemonKit.Core {
 
             this.RunNodeCommand = ReactiveCommand.Create (() => { });
             this.KillNodeCommand = ReactiveCommand.Create (() => { });
+            this.DisableNameInput = ReactiveCommand.Create (() => { });
             this.ToggleEnableCommand = ReactiveCommand.Create<bool, bool> (_isEnable => _isEnable);
 
             Status = -1;
@@ -114,6 +118,10 @@ namespace DaemonKit.Core {
                 KillNode ();
                 BtnRunVisibility = _isEnable?Visibility.Visible : Visibility.Hidden;
             });
+
+            this.DisableNameInput.Subscribe (_ => {
+                this.NameInputVisibility = Visibility.Hidden;
+            });
         }
 
         [XmlIgnore]
@@ -126,6 +134,7 @@ namespace DaemonKit.Core {
                 Path = System.IO.Path.GetFileName (metaData.Path);
                 Enable = metaData.Enable;
                 Delay = metaData.Delay;
+                NameField = Name;
             }
         }
 
@@ -137,6 +146,9 @@ namespace DaemonKit.Core {
 
         [XmlIgnore]
         public ReactiveCommand<bool, bool> ToggleEnableCommand { get; protected set; }
+
+        [XmlIgnore]
+        public ReactiveCommand<Unit, Unit> DisableNameInput { get; protected set; }
 
         private IDisposable _runNodeHandler = null;
         static void ClearHandler (ref IDisposable InHandler) {
@@ -186,19 +198,20 @@ namespace DaemonKit.Core {
                 }
                 Status = 0;
                 NLogger.Info ("启动进程树, Delay:{0}", delayDaemon);
-                m_runChildDisposables = Observable.Timer (TimeSpan.FromMilliseconds (delayDaemon)).Subscribe (_ => {
-                    _runChildNode ();
-                    Status = 1;
-                    m_runChildDisposables = null;
-                });
+                m_runChildDisposables = Observable.Timer (TimeSpan.FromMilliseconds (delayDaemon))
+                    .Subscribe (_ => {
+                        _runChildNode ();
+                        Status = 1;
+                        m_runChildDisposables = null;
+                    });
                 return;
             }
             Status = 1;
             _runChildNode ();
         }
 
-        private int delayDaemon = 5000;
-        private int daemonInterval = 500;
+        private int delayDaemon = 500;
+        private int daemonInterval = 5000;
         private int maxError = 1;
 
         // 守护当前进程节点
@@ -208,32 +221,42 @@ namespace DaemonKit.Core {
 
         private void daemonNode () {
             if (IsSuperRoot) return;
-            NLogger.Info ("守护进程:{0}, Delay:{1}, Interval:{2}", NodePath, metaData.Delay, daemonInterval);
+            if (metaData.NoDaemon) return;
+
+            NLogger.Info ("开始守护进程:{0}", NodePath);
 
             currentError = 0;
-
-            daemonHandler = Observable.Timer (TimeSpan.FromMilliseconds (daemonInterval), TimeSpan.FromMilliseconds (daemonInterval)).Subscribe (_ => {
-                var _process = WinAPI.FindProcess (NodePath);
-                if (_process == default (Process)) {
-                    NLogger.Warn ("进程:{0} 已退出，正在尝试重新启动进程链...", NodePath);
-                    RootNode.KillNode ();
-                    RootNode.RunNode ();
-                } else if (!_process.Responding) {
-                    ++currentError;
-                    NLogger.Warn ("进程:{0} 未响应，容忍度: {1}/{2}", NodePath, currentError, maxError);
-                    if (currentError >= maxError) {
-                        NLogger.Warn ("进程:{0} 未响应，正在尝试重新启动进程链...", NodePath);
+            // 进程启动后, 根据守护间隔进行守护
+            daemonHandler = Observable.Interval (TimeSpan.FromMilliseconds (daemonInterval))
+                .Skip (1)
+                .Subscribe (_ => {
+                    var _process = WinAPI.FindProcess (NodePath);
+                    if (_process == default (Process)) {
+                        NLogger.Warn ("进程:{0} 已退出，正在尝试重新启动进程链...", NodePath);
                         RootNode.KillNode ();
                         RootNode.RunNode ();
+                    } else if (!_process.Responding) {
+                        ++currentError;
+                        NLogger.Warn ("进程:{0} 未响应，容忍度: {1}/{2}", NodePath, currentError, maxError);
+                        if (currentError >= maxError) {
+                            NLogger.Warn ("进程:{0} 未响应，正在尝试重新启动进程链...", NodePath);
+                            RootNode.KillNode ();
+                            RootNode.RunNode ();
+                        }
                     }
-                }
-                if ((metaData.KeepTop || metaData.PosX != metaData.PosY || metaData.Width != metaData.Height) && _ == 1) {
-                    ProcManager.KeepTopWindow (
-                        NodePath, metaData.PosX, metaData.PosY, metaData.Width, metaData.Height,
-                        (int) (metaData.KeepTop?HWndInsertAfter.HWND_TOPMOST : HWndInsertAfter.HWND_NOTOPMOST)
-                    );
-                }
-            });
+                    // 如果需要窗口置顶, 则在守护间隔前3次尝试置顶
+                    if ((metaData.KeepTop || metaData.PosX != metaData.PosY || metaData.Width != metaData.Height) && _ <= 3) {
+                        NLogger.Info ($"尝试调整窗口:{NodePath} 第{_}次");
+                        ProcManager.KeepTopWindow (
+                            NodePath, metaData.PosX, metaData.PosY, metaData.Width, metaData.Height,
+                            (int) (metaData.KeepTop?HWndInsertAfter.HWND_TOPMOST : HWndInsertAfter.HWND_NOTOPMOST)
+                        );
+
+                        if (_ == 3) {
+                            NLogger.Info ($"尝试调整窗口:{NodePath} 任务结束");
+                        }
+                    }
+                });
         }
 
         public void KillNode () {
@@ -262,9 +285,17 @@ namespace DaemonKit.Core {
             });
         }
 
+        public void EnableNameInput () {
+            this.NameInputVisibility = Visibility.Visible;
+        }
+
         private string _name = string.Empty;
         [XmlIgnore]
         public string Name { set => this.RaiseAndSetIfChanged (ref _name, value); get => _name; }
+
+        private string _nameField = string.Empty;
+        [XmlIgnore]
+        public string NameField { set => this.RaiseAndSetIfChanged (ref _nameField, value); get => _nameField; }
         private bool _enable = true;
         [XmlIgnore]
         public bool Enable { set => this.RaiseAndSetIfChanged (ref _enable, value); get => _enable; }
@@ -276,6 +307,8 @@ namespace DaemonKit.Core {
         private string _path = string.Empty;
         [XmlAttribute]
         public string Path { set => this.RaiseAndSetIfChanged (ref _path, value); get => _path; }
+
+        public bool IsRuning { get => Status == 1; }
 
         private int _status = -1; // -1 未启动 0 启动中  1 已启动  
         public int Status {
@@ -300,6 +333,11 @@ namespace DaemonKit.Core {
         private Visibility btnRunVisibility = Visibility.Collapsed;
         [XmlIgnore]
         public Visibility BtnRunVisibility { get => btnRunVisibility; set => this.RaiseAndSetIfChanged (ref btnRunVisibility, value); }
+
+        [XmlIgnore]
+        private Visibility nameInputVisibility = Visibility.Collapsed;
+        [XmlIgnore]
+        public Visibility NameInputVisibility { get => nameInputVisibility; set => this.RaiseAndSetIfChanged (ref nameInputVisibility, value); }
 
         [XmlIgnore]
         private Visibility btnLoadingVisibility = Visibility.Collapsed;
@@ -353,6 +391,16 @@ namespace DaemonKit.Core {
             this.Children.ToList ().ForEach (_childNode => {
                 _childNode.SyncSettings (appSettings);
             });
+        }
+
+        public void ConfirmNameInput () {
+            if (NameField.Trim () == string.Empty) {
+                NLogger.Warn ("备注名不能为空");
+                return;
+            }
+            Name = NameField;
+            metaData.Name = Name;
+            NameInputVisibility = Visibility.Collapsed;
         }
 
     }
