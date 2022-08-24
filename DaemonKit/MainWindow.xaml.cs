@@ -3,8 +3,6 @@ using System.ComponentModel;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
-using System.Management.Automation;
-using System.Net;
 using System.Net.Sockets;
 using System.Reactive.Linq;
 using System.Reflection;
@@ -19,7 +17,7 @@ using System.Windows.Media;
 using DaemonKit.Core;
 using DNHper;
 using Hardware.Info;
-using IWshRuntimeLibrary;
+// using IWshRuntimeLibrary;
 using Microsoft.Win32;
 using Microsoft.Win32.TaskScheduler;
 using Newtonsoft.Json;
@@ -511,9 +509,13 @@ namespace DaemonKit {
             if (System.IO.File.Exists (_execLink)) { return; }
             NLogger.Info ("已创建桌面快捷方式:{0}.", _execLink);
 
-            WshShellClass wsh = new WshShellClass ();
-            IWshShortcut _shortcut = (IWshShortcut) wsh.CreateShortcut (_execLink);
-            _shortcut.IconLocation = Path.Combine (AppPathes.AppRoot, "logo.ico");
+            var shellType = Type.GetTypeFromProgID ("WScript.Shell");
+            dynamic shell = Activator.CreateInstance (shellType);
+            var _shortcut = shell.CreateShortcut (_execLink);
+
+            // WshShellClass wsh = new WshShellClass ();
+            // IWshShortcut _shortcut = (IWshShortcut) wsh.CreateShortcut (_execLink);
+            _shortcut.IconLocation = Path.Combine (AppPathes.ResDir, "logo.ico");
             _shortcut.TargetPath = AppPathes.ExecutorPath;
             _shortcut.Save ();
         }
