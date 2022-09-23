@@ -374,8 +374,12 @@ namespace DaemonKit {
             if (!System.IO.File.Exists (AppPathes.TreeViewDataPath)) {
                 if (!Directory.Exists (Path.GetDirectoryName (AppPathes.TreeViewDataPath)))
                     Directory.CreateDirectory (Path.GetDirectoryName (AppPathes.TreeViewDataPath));
-                rootProcessNode = new ProcessItem { MetaData = new ProcessMetaData { Name = "[ 进程树 ]", Delay = 0, Path = string.Empty } };
-                USerialization.SerializeXML (rootProcessNode, AppPathes.TreeViewDataPath);
+                if (System.IO.File.Exists (AppPathes.TreeViewDataPath_Backup)) {
+                    System.IO.File.Copy (AppPathes.TreeViewDataPath_Backup, AppPathes.TreeViewDataPath, true);
+                } else {
+                    rootProcessNode = new ProcessItem { MetaData = new ProcessMetaData { Name = "[ 进程树 ]", Delay = 0, Path = string.Empty } };
+                    USerialization.SerializeXML (rootProcessNode, AppPathes.TreeViewDataPath);
+                }
             }
             if (System.IO.File.ReadAllText (AppPathes.TreeViewDataPath).Length == 0 && System.IO.File.Exists (AppPathes.TreeViewDataPath_Backup)) {
                 System.IO.File.Copy (AppPathes.TreeViewDataPath_Backup, AppPathes.TreeViewDataPath, true);

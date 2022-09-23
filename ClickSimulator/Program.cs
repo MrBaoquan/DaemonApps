@@ -47,9 +47,11 @@ namespace SimulateClick
                         {
                             SetCursorPos(options.x, options.y);
                             mouse_event(MOUSEEVENTF_LEFTDOWN | MOUSEEVENTF_LEFTUP, 0,0, 0, 0);
+                            Console.WriteLine(DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss") + $" simulated {_} times");
                         },()=> {
                             _exit = true;
-                            Console.WriteLine("模拟点击执行结束");
+                            Console.WriteLine("simulate click task completed.");
+                            Environment.Exit(0);
                         });
                 });
             while (!_exit) { }
