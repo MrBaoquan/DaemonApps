@@ -77,6 +77,7 @@
   </ItemGroup>
 	    
   <ItemGroup>
+    <Folder Include="Applications\Tools\" />
     <Folder Include="Properties\" />
     <Folder Include="ViewModels\" />
     <Folder Include="Converters\" />
@@ -90,6 +91,13 @@
     <None Update="Applications\README.md">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
       <ExcludeFromSingleFile>true</ExcludeFromSingleFile>
+    </None>
+    <None Update="Applications\Tools\ClickSimulator.exe">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <ExcludeFromSingleFile>true</ExcludeFromSingleFile>
+    </None>
+    <None Update="Applications\Tools\README.md">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
     <None Update="Hooks\Awake\README.md">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
