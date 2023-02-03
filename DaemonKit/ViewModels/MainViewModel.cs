@@ -25,8 +25,11 @@ namespace DaemonKit {
         private ProcessCommandParameter openAppRoot_args = new ProcessCommandParameter { Path = "explorer.exe", RunAs = true, Arguments = AppPathes.AppRoot };
         public ProcessCommandParameter OpenAppRoot_args { get => openAppRoot_args; }
 
-        private ProcessCommandParameter openFileExplorer_args = new ProcessCommandParameter { Path = "explorer.exe", RunAs = false };
+        private ProcessCommandParameter openFileExplorer_args = new ProcessCommandParameter { Path = @"c:\windows\explorer.exe", RunAs = true, Arguments = "" };
         public ProcessCommandParameter OpenFileExplorer_args { get => openFileExplorer_args; }
+
+        private ProcessCommandParameter killFileExplorer_args = new ProcessCommandParameter { Path = @"taskkill.exe", RunAs = true, Arguments = "/f /im explorer.exe" };
+        public ProcessCommandParameter KillFileExplorer_args { get => killFileExplorer_args; }
 
         private ProcessCommandParameter openUpdatePage_args = new ProcessCommandParameter { Path = "explorer.exe", Arguments = "https://gitee.com/MrBaoquan/daemon-apps/releases", RunAs = true };
         public ProcessCommandParameter OpenUpdatePage_args { get => openUpdatePage_args; }
@@ -48,6 +51,13 @@ namespace DaemonKit {
 
             this.EnableNameInput = ReactiveCommand.Create<ProcessItem, ProcessItem> (_item => _item);
             this.ConfirmNameInput = ReactiveCommand.Create<ProcessItem, ProcessItem> (_item => _item);
+
+            this.ShowWindow = ReactiveCommand.Create (() => { });
+            this.HideWindow = ReactiveCommand.Create (() => { });
+            this.Quit = ReactiveCommand.Create (() => { });
+
+            this.ShutdownSystem = ReactiveCommand.Create (() => { });
+            this.RestartSystem = ReactiveCommand.Create (() => { });
         }
 
         private string _Text = "测试内容";
@@ -59,10 +69,6 @@ namespace DaemonKit {
         public ReactiveCommand<Unit, Unit> AddTreeNode { get; protected set; }
         public ReactiveCommand<Unit, Unit> EditTreeNode { get; protected set; }
         public ReactiveCommand<Unit, Unit> DeleteTreeNode { get; protected set; }
-        /// <summary>
-        /// 打开进程所在目录
-        /// </summary>
-        /// <value></value>
         public ReactiveCommand<Unit, Unit> ShowInExplorer { get; protected set; }
         public ReactiveCommand<Unit, Unit> ShowAppDirectory { get; protected set; }
         public ReactiveCommand<Unit, Unit> RunNodeTree { get; protected set; }
@@ -75,7 +81,14 @@ namespace DaemonKit {
 
         public ReactiveCommand<Unit, Unit> SMBShare { get; protected set; }
         public ReactiveCommand<Unit, Unit> SMBUnshare { get; protected set; }
-
         public ReactiveCommand<Unit, Unit> OpenRemotePanel { get; protected set; }
+
+        public ReactiveCommand<Unit, Unit> ShowWindow { get; protected set; }
+        public ReactiveCommand<Unit, Unit> HideWindow { get; protected set; }
+        public ReactiveCommand<Unit, Unit> Quit { get; protected set; }
+
+        public ReactiveCommand<Unit, Unit> ShutdownSystem { get; protected set; }
+        public ReactiveCommand<Unit, Unit> RestartSystem { get; protected set; }
+
     }
 }

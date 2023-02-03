@@ -29,11 +29,14 @@ namespace DaemonKit.Core {
         public string Args = string.Empty;
 
         [XmlAttribute]
+        public string Group = "System";
+
+        [XmlAttribute]
         public bool RunAs = true;
     }
 
     public class ExtensionConfig {
-        public string Name = "快速访问";
+        public string Name = "系统功能";
         public List<Extension> Extensions = new List<Extension> () { };
     }
 

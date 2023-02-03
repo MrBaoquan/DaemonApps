@@ -18,6 +18,7 @@ class AppPathes {
     public static string ResDir { get => Path.Combine (AppRoot, "Resources"); }
     // 配置文件目录
     public static string ConfigDir { get => Path.Combine (ResDir, "Configs"); }
+    public static string ConfigDir_BackUp { get => Path.Combine (AppRoot, ".cache"); }
     // 目录树持久化路径
     public static string TreeViewDataPath { get => Path.Combine (ConfigDir, "treeview.xml"); }
     public static string TreeViewDataPath_Backup { get => Path.Combine (AppRoot, ".cache/treeview.xml"); }

@@ -12,8 +12,9 @@ using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using System.Windows.Shapes;
+using DaemonKit.Core;
+using ReactiveMarbles.ObservableEvents;
 using ReactiveUI;
-
 namespace DaemonKit {
     /// <summary>
     /// Settings.xaml 的交互逻辑
