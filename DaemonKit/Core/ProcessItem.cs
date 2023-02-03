@@ -32,6 +32,9 @@ namespace DaemonKit.Core {
         public bool NoDaemon = false;
 
         [XmlAttribute]
+        public bool MinimizedStartUp = false;
+
+        [XmlAttribute]
         public int Delay = 500;
 
         [XmlAttribute]
@@ -114,10 +117,11 @@ namespace DaemonKit.Core {
                 });
             });
 
-            this.WhenAnyValue (x => x.Enable).Subscribe (_isEnable => {
-                KillNode ();
-                BtnRunVisibility = _isEnable?Visibility.Visible : Visibility.Hidden;
-            });
+            this.WhenAnyValue (x => x.Enable)
+                .Subscribe (_isEnable => {
+                    KillNode ();
+                    BtnRunVisibility = _isEnable?Visibility.Visible : Visibility.Hidden;
+                });
 
             this.DisableNameInput.Subscribe (_ => {
                 this.NameInputVisibility = Visibility.Hidden;
@@ -162,7 +166,7 @@ namespace DaemonKit.Core {
         // 执行节点任务
         public void RunNode () {
             if (Enable) {
-                ProcManager.DaemonProcess (NodePath, metaData.Arguments, metaData.RunAs);
+                ProcManager.DaemonProcess (NodePath, metaData);
                 daemonNode ();
             }
 
@@ -242,16 +246,22 @@ namespace DaemonKit.Core {
                             NLogger.Warn ("进程:{0} 未响应，正在尝试重新启动进程链...", NodePath);
                             RootNode.KillNode ();
                             RootNode.RunNode ();
+                            return;
                         }
                     }
                     // 如果需要窗口置顶, 则在守护间隔前3次尝试置顶
-                    if ((metaData.KeepTop || metaData.PosX != metaData.PosY || metaData.Width != metaData.Height) && _ <= 3) {
+                    if ((metaData.KeepTop ||
+                            !(metaData.PosX == metaData.PosY && metaData.PosX == 0) || // 需要改变位置
+                            !(metaData.Width == metaData.Height && metaData.Width == 0) // 需要改变大小
+                        ) &&
+                        _ <= 3) {
                         NLogger.Info ($"尝试调整窗口:{NodePath} 第{_}次");
+
                         ProcManager.KeepTopWindow (
-                            NodePath, metaData.PosX, metaData.PosY, metaData.Width, metaData.Height,
+                            _process.MainWindowHandle, metaData.PosX, metaData.PosY, metaData.Width, metaData.Height,
                             (int) (metaData.KeepTop?HWndInsertAfter.HWND_TOPMOST : HWndInsertAfter.HWND_NOTOPMOST)
                         );
-
+                        WinAPI.ShowWindow (_process.MainWindowHandle, (int) CMDShow.SW_SHOW);
                         if (_ == 3) {
                             NLogger.Info ($"尝试调整窗口:{NodePath} 任务结束");
                         }
@@ -269,6 +279,10 @@ namespace DaemonKit.Core {
             if (daemonHandler != null) {
                 daemonHandler.Dispose ();
                 daemonHandler = null;
+            }
+
+            if (this.IsSuperRoot) {
+                NLogger.Info ("终止进程树..");
             }
 
             Status = -1;

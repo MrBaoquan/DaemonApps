@@ -4,6 +4,7 @@ using System.Reactive.Linq;
 using System.Linq;
 using System.Runtime.InteropServices;
 using CommandLine;
+using System.Diagnostics;
 
 namespace SimulateClick
 {
@@ -16,6 +17,10 @@ namespace SimulateClick
 
         [DllImport("user32.dll", SetLastError = true)]
         public static extern bool SetCursorPos(int x, int y);
+
+        [DllImport("User32.dll", CallingConvention = CallingConvention.StdCall, SetLastError = true)]
+        [return: MarshalAs(UnmanagedType.Bool)]
+        private static extern bool ShowWindow([In] IntPtr hWnd, [In] int nCmdShow);
 
         public class Options
         {
@@ -31,14 +36,19 @@ namespace SimulateClick
             [Option('r',"repeat",Required =false,Default = 5,HelpText ="重复执行次数")]
             public int r { get; set; }
 
-            [Option('i',"interval",Required =false,Default = 1000,HelpText ="重复间隔ms")]
+            [Option('i',"interval",Required =false,Default = 3000,HelpText ="重复间隔ms")]
             public int i { get; set; }
         }
 
         static void Main(string[] args)
         {
+            IntPtr handle = Process.GetCurrentProcess().MainWindowHandle;
+            ShowWindow(handle, 6);
+
             bool _exit = false;
-            Parser.Default.ParseArguments<Options>(args)
+            Parser
+                .Default
+                .ParseArguments<Options>(args)
                 .WithParsed<Options>(options =>
                 {
                     Observable.Interval(TimeSpan.FromMilliseconds(options.i))

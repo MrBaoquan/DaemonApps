@@ -10,6 +10,7 @@
         x:TypeArguments="local:PNFViewModel"
         xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes"
         mc:Ignorable="d"
+        WindowStartupLocation="CenterScreen"
         Title="{Binding Title}" Height="520" Width="500" MinHeight="460" MinWidth="500">
 
     <materialDesign:Card Margin="0 1 0 0" Padding="15 30 15 15">
@@ -86,10 +87,10 @@
             </Grid>
 
 
-            <StackPanel Orientation="Horizontal" HorizontalAlignment="Left">
-                <CheckBox IsChecked="{Binding Path=KeepTop, Mode=TwoWay}" Margin="0 0 5 0" Content="窗口置顶" FontSize="15" />
-                <CheckBox IsChecked="{Binding Path=RunAs, Mode=TwoWay}" Margin="0 0 5 0" Content="管理员身份运行" FontSize="15" />
-                <CheckBox IsChecked="{Binding Path=NoDaemon, Mode=TwoWay}" Margin="0 0 5 0" Content="仅启动,无需守护" FontSize="15" />
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Left" VerticalAlignment="Center">
+                <CheckBox IsChecked="{Binding Path=KeepTop, Mode=TwoWay}" Margin="0 0 8 0" Content="窗口置顶" FontSize="15" />
+                <CheckBox IsChecked="{Binding Path=RunAs, Mode=TwoWay}" Margin="0 0 8 0" Content="管理员身份运行" FontSize="15" />
+                <CheckBox IsChecked="{Binding Path=NoDaemon, Mode=TwoWay}" Margin="0 0 8 0" Content="仅启动,无需守护" FontSize="15" />
             </StackPanel>
 
             <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="0 30 0 0">

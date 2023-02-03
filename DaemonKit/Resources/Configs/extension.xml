@@ -1,21 +1,26 @@
 ﻿<?xml version="1.0"?>
 <ExtensionConfig xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
-  <Name>快速访问</Name>
+  <Name>系统管理</Name>
   <Extensions>
-    <Extension Name="控制面板项" Path="control.exe" Args="" />
-	<Extension Name="设备管理器" Path="control.exe" Args="hdwwiz.cpl" />
-    <Extension Name="程序和功能" Path="control.exe" Args="appwiz.cpl" />
-	<Extension Name="网络和共享中心" Path="control.exe" Args="/name Microsoft.NetworkAndSharingCenter" />
+	<Extension Name="控制面板" Group="System" Path="control.exe" Args="" />
+	<Extension Name="任务管理器" Group="System" Path="taskmgr.exe" Args="" />
+    
+	<Extension Name="设备管理器" Group="System" Path="control.exe" Args="hdwwiz.cpl" />
+	<Extension Name="程序和功能" Group="System" Path="control.exe" Args="appwiz.cpl" />
+	<Extension Name="网络连接" Group="System" Path="control.exe" Args="ncpa.cpl" />
+	<Extension Name="网络和共享中心" Group="System" Path="control.exe" Args="/name Microsoft.NetworkAndSharingCenter" />
+	<Extension Name="显示设置" Group="System" Path="control.exe" Args="desk.cpl" />
+	<Extension Name="音频设备属性" Group="System" Path="control.exe" Args="mmsys.cpl" />
+
+	<Extension Name="网络调试助手" Group="Tool" Path="NetAssist.exe" Args="" />
+	<Extension Name="串口调试助手" Group="Tool" Path="UartAssist.exe" Args="" />
+	<Extension Name="Joystick助手" Group="Tool" Path="Joystick.exe" Args="" />
+
+	<Extension Name="相机" Group="Tool" Path="cmd.exe" Args="/c start microsoft.windows.camera:" />
+	<Extension Name="计算器" Group="Tool" Path="calc.exe" Args="" />
 	
-	<Extension Name="相机" Path="cmd.exe" Args="/c start microsoft.windows.camera:" />
-	<Extension Name="计算器" Path="calc.exe" Args="" />
+	<Extension Name="设置IP" Group="Tool" Path="IPSettings.bat" Args="" />
+	<Extension Name="下载文件" Group="Tool" Path="Downloader.bat" Args="" />
 	  
-	<Extension Name="网络调试助手" Path="NetAssist.exe" Args="" />
-    <Extension Name="串口调试助手" Path="UartAssist.exe" Args="" />
-	<Extension Name="Joystick助手" Path="Joystick.exe" Args="" />
-	
-	<Extension Name="设置IP" Path="IPSettings.bat" Args="" />
-	<Extension Name="下载文件" Path="Downloader.bat" Args="" />
-  
   </Extensions>
 </ExtensionConfig>

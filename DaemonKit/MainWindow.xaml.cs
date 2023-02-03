@@ -18,6 +18,8 @@ using DaemonKit.Core;
 using DNHper;
 using Hardware.Info;
 // using IWshRuntimeLibrary;
+using H.NotifyIcon;
+using MaterialDesignThemes.Wpf;
 using Microsoft.Win32;
 using Microsoft.Win32.TaskScheduler;
 using Newtonsoft.Json;
@@ -100,6 +102,8 @@ namespace DaemonKit {
 
                 ViewModel.OpenSettings.Subscribe (_ => {
                     settingsWindow.Show ();
+                    var helper = new WindowInteropHelper (settingsWindow);
+                    ProcManager.KeepTopWindow (helper.Handle, 0, 0, 0, 0);
                     settingsWindow.ViewModel.SyncSettings (AppSettings);
                     settingsWindow.ViewModel.Confirm.Subscribe (_appSettings => {
                         AppSettings = _appSettings;
@@ -107,7 +111,6 @@ namespace DaemonKit {
                         settingsWindow.Hide ();
                         saveConfig ();
                         syncSettings ();
-
                     });
                 });
 
@@ -185,7 +188,6 @@ namespace DaemonKit {
                 });
 
                 ViewModel.KillNodeTree.Subscribe (_ => {
-                    NLogger.Info ("终止进程树..");
                     rootProcessNode.KillNode ();
                 });
 
@@ -195,14 +197,54 @@ namespace DaemonKit {
                 // 进程根节点启动守护
                 rootProcessNode.RunNode ();
 
-                this.Events ().Closed.Subscribe (_ => { });
+                ViewModel.ShowWindow.Subscribe (_ => {
+                    this.Visibility = Visibility.Visible;
+                    var helper = new WindowInteropHelper (this);
+                    WinAPI.SetWindowPos (helper.Handle, (int) HWndInsertAfter.HWND_TOPMOST,
+                        0, 0, 0, 0,
+                        SetWindowPosFlags.SWP_SHOWWINDOW | SetWindowPosFlags.SWP_NOMOVE | SetWindowPosFlags.SWP_NOSIZE | SetWindowPosFlags.SWP_FRAMECHANGED);
+                    WinAPI.ShowWindow (helper.Handle, (int) CMDShow.SW_SHOWNORMAL);
+                });
+
+                ViewModel.HideWindow.Subscribe (_ => {
+                    this.Visibility = Visibility.Hidden;
+                });
+
+                ViewModel.Quit.Subscribe (_ => {
+                    NLogger.Info ("准备退出程序，请稍后...");
+                    rootProcessNode.KillNode ();
+                    UnRegisterHotKey ();
+                    Application.Current.Shutdown ();
+                });
+
+                ViewModel.ShutdownSystem.Subscribe (_ => {
+                    WinAPI.OpenProcess ("shutdown.exe", "/s /t 0");
+                });
+
+                ViewModel.RestartSystem.Subscribe (_ => {
+                    WinAPI.OpenProcess ("shutdown.exe", "/r /t 0");
+                });
+
+                if (AppSettings.MinimizeStartUp) {
+                    ViewModel.HideWindow.Execute ().Subscribe ();
+                }
+
+                if (AppSettings.DisableExplorer) {
+                    WinAPI.OpenProcess ("taskkill.exe", "/f /im explorer.exe");
+                }
+
+                this.clockText.Text = DateTime.Now.ToString ("yyyy-MM-dd H:mm:ss");
+                Observable.Interval (TimeSpan.FromSeconds (1))
+                    .ObserveOn (RxApp.MainThreadScheduler)
+                    .Subscribe (_ => {
+                        this.clockText.Text = DateTime.Now.ToString ("yyyy-MM-dd H:mm:ss");
+                    });
 
                 // 广播设备信息
                 UdpClient _metaDataClient = new UdpClient ();
                 MachineInfo _machineInfo = new MachineInfo ();
                 _metaDataClient.EnableBroadcast = true;
-
-                Observable.Timer (TimeSpan.FromMilliseconds (AppSettings.DaemonInterval), TimeSpan.FromSeconds (3))
+                var _sendMsgDisposeable = Observable.Timer (TimeSpan.FromMilliseconds (AppSettings.DaemonInterval), TimeSpan.FromSeconds (3))
                     .Subscribe (_ => {
                         _machineInfo.Name = rootProcessNode.Name;
                         var _ipList = HardwareInfo.GetLocalIPv4Addresses ().Aggregate (string.Empty, (_cur, _next) => _cur + _next);
@@ -211,11 +253,11 @@ namespace DaemonKit {
                         _machineInfo.GPUs = new System.Collections.ObjectModel.ObservableCollection<string> (hardwareInfo.VideoControllerList.Select (_ => _.Name));
                         _machineInfo.Memories = new System.Collections.ObjectModel.ObservableCollection<string> (hardwareInfo.MemoryList.Select (_ => _.Manufacturer + _.PartNumber + _.Capacity.FormatBytes ()));
                         var _data = Encoding.UTF8.GetBytes (JsonConvert.SerializeObject (_machineInfo));
+
                         _metaDataClient.Send (_data, _data.Count (), new System.Net.IPEndPoint (System.Net.IPAddress.Broadcast, 7007));
 
                         // crash进程检测
                         if (AppSettings.CrashWindows != null) {
-
                             var _crashWindows = AppSettings.CrashWindows.Split ("|")
                                 .Select (_crashWindow => WinAPI.FindProcess (_crashWindow))
                                 .Where (_process => _process != default (Process)).ToList ();
@@ -229,38 +271,34 @@ namespace DaemonKit {
                                 rootProcessNode.RunNode ();
                             }
                         }
-
                     });
 
                 // 命令控制
                 var _recvCommandDisposable = onRecvCommand ()
                     .Subscribe (_command => {
                         if (_command.ID == Command.RESTART) {
-                            WinAPI.OpenProcess ("shutdown.exe", "/r /t 0");
+                            ViewModel.RestartSystem.Execute ().Subscribe ();
                         } else if (_command.ID == Command.SHUTDOWN) {
-                            WinAPI.OpenProcess ("shutdown.exe", "/s /t 0");
+                            ViewModel.ShutdownSystem.Execute ().Subscribe ();
                         } else if (_command.ID == Command.RESTART_NODE_TREE) {
                             rootProcessNode.RunNode ();
                         }
                     });
 
-                this.Events ().Closing.Subscribe (_ => {
+                this.Events ().Closed.Subscribe (_ => {
+                    _recvCommandDisposable.Dispose ();
+                    _sendMsgDisposeable.Dispose ();
+
                     _metaDataClient.Close ();
                     _metaDataClient.Dispose ();
 
-                    _recvCommandDisposable.Dispose ();
+                    NLogger.Info ("程序已退出,再见...");
                 });
-
-                //PowerShell ps = PowerShell.Create ();
-                //var _script = "" +
-                //    "";
-                //ps.AddCommand ("Get-Process").AddParameter ("Name", "PowerShell");
-                //ps.AddStatement ().AddCommand ("Get-Service");
-                //ps.Invoke ();
 
             });
 
-            this.Title = $"软件运维中心 v{Assembly.GetExecutingAssembly().GetName().Version}";
+            var _appVersion = Assembly.GetExecutingAssembly ().GetName ().Version;
+            this.Title = $"运维管家 v{_appVersion.Major}.{_appVersion.Minor}.{_appVersion.Build}.{_appVersion.Revision.ToString("0000")}";
 
             InputBindings.Add (new KeyBinding { Command = ViewModel.ShowAppDirectory, Key = Key.D1, Modifiers = ModifierKeys.Control });
             InputBindings.Add (new KeyBinding { Command = ViewModel.RunProcess, Key = Key.D2, Modifiers = ModifierKeys.Control, CommandParameter = ViewModel.OpenFileExplorer_args });
@@ -333,37 +371,46 @@ namespace DaemonKit {
 
             try {
                 var _extConfig = USerialization.DeserializeXML<ExtensionConfig> (AppPathes.ExtensionConfigPath);
-                var _cusMenu = new MenuItem { Header = _extConfig.Name };
+                var _sysMgrMenu = new MenuItem { Header = "系统" };
+                var _toolMenu = new MenuItem { Header = "工具" };
 
-                _extConfig.Extensions.WithIndex ().ToList ().ForEach (_extention => {
-                    var _menuItem = new MenuItem { Header = _extention.item.Name };
+                _extConfig.Extensions
+                    .WithIndex ()
+                    .ToList ()
+                    .ForEach (_extention => {
+                        var _menuItem = new MenuItem { Header = _extention.item.Name };
 
-                    Action < (Extension item, int index) > _handleMenuClick = (_ext) => {
-                        var _extensionPath = Path.Combine (AppPathes.ExtensionPath, _ext.item.Path);
-                        if (!Path.IsPathRooted (_ext.item.Path) && System.IO.File.Exists (_extensionPath)) {
-                            WinAPI.OpenProcess (_extensionPath, _ext.item.Args, _ext.item.RunAs);
+                        Action < (Extension item, int index) > _handleMenuClick = (_ext) => {
+                            var _extensionPath = Path.Combine (AppPathes.ExtensionPath, _ext.item.Path);
+                            if (!Path.IsPathRooted (_ext.item.Path) && System.IO.File.Exists (_extensionPath)) {
+                                WinAPI.OpenProcess (_extensionPath, _ext.item.Args, _ext.item.RunAs);
+                            } else {
+                                WinAPI.OpenProcess (_ext.item.Path, _ext.item.Args, _ext.item.RunAs);
+                            }
+                        };
+
+                        _menuItem.Events ().Click.Subscribe (_ => {
+                            _handleMenuClick (_extention);
+                        });
+
+                        var _menuCommand = ReactiveCommand.Create < (Extension item, int index),
+                            (Extension item, int index) > (_param => _param);
+                        _menuCommand.Subscribe (_ext => {
+                            _handleMenuClick (_ext);
+                        });
+
+                        //_menuItem.InputGestureText = string.Format ("Ctrl+F{0}", _extention.index + 1);
+                        InputBindings.Add (new KeyBinding { Command = _menuCommand, Key = Key.F1 + _extention.index, Modifiers = ModifierKeys.Control, CommandParameter = _extention });
+                        if (_extention.item.Group == "System") {
+                            _sysMgrMenu.Items.Add (_menuItem);
                         } else {
-                            WinAPI.OpenProcess (_ext.item.Path, _ext.item.Args, _ext.item.RunAs);
+                            _toolMenu.Items.Add (_menuItem);
                         }
-                    };
 
-                    _menuItem.Events ().Click.Subscribe (_ => {
-                        _handleMenuClick (_extention);
                     });
 
-                    var _menuCommand = ReactiveCommand.Create < (Extension item, int index),
-                        (Extension item, int index) > (_param => _param);
-                    _menuCommand.Subscribe (_ext => {
-                        _handleMenuClick (_ext);
-                    });
-
-                    _menuItem.InputGestureText = string.Format ("Ctrl+F{0}", _extention.index + 1);
-                    InputBindings.Add (new KeyBinding { Command = _menuCommand, Key = Key.F1 + _extention.index, Modifiers = ModifierKeys.Control, CommandParameter = _extention });
-
-                    _cusMenu.Items.Add (_menuItem);
-                });
-
-                this.MainMenu.Items.Insert (1, _cusMenu);
+                this.MainMenu.Items.Insert (2, _sysMgrMenu);
+                this.MainMenu.Items.Insert (3, _toolMenu);
             } catch (System.Exception) { }
         }
 
@@ -388,7 +435,7 @@ namespace DaemonKit {
             rootProcessNode.SyncRelationships ();
 
             if (!System.IO.File.Exists (AppPathes.AppSettingPath)) {
-                USerialization.SerializeXML (new AppSettings { StartUp = true, ShortCut = true, DelayDaemon = 500, DaemonInterval = 5000, ErrorCount = 1, CrashWindows = string.Empty }, AppPathes.AppSettingPath);
+                USerialization.SerializeXML (new AppSettings (), AppPathes.AppSettingPath);
             }
             if (System.IO.File.ReadAllText (AppPathes.AppSettingPath).Length == 0 && System.IO.File.Exists (AppPathes.AppSettingPath_Backup)) {
                 System.IO.File.Copy (AppPathes.AppSettingPath_Backup, AppPathes.AppSettingPath, true);
@@ -403,8 +450,9 @@ namespace DaemonKit {
         private void saveConfig () {
             USerialization.SerializeXML (rootProcessNode, AppPathes.TreeViewDataPath);
             USerialization.SerializeXML (AppSettings, AppPathes.AppSettingPath);
-            if (!Directory.Exists (Path.GetDirectoryName (AppPathes.TreeViewDataPath_Backup))) {
-                Directory.CreateDirectory (Path.GetDirectoryName (AppPathes.TreeViewDataPath_Backup));
+            if (!Directory.Exists (AppPathes.ConfigDir_BackUp)) {
+                Directory.CreateDirectory (AppPathes.ConfigDir_BackUp);
+                WinAPI.OpenProcess ("attrib.exe", $"+h {AppPathes.ConfigDir_BackUp}");
             }
             // 备份配置文件
             System.IO.File.Copy (AppPathes.TreeViewDataPath, AppPathes.TreeViewDataPath_Backup, true);
@@ -422,8 +470,8 @@ namespace DaemonKit {
         }
 
         protected override void OnClosing (CancelEventArgs e) {
-            rootProcessNode.KillNode ();
-            UnRegisterHotKey ();
+            ViewModel.HideWindow.Execute ().Subscribe ();
+            e.Cancel = true;
             base.OnClosing (e);
         }
 
@@ -432,6 +480,8 @@ namespace DaemonKit {
             WinAPI.RegisterHotKey (helper.Handle, 100, (uint) KeyModifiers.Ctrl, 0x44);
             WinAPI.RegisterHotKey (helper.Handle, 101, (uint) KeyModifiers.Ctrl, 0x52);
             WinAPI.RegisterHotKey (helper.Handle, 102, (uint) KeyModifiers.Ctrl, 0x57);
+            WinAPI.RegisterHotKey (helper.Handle, 103, (uint) (KeyModifiers.Ctrl | KeyModifiers.Shift), 0x45);
+            WinAPI.RegisterHotKey (helper.Handle, 104, (uint) (KeyModifiers.Ctrl | KeyModifiers.Shift), 0x57);
         }
 
         private void UnRegisterHotKey () {
@@ -439,6 +489,8 @@ namespace DaemonKit {
             WinAPI.UnregisterHotKey (helper.Handle, 100);
             WinAPI.UnregisterHotKey (helper.Handle, 101);
             WinAPI.UnregisterHotKey (helper.Handle, 102);
+            WinAPI.UnregisterHotKey (helper.Handle, 103);
+            WinAPI.UnregisterHotKey (helper.Handle, 104);
         }
 
         private IntPtr HwndHook (IntPtr hwnd, int msg, IntPtr wParam, IntPtr lParam, ref bool handled) {
@@ -447,16 +499,25 @@ namespace DaemonKit {
             const int WM_ENDSESSION = 0x0016;
             switch (msg) {
                 case WM_HOTKEY:
-                    if (wParam.ToInt32 () == 100) {
-                        var helper = new WindowInteropHelper (this);
-                        WinAPI.SetWindowPos (helper.Handle, (int) HWndInsertAfter.HWND_TOPMOST,
-                            0, 0, 0, 0,
-                            SetWindowPosFlags.SWP_SHOWWINDOW | SetWindowPosFlags.SWP_NOMOVE | SetWindowPosFlags.SWP_NOSIZE | SetWindowPosFlags.SWP_FRAMECHANGED);
-                        WinAPI.ShowWindow (helper.Handle, (int) CMDShow.SW_SHOWNORMAL);
-                    } else if (wParam.ToInt32 () == 101) {
+                    if (wParam.ToInt32 () == 100) { //Ctrl+D
+                        if (this.Visibility == Visibility.Hidden || this.WindowState == WindowState.Minimized) {
+                            ViewModel.ShowWindow.Execute ().Subscribe ();
+                        } else {
+                            ViewModel.HideWindow.Execute ().Subscribe ();
+                        }
+
+                    } else if (wParam.ToInt32 () == 101) { //Ctrl+R
                         ViewModel.RunNodeTree.Execute ().Subscribe ();
-                    } else if (wParam.ToInt32 () == 102) {
+                    } else if (wParam.ToInt32 () == 102) { //Ctrl+W
                         ViewModel.KillNodeTree.Execute ().Subscribe ();
+                    } else if (wParam.ToInt32 () == 103) {
+                        ViewModel.RunProcess
+                            .Execute (ViewModel.OpenFileExplorer_args)
+                            .Subscribe ();
+                    } else if (wParam.ToInt32 () == 104) {
+                        ViewModel.RunProcess
+                            .Execute (ViewModel.KillFileExplorer_args)
+                            .Subscribe ();
                     }
                     break;
                 case WM_QUERYENDSESSION:
@@ -467,11 +528,11 @@ namespace DaemonKit {
             return IntPtr.Zero;
         }
 
-        static RegistryKey runKey = Registry.CurrentUser.OpenSubKey (@"SOFTWARE\Microsoft\Windows\CurrentVersion\Run", true);
+        //static RegistryKey runKey = Registry.CurrentUser.OpenSubKey (@"SOFTWARE\Microsoft\Windows\CurrentVersion\Run", true);
         const string appKey = "DaemonKit";
         private void syncSettings () {
             if (AppSettings.StartUp) {
-                runKey.SetValue (appKey, AppPathes.ExecutorPath);
+                //runKey.SetValue (appKey, AppPathes.ExecutorPath);
                 if (!TaskService.Instance.AllTasks.ToList ().Exists (_task => _task.Name == appKey)) {
                     TaskDefinition td = TaskService.Instance.NewTask ();
                     td.Principal.RunLevel = TaskRunLevel.Highest;
@@ -484,7 +545,7 @@ namespace DaemonKit {
                     NLogger.Info ("已设置开机启动.");
                 }
             } else {
-                runKey.DeleteValue (appKey, false);
+                //runKey.DeleteValue (appKey, false);
                 if (TaskService.Instance.AllTasks.ToList ().Exists (_task => _task.Name == appKey)) {
                     TaskService.Instance.RootFolder.DeleteTask (appKey, false);
                     NLogger.Info ("已取消开机启动.");
@@ -495,7 +556,7 @@ namespace DaemonKit {
                 createShortcutIfNotExists ();
             } else {
                 var _desktopDir = Environment.GetFolderPath (Environment.SpecialFolder.DesktopDirectory);
-                var _execLink = Path.Combine (_desktopDir, "软件运维中心.lnk");
+                var _execLink = Path.Combine (_desktopDir, "运维管家.lnk");
                 if (System.IO.File.Exists (_execLink)) {
                     System.IO.File.Delete (_execLink);
                     NLogger.Info ("已删除桌面快捷方式:{0}", _execLink);
@@ -508,7 +569,7 @@ namespace DaemonKit {
         /// </summary>
         private void createShortcutIfNotExists () {
             var _desktopDir = Environment.GetFolderPath (Environment.SpecialFolder.DesktopDirectory);
-            var _execLink = Path.Combine (_desktopDir, "软件运维中心.lnk");
+            var _execLink = Path.Combine (_desktopDir, "运维管家.lnk");
 
             if (System.IO.File.Exists (_execLink)) { return; }
             NLogger.Info ("已创建桌面快捷方式:{0}.", _execLink);
@@ -519,7 +580,7 @@ namespace DaemonKit {
 
             // WshShellClass wsh = new WshShellClass ();
             // IWshShortcut _shortcut = (IWshShortcut) wsh.CreateShortcut (_execLink);
-            _shortcut.IconLocation = Path.Combine (AppPathes.ResDir, "logo.ico");
+            _shortcut.IconLocation = Path.Combine (AppPathes.ResDir, "Icons/logo.ico");
             _shortcut.TargetPath = AppPathes.ExecutorPath;
             _shortcut.Save ();
         }

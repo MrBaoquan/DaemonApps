@@ -30,6 +30,7 @@ namespace DaemonKit {
                 RunAs = this.RunAs,
                 KeepTop = this.KeepTop,
                 NoDaemon = this.NoDaemon,
+                MinimizedStartUp = this.MinimizedStartUp,
                 Delay = this.Delay,
                 PosX = this.PosX,
                 PosY = this.PosY,
@@ -67,6 +68,7 @@ namespace DaemonKit {
             this.Name = DEFAULT_APP_NAME;
             this.KeepTop = false;
             this.NoDaemon = false;
+            this.MinimizedStartUp = false;
             this.RunAs = true;
             this.Path = "demo.exe";
 
@@ -84,6 +86,7 @@ namespace DaemonKit {
             this.Name = InMeta.Name;
             this.KeepTop = InMeta.KeepTop;
             this.NoDaemon = InMeta.NoDaemon;
+            this.MinimizedStartUp = InMeta.MinimizedStartUp;
             this.RunAs = InMeta.RunAs;
             this.Path = InMeta.Path;
             this.Arguments = InMeta.Arguments;
@@ -122,7 +125,10 @@ namespace DaemonKit {
         private bool keepTop = true;
         public bool KeepTop {
             get { return keepTop; }
-            set { this.RaiseAndSetIfChanged (ref keepTop, value); }
+            set {
+                this.RaiseAndSetIfChanged (ref keepTop, value);
+                if (value) NoDaemon = false;
+            }
         }
         public bool runAs = false;
         public bool RunAs {
@@ -133,7 +139,16 @@ namespace DaemonKit {
         private bool noDaemon = false;
         public bool NoDaemon {
             get { return noDaemon; }
-            set { this.RaiseAndSetIfChanged (ref noDaemon, value); }
+            set {
+                this.RaiseAndSetIfChanged (ref noDaemon, value);
+                if (value) KeepTop = false;
+            }
+        }
+
+        private bool minimizedStartUp = false;
+        public bool MinimizedStartUp {
+            get { return minimizedStartUp; }
+            set { this.RaiseAndSetIfChanged (ref minimizedStartUp, value); }
         }
 
         private int delay = 500;

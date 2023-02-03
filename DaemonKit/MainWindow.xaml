@@ -8,11 +8,6 @@
         xmlns:System="clr-namespace:System;assembly=System.Runtime" 
         xmlns:fa="http://schemas.fontawesome.io/icons/"
         xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes"
-        xmlns:reactiveui="http://reactiveui.net"
-        x:Class="DaemonKit.MainWindow"
-        x:TypeArguments="local:MainViewModel"
-        mc:Ignorable="d"
-        Title="软件运维中心" Height="500" Width="1000" ResizeMode="CanResizeWithGrip" MinWidth="800" MinHeight="450"
         TextElement.Foreground="{DynamicResource MaterialDesignBody}"
         TextElement.FontWeight="Regular"
         TextElement.FontSize="13"
@@ -20,43 +15,147 @@
         TextOptions.TextRenderingMode="Auto"        
         Background="{DynamicResource MaterialDesignPaper}"
         FontFamily="{DynamicResource MaterialDesignFont}"
+        xmlns:reactiveui="http://reactiveui.net"
+        xmlns:tb="clr-namespace:H.NotifyIcon;assembly=H.NotifyIcon.Wpf"
+        x:Class="DaemonKit.MainWindow"
+        x:TypeArguments="local:MainViewModel"
+        Topmost="True"
+        mc:Ignorable="d"
+        Title="运维管家" Height="500" Width="1000" ResizeMode="CanResizeWithGrip" MinWidth="800" MinHeight="450"   
+        WindowStartupLocation="CenterScreen"
     >
-
 
     <Window.Resources>
         <local:MainViewModel x:Key="MainVM" />
     </Window.Resources>
 
-    <Grid ShowGridLines="False">
+    <materialDesign:DialogHost Name="MainDialog" CloseOnClickAway="True">
         <DockPanel>
-            <Menu x:Name="MainMenu" DockPanel.Dock="Top" IsMainMenu="True" BorderBrush="LightGray" >
-                <MenuItem Header="_文件">
-                    <MenuItem Header="_打开" InputGestureText="Ctrl+D"  Icon="{materialDesign:PackIcon Kind=OpenInNew}">
-                        <MenuItem Header="进程目录" InputGestureText="Ctrl+1"  Icon="{materialDesign:PackIcon Kind=FolderOpenOutline}" Command="{Binding RunProcess}" CommandParameter="{Binding OpenAppRoot_args}"/>
-                        <MenuItem Header="资源管理器" InputGestureText="Ctrl+2"  Icon="{materialDesign:PackIcon Kind=FolderSearchOutline}" Command="{Binding RunProcess}" CommandParameter="{Binding OpenFileExplorer_args}"/>
-                        <MenuItem Header="命令行(CMD)" InputGestureText="Ctrl+T" Icon="{materialDesign:PackIcon Kind=ApplicationBracketsOutline}"  Command="{Binding RunProcess}" CommandParameter="{Binding OpenCMD_args}"/>
-                        <MenuItem Header="命令行(PowerShell)" InputGestureText="Ctrl+P" Icon="{materialDesign:PackIcon Kind=ApplicationBracketsOutline}" Command="{Binding RunProcess}" CommandParameter="{Binding OpenPowerShell_args}" />
+            <!-- 托盘图标 -->
+            <tb:TaskbarIcon
+                ToolTip="运维管家持续守护中..."
+                NoLeftClickDelay="True"
+                LeftClickCommand="{Binding ShowWindow}"
+                DoubleClickCommand="{Binding ShowWindow}"
+                IconSource="/Resources/logo.ico"
+            >
+                <tb:TaskbarIcon.TrayToolTip>
+                    <Border
+                       Background="WhiteSmoke"
+                        CornerRadius="4"
+                        Opacity="0.9"
+                        Height="25"
+                    >
+                        <TextBlock
+                            Foreground="Black"
+                            Text="运维管家持续守护中..."
+                            Padding="5 2 5 2"
+                            HorizontalAlignment="Right"
+                            VerticalAlignment="Center"
+                        />
+                    </Border>
+                </tb:TaskbarIcon.TrayToolTip>
+                <tb:TaskbarIcon.ContextMenu>
+                    <ContextMenu>
+                        <MenuItem Header="打开面板" Command="{Binding ShowWindow}">
+                            <MenuItem.Icon>
+                                <Image Width="16" Height="16" Source="/Resources/Icons/show-panel.png" />
+                            </MenuItem.Icon>
+                        </MenuItem>
+                        <MenuItem Header="设置"  Command="{Binding OpenSettings}">
+                            <MenuItem.Icon>
+                                <Image Width="16" Height="16" Source="/Resources/Icons/settings.png" />
+                            </MenuItem.Icon>
+                        </MenuItem>
+                        <MenuItem Header="退出" Command="{Binding Quit}" >
+                            <MenuItem.Icon>
+                                <Image Width="16" Height="16" Source="/Resources/Icons/quit.png" />
+                            </MenuItem.Icon>
+                        </MenuItem>
+                    </ContextMenu>
+                </tb:TaskbarIcon.ContextMenu>
+            </tb:TaskbarIcon>
+            <DockPanel>
+            <Grid DockPanel.Dock="Top" >
+                <Grid.ColumnDefinitions >
+                    <ColumnDefinition Width="2*"></ColumnDefinition>
+                    <ColumnDefinition Width="*"></ColumnDefinition>
+                </Grid.ColumnDefinitions>
+                <Menu Grid.Row="0" Grid.Column="0" x:Name="MainMenu"  IsMainMenu="True" BorderBrush="LightGray" >
+                    <MenuItem Header="_文件">
+                            <MenuItem Header="_打开" InputGestureText="Ctrl+D"  Icon="{materialDesign:PackIcon Kind=OpenInNew}">
+                                <MenuItem Header="进程目录" InputGestureText="Ctrl+1"  Icon="{materialDesign:PackIcon Kind=FolderOpenOutline}" Command="{Binding RunProcess}" CommandParameter="{Binding OpenAppRoot_args}"/>
+                                <MenuItem Header="资源管理器" InputGestureText="Ctrl+2"  Icon="{materialDesign:PackIcon Kind=FolderSearchOutline}" Command="{Binding RunProcess}" CommandParameter="{Binding OpenFileExplorer_args}"/>
+                                <MenuItem Header="命令行(CMD)" InputGestureText="Ctrl+T" Icon="{materialDesign:PackIcon Kind=ApplicationBracketsOutline}"  Command="{Binding RunProcess}" CommandParameter="{Binding OpenCMD_args}"/>
+                                <MenuItem Header="命令行(PowerShell)" InputGestureText="Ctrl+P" Icon="{materialDesign:PackIcon Kind=ApplicationBracketsOutline}" Command="{Binding RunProcess}" CommandParameter="{Binding OpenPowerShell_args}" />
+                            </MenuItem>
+                            <Separator />
+                            <MenuItem Icon="{materialDesign:PackIcon Kind=Settings}" Header="设置" Command="{Binding OpenSettings}"/>
+                        </MenuItem>
+                        <MenuItem Header="_功能">
+                            <MenuItem Icon="{materialDesign:PackIcon Kind=RemoteDesktop}" Header="联调面板" Command="{Binding OpenRemotePanel}"/>
+                        <Separator/>
+                        <MenuItem Header="_文件夹共享" Icon="{materialDesign:PackIcon Kind=ShareVariant}">
+                            <MenuItem Header="打开共享"  Command="{Binding SMBShare}" />
+                            <MenuItem Header="关闭共享"  Command="{Binding SMBUnshare}"/>
+                        </MenuItem>
                     </MenuItem>
-                    <Separator/>
-                    <MenuItem Icon="{materialDesign:PackIcon Kind=Settings}" Header="设置" Command="{Binding OpenSettings}"/>
-                </MenuItem>
-                <MenuItem Header="_功能">
-                    <MenuItem Icon="{materialDesign:PackIcon Kind=RemoteDesktop}" Header="联调面板" Command="{Binding OpenRemotePanel}"/>
-                    <Separator/>
-                    <MenuItem Header="_文件夹共享" InputGestureText="Ctrl+D"  Icon="{materialDesign:PackIcon Kind=ShareVariant}">
-                        <MenuItem Header="打开共享"  Command="{Binding SMBShare}" />
-                        <MenuItem Header="关闭共享"  Command="{Binding SMBUnshare}"/>
-                    </MenuItem>
-                </MenuItem>
-                <MenuItem Header="_帮助">
-                    <MenuItem Header="版本更新" Icon="{materialDesign:PackIcon Kind=Update}" Command="{Binding RunProcess}" CommandParameter="{Binding OpenUpdatePage_args}" />
-                    <MenuItem Header="关于DaemonKit" Icon="{materialDesign:PackIcon Kind=Help}" />
-                </MenuItem>
-            </Menu>
-            <StatusBar x:Name="statusbar" DockPanel.Dock="Bottom" Height="20" VerticalAlignment="Bottom">
-                
-            </StatusBar>
-            <Grid ShowGridLines="False">
+                    <MenuItem Header="_帮助">
+                            <MenuItem Header="快捷键说明" Icon="{materialDesign:PackIcon Kind=Help}"  
+                                      Command="{x:Static materialDesign:DialogHost.OpenDialogCommand}">
+                                <MenuItem.CommandParameter>
+                                    <StackPanel Margin="30">
+                                        <TextBlock Text="Ctrl + W           终止进程树" Padding="0 5 0 5"/>
+                                        <TextBlock Text="Ctrl + R           启动进程树" Padding="0 5 0 5"/>
+                                        <TextBlock Text="Ctrl + D           [显示/隐藏]窗口" Padding="0 5 0 5"/>
+                                        <TextBlock Text="Ctrl + Shift + W   关闭桌面进程" Padding="0 5 0 5"/>
+                                        <TextBlock Text="Ctrl + Shift + E   启用桌面进程" Padding="0 5 0 5"/>
+                                    </StackPanel>
+                                    
+                                </MenuItem.CommandParameter>
+                            </MenuItem>
+                            <MenuItem Header="版本更新" Icon="{materialDesign:PackIcon Kind=Update}" Command="{Binding RunProcess}" CommandParameter="{Binding OpenUpdatePage_args}" />
+                        </MenuItem>
+                </Menu>
+                <DockPanel Grid.Row="0" Grid.Column="1">
+                    <materialDesign:PopupBox
+                        HorizontalAlignment="Right"
+                        IsEnabled="{Binding DataContext.ControlsEnabled, RelativeSource={RelativeSource FindAncestor, AncestorType=Window}}"
+                        PlacementMode="LeftAndAlignMiddles"
+                        Width="28"
+                        Height="28"
+                        Margin="0 0 15 0"
+                        Style="{StaticResource MaterialDesignMultiFloatingActionAccentPopupBox}"
+                        Background="White"
+                        BorderBrush="White"
+                        ToolTip="电源管理"
+                        ToolTipService.Placement="Left">
+                        <materialDesign:PopupBox.ToggleContent>
+                            <materialDesign:PackIcon Foreground="Red" Kind="Power"/>
+                        </materialDesign:PopupBox.ToggleContent>
+                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                            <Button  Style="{StaticResource MaterialDesignIconButton}" Command="{Binding ShutdownSystem}" ToolTip="关闭计算机" Width="24" Height="24" Margin="0 0 10 0">
+                                <materialDesign:PackIcon Kind="Power" />
+                            </Button>
+                            <Button  Style="{StaticResource MaterialDesignIconButton}" Command="{Binding RestartSystem}" ToolTip="重启计算机" Width="24" Height="24" Margin="0 0 10 0">
+                                <materialDesign:PackIcon Kind="Restart" />
+                            </Button>
+                        </StackPanel>
+                    </materialDesign:PopupBox>
+                </DockPanel>
+            </Grid>
+            
+            <!-- 状态栏 -->
+                <StatusBar x:Name="statusbar" DockPanel.Dock="Bottom" Height="27" VerticalAlignment="Bottom" >
+                    <StatusBarItem HorizontalAlignment="Right">
+                        <StackPanel Orientation="Horizontal">
+                            <materialDesign:PackIcon Kind="Alarm" Foreground="DarkSlateGray" />
+                            <TextBlock Name="clockText" Foreground="DarkSlateGray" Margin="10 0 30 0" Text="2023-02-01 00:00:00"></TextBlock>
+                        </StackPanel>
+                    </StatusBarItem>
+                </StatusBar>
+
+                <Grid ShowGridLines="False">
                 <Grid.RowDefinitions>
                     <RowDefinition Height="*"/>
                 </Grid.RowDefinitions>
@@ -71,23 +170,17 @@
                     <TreeView x:Name="ProcessTree" VerticalContentAlignment="Stretch" HorizontalAlignment="Stretch" DataContext="{Binding}">
                         <TreeView.Resources>
                             <ContextMenu x:Key="RootMenu">
-                                <MenuItem Header="设置备注" 
-Command="{Binding RelativeSource={RelativeSource FindAncestor, AncestorType={x:Type Window}, AncestorLevel=1}, Path=DataContext.EnableNameInput}"
-CommandParameter="{Binding RelativeSource={RelativeSource Self},Path=DataContext}" />
-                                <MenuItem Header="添加子节点" 
-Command="{Binding RelativeSource={RelativeSource FindAncestor, AncestorType={x:Type Window}, AncestorLevel=1}, Path=DataContext.AddTreeNode}" />
+                                <MenuItem Header="设置备注" Command="{Binding RelativeSource={RelativeSource FindAncestor, AncestorType={x:Type Window}, AncestorLevel=1}, Path=DataContext.EnableNameInput}"
+                                    CommandParameter="{Binding RelativeSource={RelativeSource Self},Path=DataContext}" />
+                                <MenuItem Header="添加子节点" Command="{Binding RelativeSource={RelativeSource FindAncestor, AncestorType={x:Type Window}, AncestorLevel=1}, Path=DataContext.AddTreeNode}" />
                             </ContextMenu>
                             <ContextMenu x:Key="ChildMenu">
-                                <MenuItem Header="打开所在文件夹" 
-Command="{Binding RelativeSource={RelativeSource FindAncestor, AncestorType={x:Type Window}, AncestorLevel=1}, Path=DataContext.ShowInExplorer}" />
-                                <MenuItem Header="编辑结点信息"
-Command="{Binding RelativeSource={RelativeSource FindAncestor, AncestorType={x:Type Window}, AncestorLevel=1}, Path=DataContext.EditTreeNode}" />
+                                <MenuItem Header="打开所在文件夹" Command="{Binding RelativeSource={RelativeSource FindAncestor, AncestorType={x:Type Window}, AncestorLevel=1}, Path=DataContext.ShowInExplorer}" />
+                                <MenuItem Header="编辑结点信息" Command="{Binding RelativeSource={RelativeSource FindAncestor, AncestorType={x:Type Window}, AncestorLevel=1}, Path=DataContext.EditTreeNode}" />
                                 <Separator/>
                                 <MenuItem Header="节点操作">
-                                    <MenuItem Header="添加子节点" 
-Command="{Binding RelativeSource={RelativeSource FindAncestor, AncestorType={x:Type Window}, AncestorLevel=1}, Path=DataContext.AddTreeNode}" />
-                                    <MenuItem Header="删除该节点" 
-Command="{Binding RelativeSource={RelativeSource FindAncestor, AncestorType={x:Type Window}, AncestorLevel=1}, Path=DataContext.DeleteTreeNode}" />
+                                    <MenuItem Header="添加子节点" Command="{Binding RelativeSource={RelativeSource FindAncestor, AncestorType={x:Type Window}, AncestorLevel=1}, Path=DataContext.AddTreeNode}" />
+                                    <MenuItem Header="删除该节点" Command="{Binding RelativeSource={RelativeSource FindAncestor, AncestorType={x:Type Window}, AncestorLevel=1}, Path=DataContext.DeleteTreeNode}" />
                                 </MenuItem>
                             </ContextMenu>
                         </TreeView.Resources>
@@ -265,5 +358,6 @@ Command="{Binding RelativeSource={RelativeSource FindAncestor, AncestorType={x:T
 
             </Grid>
         </DockPanel>
-    </Grid>
+    </DockPanel>
+    </materialDesign:DialogHost>
 </reactiveui:ReactiveWindow>

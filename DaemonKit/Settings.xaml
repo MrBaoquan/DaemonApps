@@ -10,7 +10,8 @@
         xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes"
         xmlns:reactiveui="http://reactiveui.net"
         mc:Ignorable="d"
-        Title="设置" Height="400" Width="400">
+        WindowStartupLocation="CenterScreen"
+        Title="设置" Height="480" Width="400">
     <Grid>
         <Grid.ColumnDefinitions>
             <ColumnDefinition Width="1*"/>
@@ -19,12 +20,20 @@
         </Grid.ColumnDefinitions>
         <StackPanel Orientation="Vertical" Margin="20 30 20 20" Grid.Column="1">
             <DockPanel  Height="30" VerticalAlignment="Center">
+                <TextBlock VerticalAlignment="Center" Padding="0 0 20 0">桌面快捷方式</TextBlock>
+                <ToggleButton HorizontalAlignment="Right" Style="{StaticResource MaterialDesignSwitchLightToggleButton}" ToolTip="桌面快捷方式" IsChecked="{Binding Path=ShortCut, Mode=TwoWay}" />
+            </DockPanel>
+            <DockPanel  Height="30" VerticalAlignment="Center">
                 <TextBlock VerticalAlignment="Center" Padding="0 0 20 0">开机启动</TextBlock>
                 <ToggleButton HorizontalAlignment="Right" Style="{StaticResource MaterialDesignSwitchLightToggleButton}" ToolTip="开机启动" IsChecked="{Binding Path=StartUp, Mode=TwoWay}" />
             </DockPanel>
             <DockPanel  Height="30" VerticalAlignment="Center">
-                <TextBlock VerticalAlignment="Center" Padding="0 0 20 0">桌面快捷方式</TextBlock>
-                <ToggleButton HorizontalAlignment="Right" Style="{StaticResource MaterialDesignSwitchLightToggleButton}" ToolTip="开机启动" IsChecked="{Binding Path=ShortCut, Mode=TwoWay}" />
+                <TextBlock VerticalAlignment="Center" Padding="0 0 20 0">启动后最小化运行</TextBlock>
+                <ToggleButton HorizontalAlignment="Right" Style="{StaticResource MaterialDesignSwitchLightToggleButton}" ToolTip="启动后最小化运行" IsChecked="{Binding Path=MinimizeStartUp, Mode=TwoWay}" />
+            </DockPanel>
+            <DockPanel  Height="30" VerticalAlignment="Center">
+                <TextBlock VerticalAlignment="Center" Padding="0 0 20 0">启动后禁用桌面</TextBlock>
+                <ToggleButton HorizontalAlignment="Right" Style="{StaticResource MaterialDesignSwitchLightToggleButton}" ToolTip="启动后禁用桌面" IsChecked="{Binding Path=DisableExplorer, Mode=TwoWay}" />
             </DockPanel>
 
             <TextBox Style="{StaticResource MaterialDesignFloatingHintTextBox}" Margin="0 0" FontSize="15" Text="{Binding DelayDaemon}" VerticalAlignment="Center" materialDesign:TextFieldAssist.SuffixText="ms" Cursor="IBeam">
