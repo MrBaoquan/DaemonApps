@@ -2,9 +2,11 @@ using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Diagnostics;
+using System.IO;
 using System.Linq;
 using System.Reactive;
 using System.Reactive.Linq;
+using System.Threading;
 using System.Windows;
 using System.Xml.Serialization;
 using DNHper;
@@ -30,6 +32,12 @@ namespace DaemonKit.Core {
 
         [XmlAttribute]
         public bool NoDaemon = false;
+
+        [XmlAttribute]
+        public bool MoveWindow = false;
+
+        [XmlAttribute]
+        public bool ResizeWindow = false;
 
         [XmlAttribute]
         public bool MinimizedStartUp = false;
@@ -111,15 +119,18 @@ namespace DaemonKit.Core {
             });
 
             this.ToggleEnableCommand.Subscribe (_isEnable => {
-                Children.ToList ().ForEach (_child => {
-                    _child.MetaData.Enable = _isEnable;
-                    _child.Enable = _isEnable;
-                });
+                Children.ToList ()
+                    .ForEach (_child => {
+                        _child.MetaData.Enable = _isEnable;
+                        _child.Enable = _isEnable;
+                    });
             });
 
             this.WhenAnyValue (x => x.Enable)
                 .Subscribe (_isEnable => {
-                    KillNode ();
+                    if (!_isEnable) {
+                        KillNode ();
+                    }
                     BtnRunVisibility = _isEnable?Visibility.Visible : Visibility.Hidden;
                 });
 
@@ -141,6 +152,9 @@ namespace DaemonKit.Core {
                 NameField = Name;
             }
         }
+
+        [XmlIgnore]
+        public string ProcessName => System.IO.Path.GetFileName (metaData.Path);
 
         [XmlIgnore]
         public ReactiveCommand<Unit, Unit> RunNodeCommand { get; protected set; }
@@ -165,9 +179,28 @@ namespace DaemonKit.Core {
         private IDisposable m_runChildDisposables;
         // 执行节点任务
         public void RunNode () {
-            if (Enable) {
-                ProcManager.DaemonProcess (NodePath, metaData);
-                daemonNode ();
+            if (!IsSuperRoot && !File.Exists (NodePath)) {
+                NLogger.Error ($"{NodePath} 不存在，请检查");
+                Status = -1;
+                return;
+            }
+
+            if (Enable && !IsSuperRoot) {
+
+                try {
+                    ProcManager.DaemonProcess (NodePath, metaData, _process => {
+                        NLogger.Warn ($"进程{ProcessName}就绪, PID: {_process.Id}");
+                        // 程序打开完成，窗口准备就绪 
+                        nodeProcess = _process;
+                        // 预先置顶窗口     
+                        preKeepTop ();
+                    });
+                    // 按照时序进行置顶         保证窗口置顶先后顺序正确
+                    daemonNode ();
+                } catch (System.Exception err) {
+                    NLogger.Error (err.Message);
+                }
+
             }
 
             if (_runNodeHandler != null) {
@@ -181,18 +214,21 @@ namespace DaemonKit.Core {
                     _child.Status = 0;
                 });
                 _runNodeHandler = Observable.Merge (
-                    Children.Select (
-                        _child => Observable.Timer (TimeSpan.FromMilliseconds (_child.MetaData.Delay))
-                        .Select (_ => _child)
+                        Children.Select (
+                            _child => Observable
+                            .Timer (TimeSpan.FromMilliseconds (_child.MetaData.Delay))
+                            .Select (_ => _child)
+                        )
                     )
-                ).Subscribe (_childNode => {
-                    _childNode.RunNode ();
-                }, () => {
-                    if (_runNodeHandler != null) {
-                        _runNodeHandler.Dispose ();
-                        _runNodeHandler = null;
-                    }
-                });
+                    .ObserveOn (RxApp.MainThreadScheduler)
+                    .Subscribe (_childNode => {
+                        _childNode.RunNode ();
+                    }, () => {
+                        if (_runNodeHandler != null) {
+                            _runNodeHandler.Dispose ();
+                            _runNodeHandler = null;
+                        }
+                    });
             };
 
             // 进程树ROOT根节点延迟启动
@@ -202,7 +238,8 @@ namespace DaemonKit.Core {
                 }
                 Status = 0;
                 NLogger.Info ("启动进程树, Delay:{0}", delayDaemon);
-                m_runChildDisposables = Observable.Timer (TimeSpan.FromMilliseconds (delayDaemon))
+                m_runChildDisposables = Observable
+                    .Timer (TimeSpan.FromMilliseconds (delayDaemon))
                     .Subscribe (_ => {
                         _runChildNode ();
                         Status = 1;
@@ -223,23 +260,36 @@ namespace DaemonKit.Core {
         [XmlIgnore]
         private int currentError = 0;
 
+        IDisposable preKeepTopHandler = null;
+        private void preKeepTop () {
+            NLogger.Info ($"{ProcessName}窗口预调整开始");
+            KeepTop ();
+            preKeepTopHandler = Observable.Timer (TimeSpan.FromMilliseconds (500), TimeSpan.FromMilliseconds (1500))
+                .Take (2)
+                .Subscribe (_ => {
+                    KeepTop ();
+                }, () => {
+                    NLogger.Info ($"{ProcessName}窗口预调整结束");
+                });
+        }
         private void daemonNode () {
-            if (IsSuperRoot) return;
             if (metaData.NoDaemon) return;
 
             NLogger.Info ("开始守护进程:{0}", NodePath);
-
             currentError = 0;
             // 进程启动后, 根据守护间隔进行守护
             daemonHandler = Observable.Interval (TimeSpan.FromMilliseconds (daemonInterval))
                 .Skip (1)
-                .Subscribe (_ => {
-                    var _process = WinAPI.FindProcess (NodePath);
-                    if (_process == default (Process)) {
+                .ObserveOn (RxApp.MainThreadScheduler)
+                .Subscribe (_daemonCount => {
+                    if (nodeProcess == null) return;
+                    if (!ProcManager.IsProcessExists (NodePath)) {
+                        //if (nodeProcess.HasExited) { //TODO: 这种方式感觉不稳定     有待后续测试
                         NLogger.Warn ("进程:{0} 已退出，正在尝试重新启动进程链...", NodePath);
                         RootNode.KillNode ();
                         RootNode.RunNode ();
-                    } else if (!_process.Responding) {
+                        return;
+                    } else if (!nodeProcess.Responding) {
                         ++currentError;
                         NLogger.Warn ("进程:{0} 未响应，容忍度: {1}/{2}", NodePath, currentError, maxError);
                         if (currentError >= maxError) {
@@ -250,23 +300,37 @@ namespace DaemonKit.Core {
                         }
                     }
                     // 如果需要窗口置顶, 则在守护间隔前3次尝试置顶
-                    if ((metaData.KeepTop ||
-                            !(metaData.PosX == metaData.PosY && metaData.PosX == 0) || // 需要改变位置
-                            !(metaData.Width == metaData.Height && metaData.Width == 0) // 需要改变大小
-                        ) &&
-                        _ <= 3) {
-                        NLogger.Info ($"尝试调整窗口:{NodePath} 第{_}次");
-
-                        ProcManager.KeepTopWindow (
-                            _process.MainWindowHandle, metaData.PosX, metaData.PosY, metaData.Width, metaData.Height,
-                            (int) (metaData.KeepTop?HWndInsertAfter.HWND_TOPMOST : HWndInsertAfter.HWND_NOTOPMOST)
-                        );
-                        WinAPI.ShowWindow (_process.MainWindowHandle, (int) CMDShow.SW_SHOW);
-                        if (_ == 3) {
-                            NLogger.Info ($"尝试调整窗口:{NodePath} 任务结束");
+                    if (_daemonCount <= 3) {
+                        NLogger.Info ($"尝试调整窗口:{ProcessName} 第{_daemonCount}次");
+                        KeepTop ();
+                        if (_daemonCount == 3) {
+                            NLogger.Info ($"尝试调整窗口:{ProcessName} 任务结束");
                         }
                     }
                 });
+        }
+
+        protected Process nodeProcess { get; set; } = null;
+        public void KeepTop () {
+            if (nodeProcess == null) return;
+            var _process = nodeProcess;
+            try {
+                WinAPI.SetWindowPos (_process.MainWindowHandle,
+                    (int) (HWndInsertAfter.HWND_TOPMOST),
+                    metaData.PosX, metaData.PosY, metaData.Width, metaData.Height,
+                    (metaData.MinimizedStartUp?SetWindowPosFlags.SWP_HIDEWINDOW : SetWindowPosFlags.SWP_SHOWWINDOW) |
+                    (metaData.MoveWindow? 0x00 : SetWindowPosFlags.SWP_NOMOVE) |
+                    (metaData.ResizeWindow?0x00 : SetWindowPosFlags.SWP_NOSIZE) |
+                    (metaData.KeepTop?0x00 : SetWindowPosFlags.SWP_NOZORDER) |
+                    SetWindowPosFlags.SWP_FRAMECHANGED);
+                if (metaData.KeepTop) {
+                    WinAPI.ShowWindow (_process.MainWindowHandle, (int) CMDShow.SW_SHOW);
+                    WinAPI.SetForegroundWindow (_process.MainWindowHandle);
+                }
+            } catch (System.Exception e) {
+                NLogger.Error (e.Message);
+            }
+
         }
 
         public void KillNode () {
@@ -281,22 +345,36 @@ namespace DaemonKit.Core {
                 daemonHandler = null;
             }
 
-            if (this.IsSuperRoot) {
+            if (preKeepTopHandler != null) {
+                preKeepTopHandler.Dispose ();
+                preKeepTopHandler = null;
+            }
+
+            if (this.IsSuperRoot && Status != -1) {
                 NLogger.Info ("终止进程树..");
             }
 
             Status = -1;
-            ProcManager.KillProcess (NodePath);
+            if (nodeProcess != null) {
+                ProcManager.KillProcess (NodePath); // 杀掉所有同名进程 
+            }
+
+            // if (nodeProcess != null)
+            //     nodeProcess.Kill ();
+            nodeProcess = null;
             Children.ToList ().ForEach (_child => {
                 _child.KillNode ();
             });
         }
 
         public void SyncEnable () {
-            new List<ProcessItem> { this }.Flatten<ProcessItem> (_item => _item.Children).ToList ().ForEach (_child => {
-                _child.MetaData.Enable = Enable;
-                _child.Enable = Enable;
-            });
+            new List<ProcessItem> { this }
+                .Flatten<ProcessItem> (_item => _item.Children)
+                .ToList ()
+                .ForEach (_child => {
+                    _child.MetaData.Enable = Enable;
+                    _child.Enable = Enable;
+                });
         }
 
         public void EnableNameInput () {

@@ -19,7 +19,7 @@ namespace DaemonKit {
         public bool ShortCut { get; set; } = true;
         public int DelayDaemon { get; set; } = 500;
         public int DaemonInterval { get; set; } = 5000;
-        public int ErrorCount { get; set; } = 1;
+        public int ErrorCount { get; set; } = 5;
         public string CrashWindows { get; set; } = string.Empty;
     }
 
