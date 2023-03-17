@@ -1,7 +1,9 @@
 ﻿using System;
 using System.Diagnostics;
+using System.Reactive.Linq;
+using System.Threading;
 using DNHper;
-
+using ReactiveUI;
 namespace DaemonKit.Core {
     class ProcManager {
         public static bool KeepTopWindow (string ProcessFileName, int posX = 0, int posY = 0, int width = 0, int height = 0, int topMost = (int) HWndInsertAfter.HWND_TOPMOST) {
@@ -34,8 +36,32 @@ namespace DaemonKit.Core {
         }
 
         // 守护进程
-        public static void DaemonProcess (string Path, ProcessMetaData metaData) {
+        public static void DaemonProcess (string Path, ProcessMetaData metaData, Action<Process> onStarted = null) {
             if (System.IO.Path.IsPathRooted (Path)) {
+                Process _process = new Process ();
+                _process.StartInfo = new ProcessStartInfo {
+                    FileName = Path,
+                    Arguments = metaData.Arguments,
+                    CreateNoWindow = true,
+                    UseShellExecute = false,
+                    Verb = metaData.RunAs? "runas": "",
+                    WorkingDirectory = System.IO.Path.GetDirectoryName (Path),
+                    WindowStyle = metaData.MinimizedStartUp?ProcessWindowStyle.Minimized : ProcessWindowStyle.Normal
+                };
+                _process.Start ();
+                Observable
+                    .Start (() => {
+                        try {
+                            _process.WaitForInputIdle ();
+                        } catch (System.Exception e) {
+                            NLogger.Error (e.Message);
+                        }
+                        return _process;
+                    })
+                    .ObserveOn (RxApp.MainThreadScheduler)
+                    .Subscribe (_process => {
+                        if (onStarted != null) onStarted (_process);
+                    });
                 // 如果进程未打开则打开该程序
                 if (WinAPI.OpenProcessIfNotOpend (Path, new ProcessStartInfo {
                         FileName = Path,
@@ -51,11 +77,14 @@ namespace DaemonKit.Core {
             }
         }
 
+        public static bool IsProcessExists (string Path) {
+            return WinAPI.FindProcess (Path) != default (Process);
+        }
+
         public static void KillProcess (string Path) {
-            var _process = WinAPI.FindProcess (Path);
-            if (_process == default (Process)) return;
-            _process.Kill ();
+            WinAPI.KillProcesses (Path);
             NLogger.Info ("已终止进程: {0}", Path);
         }
+
     }
 }

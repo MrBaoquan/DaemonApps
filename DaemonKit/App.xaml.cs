@@ -17,18 +17,36 @@ namespace DaemonKit {
     /// Interaction logic for App.xaml
     /// </summary>
     public partial class App : Application {
-
         public App () {
             Locator.CurrentMutable.RegisterViewsForViewModels (Assembly.GetCallingAssembly ());
         }
         protected override void OnStartup (StartupEventArgs e) {
-            var _currentProcessFileName = Process.GetCurrentProcess ().MainModule.FileName;
+
+            var _curProcess = Process.GetCurrentProcess ();
+            var _currentProcessFileName = _curProcess.MainModule.FileName;
             var _processName = Path.GetFileNameWithoutExtension (_currentProcessFileName);
-            if (Process.GetProcessesByName (_processName).Count () > 1) {
-                App.Current.Shutdown ();
-                return;
-            };
+            var _processes = Process.GetProcessesByName (_processName);
+            if (_processes.Count () > 1) {
+                var _anotherApp = _processes.Where (_process => _process.Id != _curProcess.Id).FirstOrDefault ();
+
+                if (_anotherApp.MainModule.FileName == _curProcess.MainModule.FileName) {
+                    WinAPI.SendMessage (_anotherApp.MainWindowHandle, 0x0312, 99, new System.Text.StringBuilder ("0")); // 发送消息显示窗口
+                    Shutdown ();
+                    return;
+                } else {
+                    _anotherApp.Kill();
+                    //if (_anotherApp.MainWindowHandle == IntPtr.Zero) {
+                    //    Shutdown ();
+                    //    return;
+                    //}
+                    //WinAPI.SendMessage (_anotherApp.MainWindowHandle, 0x0312, 88, new System.Text.StringBuilder ("0")); // 发送消息退出程序
+                }
+            }
             base.OnStartup (e);
+        }
+
+        protected override void OnExit (ExitEventArgs e) {
+            base.OnExit (e);
         }
 
         //

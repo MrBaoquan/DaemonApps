@@ -29,6 +29,8 @@ namespace DaemonKit {
                 Arguments = this.Arguments,
                 RunAs = this.RunAs,
                 KeepTop = this.KeepTop,
+                MoveWindow = this.MoveWindow,
+                ResizeWindow = this.ResizeWindow,
                 NoDaemon = this.NoDaemon,
                 MinimizedStartUp = this.MinimizedStartUp,
                 Delay = this.Delay,
@@ -50,6 +52,10 @@ namespace DaemonKit {
             openFileDialog.Filter = "可执行文件(*.exe)|*.exe";
             openFileDialog.FileOk += (o, args) => {
                 var _path = openFileDialog.FileName;
+                if (_path == AppPathes.ExecutorPath) {
+                    MessageBox.Show ("大胆! 你不能选择管家进程!");
+                    return;
+                }
                 Path = _path.Replace (AppPathes.AppDir + "\\", "");
                 DNHper.NLogger.Info (Path);
                 if (Name == DEFAULT_APP_NAME || Name == string.Empty)
@@ -69,8 +75,15 @@ namespace DaemonKit {
             this.KeepTop = false;
             this.NoDaemon = false;
             this.MinimizedStartUp = false;
+            this.MoveWindow = false;
+            this.ResizeWindow = false;
             this.RunAs = true;
             this.Path = "demo.exe";
+            this.Delay = 500;
+            this.PosX = 0;
+            this.PosY = 0;
+            this.Width = 0;
+            this.Height = 0;
 
             openFileDialog.InitialDirectory = AppPathes.AppDir;
             if (!File.Exists (System.IO.Path.Combine (AppPathes.AppDir, "demo.exe"))) {
@@ -90,6 +103,8 @@ namespace DaemonKit {
             this.RunAs = InMeta.RunAs;
             this.Path = InMeta.Path;
             this.Arguments = InMeta.Arguments;
+            this.MoveWindow = InMeta.MoveWindow;
+            this.ResizeWindow = InMeta.ResizeWindow;
             this.Delay = InMeta.Delay;
             this.PosX = InMeta.PosX;
             this.PosY = InMeta.PosY;
@@ -122,12 +137,26 @@ namespace DaemonKit {
         public string arguments = string.Empty;
         public string Arguments { get => arguments; set => this.RaiseAndSetIfChanged (ref arguments, value); }
 
+        public bool moveWindow = false;
+        public bool MoveWindow {
+            get { return moveWindow; }
+            set { this.RaiseAndSetIfChanged (ref moveWindow, value); }
+        }
+
+        public bool resizeWindow = false;
+        public bool ResizeWindow {
+            get { return resizeWindow; }
+            set { this.RaiseAndSetIfChanged (ref resizeWindow, value); }
+        }
+
         private bool keepTop = true;
         public bool KeepTop {
             get { return keepTop; }
             set {
                 this.RaiseAndSetIfChanged (ref keepTop, value);
-                if (value) NoDaemon = false;
+                if (value) {
+                    this.MinimizedStartUp = false;
+                }
             }
         }
         public bool runAs = false;
@@ -141,14 +170,20 @@ namespace DaemonKit {
             get { return noDaemon; }
             set {
                 this.RaiseAndSetIfChanged (ref noDaemon, value);
-                if (value) KeepTop = false;
             }
         }
 
         private bool minimizedStartUp = false;
         public bool MinimizedStartUp {
             get { return minimizedStartUp; }
-            set { this.RaiseAndSetIfChanged (ref minimizedStartUp, value); }
+            set {
+                this.RaiseAndSetIfChanged (ref minimizedStartUp, value);
+                if (value) {
+                    this.KeepTop = false;
+                    this.MoveWindow = false;
+                    this.ResizeWindow = false;
+                }
+            }
         }
 
         private int delay = 500;
