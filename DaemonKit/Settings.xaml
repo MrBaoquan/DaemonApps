@@ -11,7 +11,7 @@
         xmlns:reactiveui="http://reactiveui.net"
         mc:Ignorable="d"
         WindowStartupLocation="CenterScreen"
-        Title="设置" Height="480" Width="400">
+        Title="设置" Height="480" Width="430">
     <Grid>
         <Grid.ColumnDefinitions>
             <ColumnDefinition Width="1*"/>
@@ -60,13 +60,13 @@
             <TextBox Style="{StaticResource MaterialDesignFloatingHintTextBox}" Margin="0 0" FontSize="15" Text="{Binding CrashWindows}" VerticalAlignment="Center" Cursor="IBeam">
                 <materialDesign:HintAssist.Hint>
                     <StackPanel Orientation="Horizontal" Margin="0 0 0 0">
-                        <TextBlock Text="Crash进程(多个进程以|隔开)" />
+                        <TextBlock Text="Crash进程(多个进程以|隔开, 无需加后缀名)" />
                     </StackPanel>
                 </materialDesign:HintAssist.Hint>
             </TextBox>
 
             <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="0 50 0 0">
-                <Button Style="{StaticResource MaterialDesignRaisedButton}" Margin="15 0" Content="应用" Command="{Binding Confirm}" />
+                <Button Style="{StaticResource MaterialDesignRaisedButton}" Margin="15 0" Content="应用" Command="{Binding Confirm}" Cursor="Hand" />
                 <Button Margin="5 0" Style="{StaticResource MaterialDesignRaisedButton}" Content="取消" Command="{Binding Cancel}" />
             </StackPanel>
         </StackPanel>

@@ -1,0 +1,52 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:LicenseMaker.ViewModels"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        mc:Ignorable="d" d:DesignWidth="520" d:DesignHeight="320"
+        x:Class="LicenseMaker.Views.MainWindow"
+        x:DataType="vm:MainWindowViewModel"
+        Icon="/Assets/avalonia-logo.ico"
+        Title="LicenseMaker"
+	    
+		Width="520" Height="320" 
+		SizeToContent="Manual"
+        
+		xmlns:wpf="clr-namespace:Material.Styles.Assists;assembly=Material.Styles"
+        xmlns:showMeTheXaml="clr-namespace:ShowMeTheXaml;assembly=ShowMeTheXaml.Avalonia"
+        xmlns:system="clr-namespace:System;assembly=System.Runtime"
+        xmlns:styles="clr-namespace:Material.Styles;assembly=Material.Styles"
+        xmlns:avalonia="clr-namespace:Material.Icons.Avalonia;assembly=Material.Icons.Avalonia"
+        xmlns:controls="clr-namespace:Material.Styles.Controls;assembly=Material.Styles"
+		
+		>
+
+    <Design.DataContext>
+        <!-- This only sets the DataContext for the previewer in an IDE,
+             to set the actual DataContext for runtime, set the DataContext property in code (look at App.axaml.cs) -->
+        <vm:MainWindowViewModel/>
+    </Design.DataContext>
+
+	<DockPanel>
+		<StackPanel Orientation="Vertical" DockPanel.Dock="Top" Margin="30">
+			<StackPanel Orientation="Horizontal" Spacing="15"  Height="50" >
+				<TextBox Name="inputID" UseFloatingWatermark="True" Classes="outline dense" Theme="{StaticResource OutlineTextBox}" Width="150"
+					wpf:TextFieldAssist.Label="机器码"
+					Text="{Binding MachineCode}" />
+				<TextBox Name="inputDays"  UseFloatingWatermark="True" Classes="outline dense" Theme="{StaticResource OutlineTextBox}" Width="150" Padding="20 0"
+                    wpf:TextFieldAssist.Label="授权天数" 
+					Text="{Binding LicenseDuration}" />
+				<Button Name="btnGen" Height="35" Classes="light" Content="生成授权密钥" ToolTip.Tip="" />
+			</StackPanel>
+			<TextBlock Classes="Body1" Text="授权密钥:" Margin="0 30 0 0" />
+			<TextBlock Classes="Caption" Text="{Binding LicenseDate}" Margin="0 10 0 0" />
+			<TextBox Name="textSecret" IsReadOnly="True" TextWrapping="Wrap"
+					 Height="100"
+					 BorderThickness="0"></TextBox>
+			
+			<Button Name="btnCopy" Height="35" Classes="light" Content="复制密钥" ToolTip.Tip="" Margin="0 15" />
+		</StackPanel>
+		
+	</DockPanel>
+
+</Window>
