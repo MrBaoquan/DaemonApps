@@ -21,8 +21,8 @@
     <Description>windows应用程序依赖编排软件</Description>
     <Product>运维管家</Product>
     <Platforms>AnyCPU;x64;x86</Platforms>
-    <AssemblyVersion>1.0.0.0317</AssemblyVersion>
-    <FileVersion>1.0.0.0317</FileVersion>
+    <AssemblyVersion>1.0.0.0809</AssemblyVersion>
+    <FileVersion>1.0.0.0809</FileVersion>
     <NeutralLanguage>zh-CN</NeutralLanguage>
     <UseWindowsForms>True</UseWindowsForms>
   </PropertyGroup>

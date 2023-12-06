@@ -1,3 +1,4 @@
 {
-    "cSpell.words": ["mstsc"]
+    "cSpell.words": ["mstsc"],
+    "dotnet.defaultSolution": "DaemonApps.sln"
 }
