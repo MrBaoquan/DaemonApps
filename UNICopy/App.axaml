@@ -3,14 +3,16 @@
 			 xmlns:themes="clr-namespace:Material.Styles.Themes;assembly=Material.Styles"
              x:Class="UNICopy.App"
              xmlns:local="using:UNICopy"
+			 xmlns:avalonia="clr-namespace:Material.Icons.Avalonia;assembly=Material.Icons.Avalonia"
              RequestedThemeVariant="Default">
              <!-- "Default" ThemeVariant follows system theme variant. "Dark" or "Light" are other available options. -->
 
     <Application.DataTemplates>
         <local:ViewLocator/>
     </Application.DataTemplates>
-  
-    <Application.Styles>
-		<themes:MaterialTheme BaseTheme="Dark" PrimaryColor="Purple" SecondaryColor="Lime" />
-    </Application.Styles>
+
+	<Application.Styles>
+		<avalonia:MaterialIconStyles />
+		<themes:MaterialTheme PrimaryColor="Blue" SecondaryColor="Red" />
+	</Application.Styles>
 </Application>

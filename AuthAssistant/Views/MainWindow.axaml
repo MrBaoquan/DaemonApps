@@ -1,0 +1,108 @@
+<Window xmlns="https://github.com/avaloniaui"
+	xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+	xmlns:vm="using:AuthAssistant.ViewModels"
+	xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+	xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" mc:Ignorable="d" 
+	d:DesignWidth="700" d:DesignHeight="400" x:Class="AuthAssistant.Views.MainWindow" 
+	
+	Width="700" Height="380" 
+	MinWidth="540" MinHeight="350"
+	x:DataType="vm:MainWindowViewModel" 
+	Icon="/Assets/avalonia-logo.ico" 
+	Title="授权助手"
+	xmlns:avalonia="clr-namespace:Material.Icons.Avalonia;assembly=Material.Icons.Avalonia"
+	xmlns:controls="clr-namespace:Material.Styles.Controls;assembly=Material.Styles"
+	xmlns:local="clr-namespace:AuthAssistant.Views">
+
+	<Design.DataContext>
+		<!-- This only sets the DataContext for the previewer in an IDE,
+             to set the actual DataContext for runtime, set the DataContext property in code (look at App.axaml.cs) -->
+		<vm:MainWindowViewModel/>
+	</Design.DataContext>
+
+	<Window.Styles>
+		<Style Selector="TextBlock">
+			<Setter Property="FontFamily" Value="微软雅黑"></Setter>
+		</Style>
+		<Style Selector="MenuItem">
+			<Setter Property="FontFamily" Value="微软雅黑"></Setter>
+		</Style>
+	</Window.Styles>
+
+	<DockPanel Margin="12">
+		<Border BorderBrush="LightGray" BorderThickness="0,0,0,1" DockPanel.Dock="Top">
+
+			<DockPanel DockPanel.Dock="Top">
+
+				<Button Theme="{StaticResource MaterialFlatButton}" ToolTip.Tip="刷新列表" 
+					IsVisible="{Binding LoggedIn}"
+						Width="32" Height="32"
+					Command="{Binding ReloadCommand}"
+				>
+					<avalonia:MaterialIcon Kind="Reload" />
+				</Button>
+				
+				
+				<StackPanel DockPanel.Dock="Right"  HorizontalAlignment="Right" Orientation="Horizontal" VerticalAlignment="Center"  Margin="0 5 0 8">
+					
+					<avalonia:MaterialIcon Kind="AccountCircle" Width="24" Height="24" />
+					<TextBlock Text="{Binding UserInfo.username}" VerticalAlignment="Center" Margin="5 0 10 0"/>
+					<Menu  Height="32" Padding="0" Margin="0">
+						<MenuItem Height="32" Width="32" Header="{avalonia:MaterialIconExt DotsVertical, Size=24}">
+							<MenuItem Header="生成许可证" Icon="{avalonia:MaterialIconExt License, Size=24}"
+									  Command="{Binding GenerateCommand}"/>
+
+							<MenuItem VerticalAlignment="Center" Header="添加许可证"
+									  Icon="{avalonia:MaterialIconExt NotePlusOutline, Size=24}"
+									  Command="{Binding AddLicenseCommand}"
+								  />
+							<MenuItem Header="清空许可证" Icon="{avalonia:MaterialIconExt NoteRemoveOutline, Size=24}"
+									  Command="{Binding ClearLicenseCommand}"/>
+
+							<MenuItem Header="退出" Icon="{avalonia:MaterialIconExt Logout, Size=24}"
+										  Command="{Binding LogoutCommand}"/>
+						</MenuItem>
+					</Menu>
+				</StackPanel>	
+			</DockPanel>
+			
+		</Border>
+		<TextBlock DockPanel.Dock="Top" Classes="Headline6" Padding="0 15 0 0" 
+				   IsVisible="{Binding NoLicense}" >当前环境没有检测到许可证信息</TextBlock>
+		<ListBox ItemsSource="{Binding LicenseInfos}" DataContext="{Binding}" Tag="Test">
+			<ListBox.ItemTemplate>
+				<DataTemplate >
+					<Grid ColumnDefinitions="6*,14*" >
+						<StackPanel Orientation="Vertical" Grid.Row="0" Grid.Column="0" >
+							<TextBlock Classes="Headline5" Text="{Binding appid}"/>	
+							<StackPanel Orientation="Horizontal" IsVisible="{Binding HasLicense}">
+								<TextBlock Classes="Subtitle2" Text="授权人:" />
+								<TextBlock Classes="Subtitle2" Width="120" Text="{Binding username}" />
+								<TextBlock Classes="Subtitle2" Text="有效期至:" />
+								<TextBlock Classes="Subtitle2" Text="{Binding ExpiredDateString}" />
+								<TextBlock Classes="Subtitle2" Foreground="Red" Padding="10 0 0 0"
+										   IsVisible="{Binding IsExpired}"
+										   Text="(已过期)" />
+								
+							</StackPanel>
+							<TextBlock Classes="Subtitle2" Foreground="OrangeRed" Text="暂无授权信息" IsVisible="{Binding NoLicense}" />
+						</StackPanel>
+						<StackPanel Orientation="Horizontal" Grid.Row="0" Grid.Column="1" HorizontalAlignment="Right">
+							<Button Theme="{StaticResource MaterialOutlineButton}" Classes="light" Content="续订"
+									Height="30"
+									Command="{Binding $parent[ListBox].((vm:MainWindowViewModel)DataContext).RenewCommand}"
+									CommandParameter="{Binding}"
+									/>
+							<Button Margin="10 0 0 0" Theme="{StaticResource MaterialOutlineButton}" 
+									Height="30"
+									Command="{Binding $parent[ListBox].((vm:MainWindowViewModel)DataContext).UnsubscribeCommand}"
+									CommandParameter="{Binding}"
+									Classes="light" Content="退订" />
+						</StackPanel>
+					</Grid>
+				</DataTemplate>
+			</ListBox.ItemTemplate>
+		</ListBox>
+	</DockPanel>
+
+</Window>

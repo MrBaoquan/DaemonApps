@@ -1,0 +1,8 @@
+{
+  "profiles": {
+    "auth_ghost": {
+      "commandName": "Project",
+      "nativeDebugging": true
+    }
+  }
+}

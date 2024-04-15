@@ -29,6 +29,7 @@
 
 	<DockPanel>
 		<StackPanel Orientation="Vertical" DockPanel.Dock="Top" Margin="30">
+			
 			<StackPanel Orientation="Horizontal" Spacing="15"  Height="50" >
 				<TextBox Name="inputID" UseFloatingWatermark="True" Classes="outline dense" Theme="{StaticResource OutlineTextBox}" Width="150"
 					wpf:TextFieldAssist.Label="机器码"

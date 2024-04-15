@@ -1,0 +1,8 @@
+{
+  "profiles": {
+    "AuthAssistant": {
+      "commandName": "Project",
+      "nativeDebugging": true
+    }
+  }
+}

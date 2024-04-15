@@ -1,10 +1,18 @@
 <Window xmlns="https://github.com/avaloniaui"
-    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-    xmlns:vm="using:UNICopy.ViewModels"
-    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
-	xmlns:avalonia="clr-namespace:Material.Icons.Avalonia;assembly=Material.Icons.Avalonia"
-    xmlns:controls="clr-namespace:Material.Styles.Controls;assembly=Material.Styles"
-    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" mc:Ignorable="d" d:DesignWidth="900" d:DesignHeight="250" x:Class="UNICopy.Views.MainWindow" x:DataType="vm:MainWindowViewModel" Icon="/Assets/avalonia-logo.ico" Title="UNICopy">
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:UNICopy.ViewModels"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
+        x:Class="UNICopy.Views.MainWindow"
+        x:DataType="vm:MainWindowViewModel"
+        Icon="/Assets/avalonia-logo.ico"
+        Title="UNICopy"
+		
+	    xmlns:wpf="clr-namespace:Material.Styles.Assists;assembly=Material.Styles"
+        xmlns:avalonia="clr-namespace:Material.Icons.Avalonia;assembly=Material.Icons.Avalonia"
+		xmlns:controls="clr-namespace:Material.Styles.Controls;assembly=Material.Styles"
+		>
 
     <Design.DataContext>
         <!-- This only sets the DataContext for the previewer in an IDE,
@@ -13,12 +21,49 @@
     </Design.DataContext>
 
 	<StackPanel>
-		<Grid Margin="20">
-			<TextBlock Name="logText" Text="UNICopy" FontSize="20" FontWeight="Bold" Foreground="White"></TextBlock>
-			<ProgressBar Name="copyProgress" Value="20"></ProgressBar>
-		</Grid>
-		<TextBlock Classes="Headline6" Text="Hello world with Material.Avalonia!"/>
-		<TextBox UseFloatingWatermark="True" Watermark="Type something..." p1:TextFieldAssist.Label="Classic TextBox" xmlns:p1="clr-namespace:Material.Styles.Assists;assembly=Material.Styles" />
+		
+		<Expander Header="文件复制列表"  IsExpanded="True">
+			<StackPanel Orientation="Vertical" Margin="16">
+				<ListBox Name="listCopy" Margin="10 0 0 0" ItemsSource="{Binding Greeting}">
+					<ListBox.ItemTemplate>
+						<DataTemplate>
+							<StackPanel Orientation="Horizontal">
+								<TextBox UseFloatingWatermark="True" Width="250"
+											   Watermark="选择源路径..."
+											   wpf:TextFieldAssist.Label="源路径" />
+
+								<TextBox UseFloatingWatermark="True" Width="250" Margin="10 0 0 0"
+											   Watermark="选择目标路径..."
+											   wpf:TextFieldAssist.Label="目标路径" />
+
+								<ToggleSwitch Content="" Margin="20 0" IsChecked="True" Classes="accent" />
+								<controls:FloatingButton Classes="Accent Mini" >
+									<Viewbox Stretch="Fill"
+											HorizontalAlignment="Stretch"
+											VerticalAlignment="Stretch">
+										<avalonia:MaterialIcon Kind="DeleteOutline" Width="24" Height="24" />
+									</Viewbox>
+								</controls:FloatingButton>
+								<ProgressBar Classes="circular no-transitions" Width="40" Height="44" Margin="20 0" ShowProgressText="True" Value="40" />
+							</StackPanel>
+						</DataTemplate>
+					</ListBox.ItemTemplate>
+				</ListBox>
+				<controls:FloatingButton Classes="Accent Mini" >
+					<Viewbox Stretch="Fill"
+							HorizontalAlignment="Stretch"
+							VerticalAlignment="Stretch">
+						<avalonia:MaterialIcon Kind="Plus" Width="24" Height="24" />
+					</Viewbox>
+				</controls:FloatingButton>
+			</StackPanel>
+		</Expander>
 	</StackPanel>
+	
+	
+	
+	
+	
+	
 
 </Window>

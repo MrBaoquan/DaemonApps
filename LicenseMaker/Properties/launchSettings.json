@@ -1,0 +1,8 @@
+{
+  "profiles": {
+    "LicenseMaker": {
+      "commandName": "Project",
+      "nativeDebugging": true
+    }
+  }
+}

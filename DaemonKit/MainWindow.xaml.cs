@@ -25,6 +25,7 @@ using Microsoft.Win32.TaskScheduler;
 using Newtonsoft.Json;
 using ReactiveMarbles.ObservableEvents;
 using ReactiveUI;
+using System.Collections.Generic;
 
 namespace DaemonKit
 {
@@ -34,7 +35,7 @@ namespace DaemonKit
     public partial class MainWindow : ReactiveWindow<MainViewModel>
     {
         public static AppSettings AppSettings { get; set; }
-        ProcessItem rootProcessNode = null;
+        ProcessItem rootProcessNode = null!;
 
         public MainWindow()
         {
@@ -48,13 +49,14 @@ namespace DaemonKit
             // 节点编辑窗口
             ProcessNodeForm processNodeForm = new ProcessNodeForm();
             Settings settingsWindow = new Settings();
+            Schedule scheduleWindow = new Schedule();
 
             var _table = new DaemonTable();
 
             this.WhenActivated(disposables =>
             {
                 DataContext = this.ViewModel;
-
+                
                 Observable
                     .Timer(TimeSpan.Zero, TimeSpan.FromMilliseconds(200))
                     .ObserveOn(RxApp.MainThreadScheduler)
@@ -175,8 +177,19 @@ namespace DaemonKit
                 // 删除进程结点
                 ViewModel.DeleteTreeNode.Subscribe(_ =>
                 {
-                    _selectedTreeNode.Parent.RemoveChild(_selectedTreeNode);
+                    _selectedTreeNode.Parent!.RemoveChild(_selectedTreeNode);
                     saveConfig();
+                });
+
+                // 编辑结点计划任务
+                ViewModel.EditSchedule.Subscribe(_ =>
+                {
+                    scheduleWindow.Title = scheduleWindow.ViewModel!.SetEditingProcessItem(
+                        _selectedTreeNode
+                    );
+                    scheduleWindow.Show();
+                    var scheduleHelper = new WindowInteropHelper(scheduleWindow);
+                    ProcManager.KeepTopWindow(scheduleHelper.Handle, 0, 0, 0, 0);
                 });
 
                 ViewModel.ConfirmNameInput.Subscribe(_ =>
@@ -232,6 +245,18 @@ namespace DaemonKit
                     _table.Show();
                 });
 
+                ViewModel.OpenScheduleWindow.Subscribe(_ =>
+                {
+                    scheduleWindow.Title = scheduleWindow.ViewModel!.SetEditingProcessItem(
+                        rootProcessNode
+                    );
+
+                    scheduleWindow.Show();
+                    // 窗口置于最前
+                    var scheduleHelper = new WindowInteropHelper(scheduleWindow);
+                    ProcManager.KeepTopWindow(scheduleHelper.Handle, 0, 0, 0, 0);
+                });
+
                 ViewModel.RunNodeTree
                     .ObserveOn(RxApp.MainThreadScheduler)
                     .Subscribe(_ =>
@@ -250,6 +275,27 @@ namespace DaemonKit
                 });
                 // 进程根节点启动守护
                 rootProcessNode.RunNode();
+
+                rootProcessNode
+                    .AllChildren()
+                    .Select(_ => _.ScheduleItems)
+                    .SelectMany(_ => _)
+                    .ToList()
+                    .ForEach(_ => _.CalculateStatus());
+
+                scheduleWindow.ViewModel.SaveCommand.Subscribe(_ =>
+                {
+                    var itemNode = scheduleWindow.ViewModel.EditingProcessItem;
+                    itemNode.ScheduleItems = scheduleWindow.ViewModel.ScheduleItems.ToList();
+                    itemNode
+                        .AllChildren()
+                        .Select(_ => _.ScheduleItems)
+                        .SelectMany(_ => _)
+                        .ToList()
+                        .ForEach(_ => _.CalculateStatus());
+                    saveConfig();
+                });
+                // TODO 测试结束
 
                 ViewModel.ShowWindow.Subscribe(_ =>
                 {
@@ -319,6 +365,33 @@ namespace DaemonKit
                     .Subscribe(_ =>
                     {
                         this.clockText.Text = DateTime.Now.ToString("yyyy-MM-dd H:mm:ss");
+
+                        // TODO 执行结点计划任务
+                        var _scheduleItems = rootProcessNode.RefreshSchedule();
+                        _scheduleItems.ForEach(
+                            ((ProcessItem processItem, ScheduleItem scheduleItem) item) =>
+                            {
+                                var (processItem, scheduleItem) = item;
+                                if (scheduleItem.TaskType == ScheduleTaskType.Start)
+                                {
+                                    processItem.RunNode();
+                                }
+                                else if (scheduleItem.TaskType == ScheduleTaskType.Stop)
+                                {
+                                    processItem.KillNode();
+                                }
+                                else if (scheduleItem.TaskType == ScheduleTaskType.Shutdown)
+                                {
+                                    ViewModel.ShutdownSystem.Execute().Subscribe();
+                                }
+                                else if (scheduleItem.TaskType == ScheduleTaskType.Restart)
+                                {
+                                    ViewModel.RestartSystem.Execute().Subscribe();
+                                }
+
+                                scheduleItem.MarkAsExecuted();
+                            }
+                        );
                     });
 
                 // 广播设备信息
@@ -760,6 +833,8 @@ namespace DaemonKit
                 true
             );
             System.IO.File.Copy(AppPathes.AppSettingPath, AppPathes.AppSettingPath_Backup, true);
+
+            NLogger.Info("配置文件保存成功.");
         }
 
         private HwndSource _source;
@@ -1005,7 +1080,12 @@ namespace DaemonKit
                 .ForEach(_script =>
                 {
                     // WinAPI.OpenProcess("cmd.exe", $"/k {_script}", true, false);
-                    WinAPI.OpenProcess("C:\\Windows\\System32\\cmd.exe", $"/c {_script}", true, false);
+                    WinAPI.OpenProcess(
+                        "C:\\Windows\\System32\\cmd.exe",
+                        $"/c {_script}",
+                        true,
+                        false
+                    );
                     NLogger.Info("StartUp Hook 执行脚本:{0}", Path.GetFileName(_script));
                 });
 
