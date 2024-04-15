@@ -2,15 +2,19 @@
 using System.Reactive;
 using DNHper;
 using System;
+using System.Runtime.InteropServices;
 
 namespace LicenseMaker.ViewModels
 {
+
     public class MainWindowViewModel : ViewModelBase
     {
         public string Greeting => "Welcome to Avalonia!";
 
+
         public MainWindowViewModel()
         {
+         
             this.OnNewLicense = ReactiveCommand.Create(() =>
             {
 

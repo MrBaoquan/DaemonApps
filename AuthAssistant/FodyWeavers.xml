@@ -1,0 +1,28 @@
+﻿<Weavers xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="FodyWeavers.xsd">
+	<Costura >
+		<ExcludeAssemblies>
+			Avalonia
+			Avalonia.*
+			Material.Avalonia
+			Material.Avalonia.*
+			Material.*
+			Material.Icons.Avalonia
+			Material.Icons.Avalonia.*
+		</ExcludeAssemblies>
+		<Unmanaged64Assemblies>
+			LicHper
+			
+			
+			av_libglesv2
+			D3DCompiler_47_cor3
+			libHarfBuzzSharp
+			libSkiaSharp
+			PenImc_cor3
+			PresentationNative_cor3
+			vcruntime140_cor3
+			wpfgfx_cor3
+			
+
+		</Unmanaged64Assemblies>
+	</Costura>
+</Weavers>

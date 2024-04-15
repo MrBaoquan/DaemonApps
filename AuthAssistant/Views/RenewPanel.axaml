@@ -1,0 +1,91 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+	xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+	xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+	xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+	xmlns:vm="using:AuthAssistant.ViewModels"
+	xmlns:converters="using:AuthAssistant.Converters"
+	xmlns:avalonia="clr-namespace:Material.Icons.Avalonia;assembly=Material.Icons.Avalonia"
+	xmlns:p1="clr-namespace:Material.Styles.Assists;assembly=Material.Styles"
+	xmlns:controls="clr-namespace:Material.Styles.Controls;assembly=Material.Styles"
+	xmlns:assists="clr-namespace:Material.Styles.Assists;assembly=Material.Styles" 		 
+	mc:Ignorable="d" d:DesignWidth="500" d:DesignHeight="520" 
+	x:Class="AuthAssistant.RenewPanel" x:DataType="vm:MainWindowViewModel"
+>
+
+	<UserControl.Styles>
+		<Style Selector="TextBlock">
+			<Setter Property="FontFamily" Value="微软雅黑"></Setter>
+		</Style>
+		<Style Selector="MenuItem">
+			<Setter Property="FontFamily" Value="微软雅黑"></Setter>
+		</Style>
+	</UserControl.Styles>
+
+	<Design.DataContext>
+		<!-- This only sets the DataContext for the previewer in an IDE,
+             to set the actual DataContext for runtime, set the DataContext property in code (look at App.axaml.cs) -->
+		<vm:MainWindowViewModel/>
+	</Design.DataContext>
+	
+	<UserControl.Resources>
+		<converters:StringBoolConverter x:Key="StringBoolConverter"/>
+	</UserControl.Resources>
+	
+	<StackPanel>
+		<TextBox Margin="24 36 24 0" 
+				 UseFloatingWatermark="True" Classes="outline clearButton" Theme="{StaticResource OutlineTextBox}" 
+				 p1:TextFieldAssist.Label="软件ID" 
+				 p1:TextFieldAssist.Hints="*必填项"
+				 IsEnabled="{Binding AppIDEditable}" Text="{Binding AppID}"   />
+		<Grid Margin="24" DataContext="{Binding}">
+			<Grid.RowDefinitions>
+				<RowDefinition Height="Auto" />
+			</Grid.RowDefinitions>
+			<Grid.ColumnDefinitions>
+				<ColumnDefinition Width="*" />
+				<ColumnDefinition Width="110" />
+				<ColumnDefinition Width="180" />
+			</Grid.ColumnDefinitions>
+
+			<TextBox Grid.Column="0" UseFloatingWatermark="True" Classes="outline" Theme="{StaticResource OutlineTextBox}" p1:TextFieldAssist.Label="许可证续订" Text="{Binding RenewCount}" />
+
+			<ComboBox Grid.Column="1" Theme="{StaticResource MaterialOutlineComboBox}" p1:ComboBoxAssist.Label="周期" SelectedIndex="{Binding RenewCycle}" Margin="10 0 0 0">
+				<TextBlock Text="天" />
+				<TextBlock Text="周" />
+				<TextBlock Text="月" />
+				<TextBlock Text="年" />
+			</ComboBox>
+
+			<DatePicker Grid.Column="2" Margin="10 0 0 0"  
+						assists:TextFieldAssist.Label="有效期至" 
+						p1:DatePickerAssist.DateTimeFormat="yyyy-MM-dd"
+						SelectedDate="{Binding $parent[Grid].((vm:MainWindowViewModel)DataContext).ExpiredAt,StringFormat='yyy-MM-dd'}"
+						
+						/>
+		</Grid>
+
+		<Button Content="{Binding ConfirmButtonText}" Foreground="White" Command="{Binding ConfirmCommand}" CornerRadius="16" Margin="50 20 50 0" IsEnabled="{Binding ConfirmButtonEnabled}" />
+
+		<StackPanel IsVisible="{Binding IsGenerateMode}">
+			<TextBox Classes="filled" AcceptsReturn="False" Height="150"
+					 Margin="15 15"
+					 Text="{Binding GeneratedLicense}" IsReadOnly="True"
+					 TextWrapping="Wrap" p1:TextFieldAssist.Label="授权许可证"
+					 UseFloatingWatermark="True" />
+			<StackPanel Orientation="Horizontal" HorizontalAlignment="Right"
+						IsVisible="{Binding Path=GeneratedLicense,Converter={StaticResource StringBoolConverter}}"
+		>
+				<controls:FloatingButton Classes="Light Mini"
+										 ToolTip.Tip="点击复制"
+										 Background="LightGreen"
+										 Command="{Binding CopyToClipboardCommand}"
+										 Margin="0 -90 30 0"   >
+					<avalonia:MaterialIcon Kind="ContentCopy" />
+				</controls:FloatingButton>
+			</StackPanel>	
+		</StackPanel>
+		
+	</StackPanel>
+
+
+</UserControl>

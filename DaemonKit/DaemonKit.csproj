@@ -21,8 +21,8 @@
     <Description>windows应用程序依赖编排软件</Description>
     <Product>运维管家</Product>
     <Platforms>AnyCPU;x64;x86</Platforms>
-    <AssemblyVersion>1.0.0.0809</AssemblyVersion>
-    <FileVersion>1.0.0.0809</FileVersion>
+    <AssemblyVersion>1.24.0.0311</AssemblyVersion>
+    <FileVersion>1.24.0.0311</FileVersion>
     <NeutralLanguage>zh-CN</NeutralLanguage>
     <UseWindowsForms>True</UseWindowsForms>
   </PropertyGroup>
@@ -89,9 +89,9 @@
     </PackageReference>
     <PackageReference Include="ReactiveMarbles.PropertyChanged" Version="2.0.6" />
     
-    <PackageReference Include="ReactiveUI" Version="18.4.20" />
-    <PackageReference Include="ReactiveUI.WPF" Version="18.4.20" />
-    <PackageReference Include="System.Reactive" Version="5.0.0" />
+    <PackageReference Include="ReactiveUI" Version="19.5.41" />
+    <PackageReference Include="ReactiveUI.WPF" Version="19.5.41" />
+    <PackageReference Include="System.Reactive" Version="6.0.0" />
     <PackageReference Include="System.Reactive.Linq" Version="5.0.0" />
     <PackageReference Include="TaskScheduler" Version="2.10.1" />
   </ItemGroup>

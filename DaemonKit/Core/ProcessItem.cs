@@ -12,21 +12,45 @@ using System.Xml.Serialization;
 using DNHper;
 using ReactiveUI;
 
-namespace DaemonKit.Core {
+namespace DaemonKit.Core
+{
+    public enum TriggerType
+    {
+        Daily,
+        Interval
+    }
 
-    public class ProcessMetaData {
+    public class TaskTrigger
+    {
+        [XmlAttribute]
+        public TriggerType Mode { get; set; } = TriggerType.Daily;
 
+        [XmlAttribute]
+        public string Time { get; set; } = "00:00";
+
+        [XmlAttribute]
+        public int Interval { get; set; } = 60;
+
+        [XmlAttribute]
+        public int Unit { get; set; } = 2; // 0: 秒 1: 分 2: 时
+    }
+
+    public class ProcessMetaData
+    {
         // 进程展示名
         [XmlAttribute]
         public string Name = string.Empty;
+
         [XmlAttribute]
         // 进程路径
         public string Path = string.Empty;
 
         [XmlAttribute]
         public string Arguments = string.Empty;
+
         [XmlAttribute]
         public bool RunAs = true;
+
         [XmlAttribute]
         public bool KeepTop = false;
 
@@ -50,111 +74,145 @@ namespace DaemonKit.Core {
 
         [XmlAttribute]
         public int PosX = 0;
+
         [XmlAttribute]
         public int PosY = 0;
+
         [XmlAttribute]
         public int Width = 0;
+
         [XmlAttribute]
         public int Height = 0;
 
+        [XmlElement("Schedule")]
+        public List<TaskTrigger> Triggers = new List<TaskTrigger>();
     }
 
-    public class ProcessItem : ReactiveObject {
+    public class ProcessItem : ReactiveObject
+    {
         [XmlIgnore]
-        public ProcessItem Parent { get; set; }
+        public ProcessItem? Parent { get; set; }
 
         [XmlIgnore]
-        public ProcessItem RootNode {
-            get {
+        public ProcessItem RootNode
+        {
+            get
+            {
                 var _node = Parent;
-                if (_node == null || _node.Parent == null) return this;
-                while (_node != null && !_node.Parent.IsSuperRoot) {
+                if (_node == null || _node.Parent == null)
+                    return this;
+                while (_node != null && _node.Parent != null && _node.Parent.IsSuperRoot == false)
+                {
                     _node = _node.Parent;
                 }
-                return _node;
+                return _node ?? this;
             }
         }
 
         [XmlIgnore]
-        public bool IsSuperRoot { get => Parent == null; }
+        public bool IsSuperRoot
+        {
+            get => Parent == null;
+        }
 
         [XmlIgnore]
-        public bool IsLeaf { get => Children.Count <= 0; }
+        public bool IsLeaf
+        {
+            get => Children.Count <= 0;
+        }
 
         [XmlIgnore]
-        public string NodePath {
-            get {
-                if (!System.IO.Path.IsPathRooted (MetaData.Path)) {
-                    return System.IO.Path.Combine (AppPathes.AppDir, MetaData.Path);
+        public string NodePath
+        {
+            get
+            {
+                if (!System.IO.Path.IsPathRooted(MetaData.Path))
+                {
+                    return System.IO.Path.Combine(AppPathes.AppDir, MetaData.Path);
                 }
                 return MetaData.Path;
             }
         }
 
-        private List<ProcessItem> TraceToRoot (ProcessItem InItem) {
-            List<ProcessItem> _list = new List<ProcessItem> () { InItem };
-            while (InItem.Parent != null) {
-                _list.Add (InItem.Parent);
+        private List<ProcessItem> TraceToRoot(ProcessItem InItem)
+        {
+            List<ProcessItem> _list = new List<ProcessItem>() { InItem };
+            while (InItem.Parent != null)
+            {
+                _list.Add(InItem.Parent);
                 InItem = InItem.Parent;
             }
             return _list;
         }
 
-        public ProcessItem () {
-            this.Children = new ObservableCollection<ProcessItem> ();
-
-            this.RunNodeCommand = ReactiveCommand.Create (() => { });
-            this.KillNodeCommand = ReactiveCommand.Create (() => { });
-            this.DisableNameInput = ReactiveCommand.Create (() => { });
-            this.ToggleEnableCommand = ReactiveCommand.Create<bool, bool> (_isEnable => _isEnable);
+        public ProcessItem()
+        {
+            this.Children = new ObservableCollection<ProcessItem>();
+            this.RunNodeCommand = ReactiveCommand.Create(() => { });
+            this.KillNodeCommand = ReactiveCommand.Create(() => { });
+            this.DisableNameInput = ReactiveCommand.Create(() => { });
+            this.ToggleEnableCommand = ReactiveCommand.Create<bool, bool>(_isEnable => _isEnable);
+            this.ScheduleCommand = ReactiveCommand.Create(() => { });
 
             Status = -1;
 
-            this.RunNodeCommand.Subscribe (_ => {
-                RunNode ();
+            this.RunNodeCommand.Subscribe(_ =>
+            {
+                RunNode();
             });
 
-            this.KillNodeCommand.Subscribe (_ => {
-                KillNode ();
+            this.KillNodeCommand.Subscribe(_ =>
+            {
+                KillNode();
             });
 
-            this.ToggleEnableCommand.Subscribe (_isEnable => {
-                Children.ToList ()
-                    .ForEach (_child => {
+            this.ToggleEnableCommand.Subscribe(_isEnable =>
+            {
+                Children
+                    .ToList()
+                    .ForEach(_child =>
+                    {
                         _child.MetaData.Enable = _isEnable;
                         _child.Enable = _isEnable;
                     });
             });
 
-            this.WhenAnyValue (x => x.Enable)
-                .Subscribe (_isEnable => {
-                    if (!_isEnable) {
-                        KillNode ();
+            this.WhenAnyValue(x => x.Enable)
+                .Subscribe(_isEnable =>
+                {
+                    if (!_isEnable)
+                    {
+                        KillNode();
                     }
-                    BtnRunVisibility = _isEnable?Visibility.Visible : Visibility.Hidden;
+                    BtnRunVisibility = _isEnable ? Visibility.Visible : Visibility.Hidden;
                 });
 
-            this.DisableNameInput.Subscribe (_ => {
+            this.DisableNameInput.Subscribe(_ =>
+            {
                 this.NameInputVisibility = Visibility.Hidden;
             });
         }
 
-        [XmlIgnore]
-        private ProcessMetaData metaData = new ProcessMetaData ();
-        public ProcessMetaData MetaData {
+        private ProcessMetaData metaData = new ProcessMetaData();
+        public ProcessMetaData MetaData
+        {
             get => metaData;
-            set {
+            set
+            {
                 metaData = value;
                 Name = metaData.Name;
-                Path = System.IO.Path.GetFileName (metaData.Path);
+                Path = System.IO.Path.GetFileName(metaData.Path);
                 Enable = metaData.Enable;
                 Delay = metaData.Delay;
                 NameField = Name;
             }
         }
 
+        [XmlElement("ScheduleItem")]
+        public List<ScheduleItem> ScheduleItems { get; set; } = new List<ScheduleItem>();
+
         [XmlIgnore]
-        public string ProcessName => System.IO.Path.GetFileName (metaData.Path);
+        public string ProcessName => System.IO.Path.GetFileName(metaData.Path);
 
         [XmlIgnore]
         public ReactiveCommand<Unit, Unit> RunNodeCommand { get; protected set; }
@@ -168,87 +226,168 @@ namespace DaemonKit.Core {
         [XmlIgnore]
         public ReactiveCommand<Unit, Unit> DisableNameInput { get; protected set; }
 
-        private IDisposable _runNodeHandler = null;
-        static void ClearHandler (ref IDisposable InHandler) {
-            if (InHandler != null) {
-                InHandler.Dispose ();
+        [XmlIgnore]
+        public ReactiveCommand<Unit, Unit> ScheduleCommand { get; protected set; }
+
+        private IDisposable? _runNodeHandler = null;
+
+        static void ClearHandler(ref IDisposable? InHandler)
+        {
+            if (InHandler != null)
+            {
+                InHandler.Dispose();
                 InHandler = null;
             }
         }
 
-        private IDisposable m_runChildDisposables;
+        private IDisposable? m_runChildDisposables;
+
+        // 刷新结点计划任务
+        public List<(ProcessItem processItem, ScheduleItem scheduleItem)> RefreshSchedule()
+        {
+            return AllChildren()
+                .SelectMany(_child => _child.ScheduleItems.Select(_item => (_child, _item)))
+                .Where(_ => _._item.CanExecute())
+                .ToList();
+
+            // .ToList()
+            // .ForEach(_child =>
+            // {
+            //     _child.ScheduleItems
+            //         .ToList()
+            //         .ForEach(_item =>
+            //         {
+            //             if (_item.CanExecute())
+            //             {
+            //                 _item.MarkAsExecuted();
+            //                 if (_item.TaskType == ScheduleTaskType.Start)
+            //                 {
+            //                     NLogger.Info($"执行计划任务: {_item.TaskType} {_child.Name}");
+            //                     _child.RunNode();
+            //                 }
+            //                 else if (_item.TaskType == ScheduleTaskType.Stop)
+            //                 {
+            //                     _child.KillNode();
+            //                 }
+            //                 else if (_item.TaskType == ScheduleTaskType.Shutdown)
+            //                 {
+            //                     NLogger.Info($"执行计划任务: {_item.TaskType} {_child.Name}");
+            //                 }
+            //             }
+            //         });
+            // });
+        }
+
+        public List<ProcessItem> AllChildren()
+        {
+            List<ProcessItem> _list = new List<ProcessItem>();
+            _list.Add(this);
+            Children
+                .ToList()
+                .ForEach(_child =>
+                {
+                    _list.AddRange(_child.AllChildren());
+                });
+            return _list;
+        }
+
         // 执行节点任务
-        public void RunNode () {
-            if (!IsSuperRoot && !File.Exists (NodePath)) {
-                NLogger.Error ($"{NodePath} 不存在，请检查");
+        public void RunNode()
+        {
+            if (!IsSuperRoot && !File.Exists(NodePath))
+            {
+                NLogger.Error($"{NodePath} 不存在，请检查");
                 Status = -1;
                 return;
             }
 
-            if (Enable && !IsSuperRoot) {
-
-                try {
-                    ProcManager.DaemonProcess (NodePath, metaData, _process => {
-                        NLogger.Warn ($"进程{ProcessName}就绪, PID: {_process.Id}");
-                        // 程序打开完成，窗口准备就绪 
-                        nodeProcess = _process;
-                        // 预先置顶窗口     
-                        preKeepTop ();
-                    });
+            if (Enable && !IsSuperRoot)
+            {
+                try
+                {
+                    ProcManager.DaemonProcess(
+                        NodePath,
+                        metaData,
+                        _process =>
+                        {
+                            NLogger.Warn($"进程{ProcessName}就绪, PID: {_process.Id}");
+                            // 程序打开完成，窗口准备就绪
+                            nodeProcess = _process;
+                            // 预先置顶窗口
+                            preKeepTop();
+                        }
+                    );
                     // 按照时序进行置顶         保证窗口置顶先后顺序正确
-                    daemonNode ();
-                } catch (System.Exception err) {
-                    NLogger.Error (err.Message);
+                    daemonNode();
                 }
-
+                catch (System.Exception err)
+                {
+                    NLogger.Error(err.Message);
+                }
             }
 
-            if (_runNodeHandler != null) {
-                _runNodeHandler.Dispose ();
+            if (_runNodeHandler != null)
+            {
+                _runNodeHandler.Dispose();
                 _runNodeHandler = null;
             }
 
-            Action _runChildNode = () => {
-                Children.ToList ().ForEach (_child => {
-                    _child.KillNode ();
-                    _child.Status = 0;
-                });
-                _runNodeHandler = Observable.Merge (
-                        Children.Select (
-                            _child => Observable
-                            .Timer (TimeSpan.FromMilliseconds (_child.MetaData.Delay))
-                            .Select (_ => _child)
+            Action _runChildNode = () =>
+            {
+                Children
+                    .ToList()
+                    .ForEach(_child =>
+                    {
+                        _child.KillNode();
+                        _child.Status = 0;
+                    });
+                _runNodeHandler = Observable
+                    .Merge(
+                        Children.Select(
+                            _child =>
+                                Observable
+                                    .Timer(TimeSpan.FromMilliseconds(_child.MetaData.Delay))
+                                    .Select(_ => _child)
                         )
                     )
-                    .ObserveOn (RxApp.MainThreadScheduler)
-                    .Subscribe (_childNode => {
-                        _childNode.RunNode ();
-                    }, () => {
-                        if (_runNodeHandler != null) {
-                            _runNodeHandler.Dispose ();
-                            _runNodeHandler = null;
+                    .ObserveOn(RxApp.MainThreadScheduler)
+                    .Subscribe(
+                        _childNode =>
+                        {
+                            _childNode.RunNode();
+                        },
+                        () =>
+                        {
+                            if (_runNodeHandler != null)
+                            {
+                                _runNodeHandler.Dispose();
+                                _runNodeHandler = null;
+                            }
                         }
-                    });
+                    );
             };
 
             // 进程树ROOT根节点延迟启动
-            if (this.IsSuperRoot) {
-                if (m_runChildDisposables != null) {
-                    m_runChildDisposables.Dispose ();
+            if (this.IsSuperRoot)
+            {
+                if (m_runChildDisposables != null)
+                {
+                    m_runChildDisposables.Dispose();
                 }
                 Status = 0;
-                NLogger.Info ("启动进程树, Delay:{0}", delayDaemon);
+                NLogger.Info("启动进程树, Delay:{0}", delayDaemon);
                 m_runChildDisposables = Observable
-                    .Timer (TimeSpan.FromMilliseconds (delayDaemon))
-                    .Subscribe (_ => {
-                        _runChildNode ();
+                    .Timer(TimeSpan.FromMilliseconds(delayDaemon))
+                    .Subscribe(_ =>
+                    {
+                        _runChildNode();
                         Status = 1;
                         m_runChildDisposables = null;
                     });
                 return;
             }
             Status = 1;
-            _runChildNode ();
+            _runChildNode();
         }
 
         private int delayDaemon = 500;
@@ -256,165 +395,248 @@ namespace DaemonKit.Core {
         private int maxError = 1;
 
         // 守护当前进程节点
-        IDisposable daemonHandler = null;
+        IDisposable? daemonHandler = null;
+
         [XmlIgnore]
         private int currentError = 0;
 
-        IDisposable preKeepTopHandler = null;
-        private void preKeepTop () {
-            NLogger.Info ($"{ProcessName}窗口预调整开始");
-            KeepTop ();
-            preKeepTopHandler = Observable.Timer (TimeSpan.FromMilliseconds (500), TimeSpan.FromMilliseconds (1500))
-                .Take (2)
-                .Subscribe (_ => {
-                    KeepTop ();
-                }, () => {
-                    NLogger.Info ($"{ProcessName}窗口预调整结束");
-                });
-        }
-        private void daemonNode () {
-            if (metaData.NoDaemon) return;
+        IDisposable? preKeepTopHandler = null;
 
-            NLogger.Info ("开始守护进程:{0}", NodePath);
+        private void preKeepTop()
+        {
+            NLogger.Info($"{ProcessName}窗口预调整开始");
+            KeepTop();
+            preKeepTopHandler = Observable
+                .Timer(TimeSpan.FromMilliseconds(500), TimeSpan.FromMilliseconds(1500))
+                .Take(2)
+                .Subscribe(
+                    _ =>
+                    {
+                        KeepTop();
+                    },
+                    () =>
+                    {
+                        NLogger.Info($"{ProcessName}窗口预调整结束");
+                    }
+                );
+        }
+
+        private void daemonNode()
+        {
+            if (metaData.NoDaemon)
+                return;
+
+            NLogger.Info("开始守护进程:{0}", NodePath);
             currentError = 0;
             // 进程启动后, 根据守护间隔进行守护
-            daemonHandler = Observable.Interval (TimeSpan.FromMilliseconds (daemonInterval))
-                .Skip (1)
-                .ObserveOn (RxApp.MainThreadScheduler)
-                .Subscribe (_daemonCount => {
-                    if (nodeProcess == null) return;
-                    if (!ProcManager.IsProcessExists (NodePath)) {
-                        //if (nodeProcess.HasExited) { //TODO: 这种方式感觉不稳定     有待后续测试
-                        NLogger.Warn ("进程:{0} 已退出，正在尝试重新启动进程链...", NodePath);
-                        RootNode.KillNode ();
-                        RootNode.RunNode ();
+            daemonHandler = Observable
+                .Interval(TimeSpan.FromMilliseconds(daemonInterval))
+                .Skip(1)
+                .ObserveOn(RxApp.MainThreadScheduler)
+                .Subscribe(_daemonCount =>
+                {
+                    if (nodeProcess == null)
                         return;
-                    } else if (!nodeProcess.Responding) {
+                    if (!ProcManager.IsProcessExists(NodePath))
+                    {
+                        // if (nodeProcess.HasExited) { //TODO: 这种方式感觉不稳定     有待后续测试
+                        NLogger.Warn("进程:{0} 已退出，正在尝试重新启动进程链...", NodePath);
+                        RootNode.KillNode();
+                        RootNode.RunNode();
+                        return;
+                    }
+                    else if (!nodeProcess.Responding)
+                    {
                         ++currentError;
-                        NLogger.Warn ("进程:{0} 未响应，容忍度: {1}/{2}", NodePath, currentError, maxError);
-                        if (currentError >= maxError) {
-                            NLogger.Warn ("进程:{0} 未响应，正在尝试重新启动进程链...", NodePath);
-                            RootNode.KillNode ();
-                            RootNode.RunNode ();
+                        NLogger.Warn("进程:{0} 未响应，容忍度: {1}/{2}", NodePath, currentError, maxError);
+                        if (currentError >= maxError)
+                        {
+                            NLogger.Warn("进程:{0} 未响应，正在尝试重新启动进程链...", NodePath);
+                            RootNode.KillNode();
+                            RootNode.RunNode();
                             return;
                         }
                     }
                     // 如果需要窗口置顶, 则在守护间隔前3次尝试置顶
-                    if (_daemonCount <= 3) {
-                        NLogger.Info ($"尝试调整窗口:{ProcessName} 第{_daemonCount}次");
-                        KeepTop ();
-                        if (_daemonCount == 3) {
-                            NLogger.Info ($"尝试调整窗口:{ProcessName} 任务结束");
+                    if (_daemonCount <= 3)
+                    {
+                        NLogger.Info($"尝试调整窗口:{ProcessName} 第{_daemonCount}次");
+                        KeepTop();
+                        if (_daemonCount == 3)
+                        {
+                            NLogger.Info($"尝试调整窗口:{ProcessName} 任务结束");
                         }
                     }
                 });
         }
 
-        protected Process nodeProcess { get; set; } = null;
-        public void KeepTop () {
-            if (nodeProcess == null) return;
-            var _process = nodeProcess;
-            try {
-                WinAPI.SetWindowPos (_process.MainWindowHandle,
-                    (int) (HWndInsertAfter.HWND_TOPMOST),
-                    metaData.PosX, metaData.PosY, metaData.Width, metaData.Height,
-                    (metaData.MinimizedStartUp?SetWindowPosFlags.SWP_HIDEWINDOW : SetWindowPosFlags.SWP_SHOWWINDOW) |
-                    (metaData.MoveWindow? 0x00 : SetWindowPosFlags.SWP_NOMOVE) |
-                    (metaData.ResizeWindow?0x00 : SetWindowPosFlags.SWP_NOSIZE) |
-                    (metaData.KeepTop?0x00 : SetWindowPosFlags.SWP_NOZORDER) |
-                    SetWindowPosFlags.SWP_FRAMECHANGED);
-                if (metaData.KeepTop) {
-                    WinAPI.ShowWindow (_process.MainWindowHandle, (int) CMDShow.SW_SHOW);
-                    WinAPI.SetForegroundWindow (_process.MainWindowHandle);
-                }
-            } catch (System.Exception e) {
-                NLogger.Error (e.Message);
-            }
+        protected Process? nodeProcess { get; set; } = null;
 
+        public void KeepTop()
+        {
+            if (nodeProcess == null)
+                return;
+            var _process = nodeProcess;
+            try
+            {
+                WinAPI.SetWindowPos(
+                    _process.MainWindowHandle,
+                    (int)(HWndInsertAfter.HWND_TOPMOST),
+                    metaData.PosX,
+                    metaData.PosY,
+                    metaData.Width,
+                    metaData.Height,
+                    (
+                        metaData.MinimizedStartUp
+                            ? SetWindowPosFlags.SWP_HIDEWINDOW
+                            : SetWindowPosFlags.SWP_SHOWWINDOW
+                    )
+                        | (metaData.MoveWindow ? 0x00 : SetWindowPosFlags.SWP_NOMOVE)
+                        | (metaData.ResizeWindow ? 0x00 : SetWindowPosFlags.SWP_NOSIZE)
+                        | (metaData.KeepTop ? 0x00 : SetWindowPosFlags.SWP_NOZORDER)
+                        | SetWindowPosFlags.SWP_FRAMECHANGED
+                );
+                if (metaData.KeepTop)
+                {
+                    WinAPI.ShowWindow(_process.MainWindowHandle, (int)CMDShow.SW_SHOW);
+                    WinAPI.SetForegroundWindow(_process.MainWindowHandle);
+                }
+            }
+            catch (System.Exception e)
+            {
+                NLogger.Error(e.Message);
+            }
         }
 
-        public void KillNode () {
-
-            if (_runNodeHandler != null) {
-                _runNodeHandler.Dispose ();
+        public void KillNode()
+        {
+            if (_runNodeHandler != null)
+            {
+                _runNodeHandler.Dispose();
                 _runNodeHandler = null;
             }
 
-            if (daemonHandler != null) {
-                daemonHandler.Dispose ();
+            if (daemonHandler != null)
+            {
+                daemonHandler.Dispose();
                 daemonHandler = null;
             }
 
-            if (preKeepTopHandler != null) {
-                preKeepTopHandler.Dispose ();
+            if (preKeepTopHandler != null)
+            {
+                preKeepTopHandler.Dispose();
                 preKeepTopHandler = null;
             }
 
-            if (this.IsSuperRoot && Status != -1) {
-                NLogger.Info ("终止进程树..");
+            if (this.IsSuperRoot && Status != -1)
+            {
+                NLogger.Info("终止进程树..");
             }
 
             Status = -1;
-            if (nodeProcess != null) {
-                ProcManager.KillProcess (NodePath); // 杀掉所有同名进程 
+            if (nodeProcess != null)
+            {
+                ProcManager.KillProcess(NodePath); // 杀掉所有同名进程
             }
 
             // if (nodeProcess != null)
             //     nodeProcess.Kill ();
             nodeProcess = null;
-            Children.ToList ().ForEach (_child => {
-                _child.KillNode ();
-            });
+            Children
+                .ToList()
+                .ForEach(_child =>
+                {
+                    _child.KillNode();
+                });
         }
 
-        public void SyncEnable () {
+        public void SyncEnable()
+        {
             new List<ProcessItem> { this }
-                .Flatten<ProcessItem> (_item => _item.Children)
-                .ToList ()
-                .ForEach (_child => {
+                .Flatten<ProcessItem>(_item => _item.Children)
+                .ToList()
+                .ForEach(_child =>
+                {
                     _child.MetaData.Enable = Enable;
                     _child.Enable = Enable;
                 });
         }
 
-        public void EnableNameInput () {
+        public void EnableNameInput()
+        {
             this.NameInputVisibility = Visibility.Visible;
         }
 
         private string _name = string.Empty;
+
         [XmlIgnore]
-        public string Name { set => this.RaiseAndSetIfChanged (ref _name, value); get => _name; }
+        public string Name
+        {
+            set => this.RaiseAndSetIfChanged(ref _name, value);
+            get => _name;
+        }
 
         private string _nameField = string.Empty;
+
         [XmlIgnore]
-        public string NameField { set => this.RaiseAndSetIfChanged (ref _nameField, value); get => _nameField; }
+        public string NameField
+        {
+            set => this.RaiseAndSetIfChanged(ref _nameField, value);
+            get => _nameField;
+        }
         private bool _enable = true;
+
         [XmlIgnore]
-        public bool Enable { set => this.RaiseAndSetIfChanged (ref _enable, value); get => _enable; }
+        public bool Enable
+        {
+            set => this.RaiseAndSetIfChanged(ref _enable, value);
+            get => _enable;
+        }
 
         private int _delay = 500;
+
         [XmlAttribute]
-        public int Delay { set => this.RaiseAndSetIfChanged (ref _delay, value); get => _delay; }
+        public int Delay
+        {
+            set => this.RaiseAndSetIfChanged(ref _delay, value);
+            get => _delay;
+        }
 
         private string _path = string.Empty;
+
         [XmlAttribute]
-        public string Path { set => this.RaiseAndSetIfChanged (ref _path, value); get => _path; }
+        public string Path
+        {
+            set => this.RaiseAndSetIfChanged(ref _path, value);
+            get => _path;
+        }
 
-        public bool IsRuning { get => Status == 1; }
+        public bool IsRuning
+        {
+            get => Status == 1;
+        }
 
-        private int _status = -1; // -1 未启动 0 启动中  1 已启动  
-        public int Status {
-            set {
+        [XmlIgnore]
+        private int _status = -1; // -1 未启动 0 启动中  1 已启动
+        public int Status
+        {
+            set
+            {
                 BtnRunVisibility = Visibility.Collapsed;
                 BtnLoadingVisibility = Visibility.Collapsed;
                 BtnStopVisibility = Visibility.Collapsed;
 
-                if (value == -1) {
-                    BtnRunVisibility = Enable? Visibility.Visible : Visibility.Hidden;
-                } else if (value == 0) {
-                    BtnLoadingVisibility = Enable? Visibility.Visible : Visibility.Hidden;
-                } else if (value == 1) {
-                    BtnStopVisibility = Enable? Visibility.Visible : Visibility.Hidden;
+                if (value == -1)
+                {
+                    BtnRunVisibility = Enable ? Visibility.Visible : Visibility.Hidden;
+                }
+                else if (value == 0)
+                {
+                    BtnLoadingVisibility = Enable ? Visibility.Visible : Visibility.Hidden;
+                }
+                else if (value == 1)
+                {
+                    BtnStopVisibility = Enable ? Visibility.Visible : Visibility.Hidden;
                 }
                 _status = value;
             }
@@ -423,23 +645,43 @@ namespace DaemonKit.Core {
 
         [XmlIgnore]
         private Visibility btnRunVisibility = Visibility.Collapsed;
+
         [XmlIgnore]
-        public Visibility BtnRunVisibility { get => btnRunVisibility; set => this.RaiseAndSetIfChanged (ref btnRunVisibility, value); }
+        public Visibility BtnRunVisibility
+        {
+            get => btnRunVisibility;
+            set => this.RaiseAndSetIfChanged(ref btnRunVisibility, value);
+        }
 
         [XmlIgnore]
         private Visibility nameInputVisibility = Visibility.Collapsed;
+
         [XmlIgnore]
-        public Visibility NameInputVisibility { get => nameInputVisibility; set => this.RaiseAndSetIfChanged (ref nameInputVisibility, value); }
+        public Visibility NameInputVisibility
+        {
+            get => nameInputVisibility;
+            set => this.RaiseAndSetIfChanged(ref nameInputVisibility, value);
+        }
 
         [XmlIgnore]
         private Visibility btnLoadingVisibility = Visibility.Collapsed;
+
         [XmlIgnore]
-        public Visibility BtnLoadingVisibility { get => btnLoadingVisibility; set => this.RaiseAndSetIfChanged (ref btnLoadingVisibility, value); }
+        public Visibility BtnLoadingVisibility
+        {
+            get => btnLoadingVisibility;
+            set => this.RaiseAndSetIfChanged(ref btnLoadingVisibility, value);
+        }
 
         [XmlIgnore]
         private Visibility btnStopVisibility = Visibility.Collapsed;
+
         [XmlIgnore]
-        public Visibility BtnStopVisibility { get => btnStopVisibility; set => this.RaiseAndSetIfChanged (ref btnStopVisibility, value); }
+        public Visibility BtnStopVisibility
+        {
+            get => btnStopVisibility;
+            set => this.RaiseAndSetIfChanged(ref btnStopVisibility, value);
+        }
 
         public ObservableCollection<ProcessItem> Children { set; get; }
 
@@ -447,53 +689,66 @@ namespace DaemonKit.Core {
         /// 添加子节点
         /// </summary>
         /// <param name="InChild"></param>
-        public void AddChild (ProcessItem InChild) {
+        public void AddChild(ProcessItem InChild)
+        {
             InChild.Parent = this;
-            Children.Add (InChild);
+            Children.Add(InChild);
         }
 
         /// <summary>
         /// 移除子节点
         /// </summary>
         /// <param name="InChild"></param>
-        public void RemoveChild (ProcessItem InChild) {
-            Children.Remove (InChild);
+        public void RemoveChild(ProcessItem InChild)
+        {
+            Children.Remove(InChild);
         }
 
         /// <summary>
         /// 同步子节点的父级关系
         /// </summary>
-        public void SyncRelationships () {
-            Action<ProcessItem> _sync = null;
-            _sync = (ProcessItem InItem) => {
-                InItem.Children.ToList ().ForEach (_child => {
-                    _child.Parent = InItem;
-                    if (_child.Children.Count > 0) {
-                        _sync (_child);
-                    }
-                });
+        public void SyncRelationships()
+        {
+            Action<ProcessItem> _sync = _ => { };
+            _sync = (ProcessItem InItem) =>
+            {
+                InItem.Children
+                    .ToList()
+                    .ForEach(_child =>
+                    {
+                        _child.Parent = InItem;
+                        if (_child.Children.Count > 0)
+                        {
+                            _sync(_child);
+                        }
+                    });
             };
-            _sync (this);
+            _sync(this);
         }
 
-        public void SyncSettings (AppSettings appSettings) {
+        public void SyncSettings(AppSettings appSettings)
+        {
             this.delayDaemon = appSettings.DelayDaemon;
             this.daemonInterval = appSettings.DaemonInterval;
             this.maxError = appSettings.ErrorCount;
-            this.Children.ToList ().ForEach (_childNode => {
-                _childNode.SyncSettings (appSettings);
-            });
+            this.Children
+                .ToList()
+                .ForEach(_childNode =>
+                {
+                    _childNode.SyncSettings(appSettings);
+                });
         }
 
-        public void ConfirmNameInput () {
-            if (NameField.Trim () == string.Empty) {
-                NLogger.Warn ("备注名不能为空");
+        public void ConfirmNameInput()
+        {
+            if (NameField.Trim() == string.Empty)
+            {
+                NLogger.Warn("备注名不能为空");
                 return;
             }
             Name = NameField;
             metaData.Name = Name;
             NameInputVisibility = Visibility.Collapsed;
         }
-
     }
 }

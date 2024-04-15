@@ -2,10 +2,20 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
 			 xmlns:themes="clr-namespace:Material.Styles.Themes;assembly=Material.Styles"
              x:Class="LicenseMaker.App"
+			 xmlns:local="using:LicenseMaker"
+             xmlns:avalonia="clr-namespace:Material.Icons.Avalonia;assembly=Material.Icons.Avalonia"
              RequestedThemeVariant="Default">
 	<!-- "Default" ThemeVariant follows system theme variant. "Dark" or "Light" are other available options. -->
 
+	<Application.DataTemplates>
+		<local:ViewLocator/>
+	</Application.DataTemplates>
+
 	<Application.Styles>
-		<themes:MaterialTheme PrimaryColor="LightBlue" SecondaryColor="Lime" />
+		<avalonia:MaterialIconStyles />
+		<themes:MaterialTheme PrimaryColor="Blue" SecondaryColor="Red" />
+		<Style Selector="TextBlock">
+			<Setter Property="FontFamily" Value="微软雅黑" />
+		</Style>
 	</Application.Styles>
 </Application>

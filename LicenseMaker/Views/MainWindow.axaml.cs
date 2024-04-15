@@ -7,51 +7,72 @@ using System.Reactive.Linq;
 using System;
 using Avalonia;
 using DNHper;
+using System.Runtime.InteropServices;
 
 namespace LicenseMaker.Views
 {
+
+    public static class License
+    {
+        const string DllName = "LicHper";
+
+        [DllImport(DllName, CallingConvention = CallingConvention.StdCall)]
+        public static extern bool Validate([MarshalAs(UnmanagedType.BStr)] string AppID);
+    }
+
     public partial class MainWindow : ReactiveWindow<MainWindowViewModel>
     {
+
         public MainWindow()
         {
             InitializeComponent();
-            this.WhenActivated(disposables => {
-                
-                this.BindCommand(this.ViewModel, vm => vm.OnNewLicense, v => v.btnGen).DisposeWith(disposables);
+            this.WhenActivated(disposables =>
+            {
+
+                var _ret = License.Validate("appid");
+
+                this.BindCommand(this.ViewModel, vm => vm.OnNewLicense, v => v.btnGen)
+                    .DisposeWith(disposables);
 
                 this.btnCopy.IsEnabled = false;
-                this.ViewModel.OnNewLicense.Subscribe(_ =>
-                {
-                    this.textSecret.Text = _;
-                    this.btnCopy.IsEnabled = !this.textSecret.Text.Contains("²»ÕýÈ·");
-                }).DisposeWith(disposables);
+                this.ViewModel.OnNewLicense
+                    .Subscribe(_ =>
+                    {
+                        this.textSecret.Text = _;
+                        this.btnCopy.IsEnabled = !this.textSecret.Text.Contains("ï¿½ï¿½ï¿½ï¿½È·");
+                    })
+                    .DisposeWith(disposables);
 
-                // ×¢²ábtnCopyµã»÷ÊÂ¼þ
+                // ×¢ï¿½ï¿½btnCopyï¿½ï¿½ï¿½ï¿½Â¼ï¿½
                 this.btnCopy.Click += (sender, e) =>
                 {
-                     Clipboard.SetTextAsync(this.textSecret.Text);
+                    Clipboard.SetTextAsync(this.textSecret.Text);
                 };
 
-
                 // inputID changeEvent
-                this.inputID.GetObservable(TextBox.TextProperty).Subscribe(_ =>
-                {
-                    // ÏÞÖÆinputID×î´ó³¤¶ÈÎª6
-                    if (_.Length > 6)
+                this.inputID
+                    .GetObservable(TextBox.TextProperty)
+                    .Subscribe(_ =>
                     {
-                        this.ViewModel.MachineCode = _.Substring(0, 6);
-                    }
-                    this.btnGen.IsEnabled = this.ViewModel.MachineCode.Length == 6;
-                }).DisposeWith(disposables);
+                        // ï¿½ï¿½ï¿½ï¿½inputIDï¿½ï¿½ó³¤¶ï¿½Îª6
+                        if (_.Length > 6)
+                        {
+                            this.ViewModel.MachineCode = _.Substring(0, 6);
+                        }
+                        this.btnGen.IsEnabled = this.ViewModel.MachineCode.Length == 6;
+                    })
+                    .DisposeWith(disposables);
 
-                // ÏÞÖÆinputDaysÖ»ÄÜÊäÈëÊý×Ö
-                this.inputDays.GetObservable(TextBox.TextProperty).Subscribe(_ =>
-                {
-                    var _val = _.Parse2Int();
-                    this.ViewModel.LicenseDuration = _val==0?"":_val.ToString();
-                }).DisposeWith(disposables);
+                // ï¿½ï¿½ï¿½ï¿½inputDaysÖ»ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+                this.inputDays
+                    .GetObservable(TextBox.TextProperty)
+                    .Subscribe(_ =>
+                    {
+                        var _val = _.Parse2Int();
+                        this.ViewModel.LicenseDuration = _val == 0 ? "" : _val.ToString();
+                    })
+                    .DisposeWith(disposables);
             });
-          
         }
     }
 }

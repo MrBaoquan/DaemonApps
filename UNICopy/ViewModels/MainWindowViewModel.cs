@@ -1,17 +1,15 @@
-﻿using System.Reactive.Disposables;
+﻿using System.Collections.Generic;
+using System.Collections.ObjectModel;
 using ReactiveUI;
 
 namespace UNICopy.ViewModels
 {
-    public class MainWindowViewModel : ViewModelBase, IActivatableViewModel
+    public class MainWindowViewModel : ViewModelBase
     {
-        public string Greeting => "Hello World";
-        public ViewModelActivator Activator { get; }
+        public MainWindowViewModel() { }
 
-        public MainWindowViewModel()
-        {
-            Activator = new ViewModelActivator();
-            this.WhenActivated((CompositeDisposable _disposables) => { });
-        }
+        public string Greeting => "Welcome to Avalonia!";
+
+        public string[] FileCopyList { get; } = { "Item 1", "Item 2", "Item 3" };
     }
 }
