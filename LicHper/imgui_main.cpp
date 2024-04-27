@@ -24,6 +24,8 @@
 #include <chrono>
 #include <thread>
 
+#include <tlhelp32.h>
+#include <iostream>
 // Data
 static ID3D11Device *g_pd3dDevice = nullptr;
 static ID3D11DeviceContext *g_pd3dDeviceContext = nullptr;
@@ -42,6 +44,27 @@ LRESULT WINAPI WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam);
 extern std::string g_appID;
 void reqQuitAllTargetWindows();
 int RenewByLicense(const char* key);
+
+void killProcessByName(const char* lpctstrExeName) {
+    HANDLE hSnapshot = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
+    if (hSnapshot) {
+        PROCESSENTRY32 pe32;
+        pe32.dwSize = sizeof(PROCESSENTRY32);
+        if (Process32First(hSnapshot, &pe32)) {
+            do {
+                if (strcmp(pe32.szExeFile, lpctstrExeName) == 0) {
+                    HANDLE hProcess = OpenProcess(PROCESS_ALL_ACCESS, false, pe32.th32ProcessID);
+                    if (hProcess) {
+                        TerminateProcess(hProcess, 0);
+                        CloseHandle(hProcess);
+                    }
+                }
+            } while (Process32Next(hSnapshot, &pe32));
+        }
+        CloseHandle(hSnapshot);
+    }
+}
+
 
 // 获取用户目录
 std::string GetUserFolder();
@@ -125,6 +148,9 @@ std::wstring to_wstring(const std::string& str) {
     MultiByteToWideChar(CP_ACP, 0, str.c_str(), strLength, &wstr[0], len);
     return wstr;
 }
+
+using namespace std::chrono;
+
 int initImgui()
 {
     // Create application window
@@ -158,17 +184,35 @@ int initImgui()
     mINI::INIStructure ini;
     if (file.read(ini) == false) {
 
-        ini["help"]["description"] = "{APPID} 为授权软件ID, 在显示时会被替换为真实ID";
+        ini["help"]["description"] = "\r\n {APPID} 为授权软件ID, 在显示时会被替换为真实ID \n timeout_kill_self 超时是否关闭主进程 \n timeout_kill_other 为退出时同时关闭的进程列表, 多个进程用 | 分隔 ";
 
         ini["watermark"]["title"] = defaultWaterMark;
         ini["watermark"]["font_size"] = "80";
         ini["watermark"]["color"] = "#FF6666";
         ini["watermark"]["animate"] = "true";
-
-        file.generate(ini);
+        
+        ini["program"]["timeout"] = "60";
+        ini["program"]["timeout_kill_self"] = "false";
+        ini["program"]["timeout_kill_other"] = "";
+        
+        file.generate(ini,true);
     }
 
     std::string watermark = ini["watermark"].has("title") ? ini["watermark"]["title"] : defaultWaterMark;
+
+    int auto_exit = ini["program"].has("timeout") ? std::stoi(ini["program"]["timeout"]) : 60;
+    bool auto_exit_enable = auto_exit > 0;
+
+    auto app_start_time =  high_resolution_clock::now();
+    auto auto_exit_process = ini["program"].has("timeout_kill_other") ? ini["program"]["timeout_kill_other"] : "";
+    auto timeout_kill_self = ini["program"].has("timeout_kill_self") ? ini["program"]["timeout_kill_self"] == "true" : false;
+
+    std::vector<std::string> auto_exit_process_list;
+    std::regex re(R"(\|)");
+    std::sregex_token_iterator first{auto_exit_process.begin(), auto_exit_process.end(), re, -1}, last;
+    auto_exit_process_list = {first, last};
+    // 移除非.exe的进程
+    auto_exit_process_list.erase(std::remove_if(auto_exit_process_list.begin(), auto_exit_process_list.end(), [](const std::string& s) { return s.find(".exe") == std::string::npos; }), auto_exit_process_list.end());
 
     // 限制水印除去{APPID}后最小长度为2
     auto _customText = std::regex_replace(watermark, std::regex("\\{APPID\\}"), "");
@@ -244,7 +288,7 @@ int initImgui()
     ImVec2 titleVelocity = ImVec2(1, 1);
 
     // 限制30帧/s
-    using namespace std::chrono;
+    
     const float frameTime = 1.0f / 60.0f;
     const auto frameDuration = duration_cast<milliseconds>(duration<float>(frameTime));
 
@@ -263,6 +307,21 @@ int initImgui()
             if (msg.message == WM_QUIT)
                 done = true;
         }
+
+
+        auto app_time_elapsed = std::chrono::duration_cast<std::chrono::seconds>(high_resolution_clock::now() - app_start_time);
+        if(auto_exit_enable && app_time_elapsed.count() > auto_exit){
+
+            for (auto &process : auto_exit_process_list)
+            {
+                killProcessByName(process.c_str());
+            }
+
+            if(timeout_kill_self){
+                done = true;
+            }
+        }
+
         if (done){
             reqQuitAllTargetWindows();
             break;
