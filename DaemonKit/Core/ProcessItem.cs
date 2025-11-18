@@ -291,6 +291,7 @@ namespace DaemonKit.Core
             return _list;
         }
 
+
         // 执行节点任务
         public void RunNode()
         {
@@ -397,8 +398,10 @@ namespace DaemonKit.Core
         // 守护当前进程节点
         IDisposable? daemonHandler = null;
 
-        [XmlIgnore]
-        private int currentError = 0;
+        
+        private int noResponse = 0;
+
+        private int noHeartbeat = 0;
 
         IDisposable? preKeepTopHandler = null;
 
@@ -421,13 +424,32 @@ namespace DaemonKit.Core
                 );
         }
 
+        #region 进程守护
+
+        private DateTime lastHeartbeat = DateTime.MinValue;
+        public void NotifyHeartbeat()
+        {
+            lastHeartbeat = DateTime.Now;
+            noHeartbeat = 0;
+        }
+
+        public bool IsHeartbeatAlive()
+        {
+            if (lastHeartbeat == DateTime.MinValue) return true;
+            var _interval = DateTime.Now - lastHeartbeat;
+            return _interval.Milliseconds < daemonInterval;
+        }
+        
+
         private void daemonNode()
         {
             if (metaData.NoDaemon)
                 return;
 
             NLogger.Info("开始守护进程:{0}", NodePath);
-            currentError = 0;
+            noResponse = 0;
+            noHeartbeat = 0;
+
             // 进程启动后, 根据守护间隔进行守护
             daemonHandler = Observable
                 .Interval(TimeSpan.FromMilliseconds(daemonInterval))
@@ -447,9 +469,9 @@ namespace DaemonKit.Core
                     }
                     else if (!nodeProcess.Responding)
                     {
-                        ++currentError;
-                        NLogger.Warn("进程:{0} 未响应，容忍度: {1}/{2}", NodePath, currentError, maxError);
-                        if (currentError >= maxError)
+                        ++noResponse;
+                        NLogger.Warn("进程:{0} 未响应，容忍度: {1}/{2}", NodePath, noResponse, maxError);
+                        if (noResponse >= maxError)
                         {
                             NLogger.Warn("进程:{0} 未响应，正在尝试重新启动进程链...", NodePath);
                             RootNode.KillNode();
@@ -457,6 +479,20 @@ namespace DaemonKit.Core
                             return;
                         }
                     }
+                    else if (IsHeartbeatAlive() == false)
+                    {
+                        ++noHeartbeat;
+                        NLogger.Warn($"进程 {NodePath} 无心跳, 容忍度: {noHeartbeat} / {maxError}");
+                        if (noHeartbeat >= maxError)
+                        {
+                            NLogger.Warn("进程:{0} 长时间无心跳，正在尝试重新启动进程链...", NodePath);
+                            RootNode.KillNode();
+                            RootNode.RunNode();
+                            return;
+                        }
+                    }
+
+
                     // 如果需要窗口置顶, 则在守护间隔前3次尝试置顶
                     if (_daemonCount <= 3)
                     {
@@ -469,7 +505,7 @@ namespace DaemonKit.Core
                     }
                 });
         }
-
+        #endregion
         protected Process? nodeProcess { get; set; } = null;
 
         public void KeepTop()

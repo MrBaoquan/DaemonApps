@@ -8,7 +8,8 @@
     xmlns:fa="http://schemas.fontawesome.io/icons/"
     xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes" TextElement.Foreground="{DynamicResource MaterialDesignBody}" TextElement.FontWeight="Regular" TextElement.FontSize="13" TextOptions.TextFormattingMode="Ideal" TextOptions.TextRenderingMode="Auto" Background="{DynamicResource MaterialDesignPaper}" FontFamily="{DynamicResource MaterialDesignFont}"
     xmlns:reactiveui="http://reactiveui.net"
-    xmlns:tb="clr-namespace:H.NotifyIcon;assembly=H.NotifyIcon.Wpf" x:Class="DaemonKit.MainWindow" x:TypeArguments="local:MainViewModel" Topmost="True" mc:Ignorable="d" Title="运维管家" Height="500" Width="1000" ResizeMode="CanResizeWithGrip" MinWidth="800" MinHeight="450" WindowStartupLocation="CenterScreen">
+    xmlns:tb="clr-namespace:H.NotifyIcon;assembly=H.NotifyIcon.Wpf" 
+    x:Class="DaemonKit.MainWindow" x:TypeArguments="local:MainViewModel" Topmost="True" mc:Ignorable="d" Title="运维管家" Height="500" Width="1000" ResizeMode="CanResizeWithGrip" MinWidth="800" MinHeight="450" WindowStartupLocation="CenterScreen">
 
     <Window.Resources>
         <local:MainViewModel x:Key="MainVM" />

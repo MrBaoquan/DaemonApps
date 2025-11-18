@@ -1,0 +1,105 @@
+﻿<reactiveui:ReactiveWindow x:Class="FileSharer.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:local="clr-namespace:FileSharer"
+        xmlns:viewmodels="clr-namespace:FileSharer.ViewModels"
+        xmlns:reactiveui="http://reactiveui.net"
+        x:TypeArguments="viewmodels:MainViewModel"
+        mc:Ignorable="d"
+        xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes"
+        xmlns:markdig="clr-namespace:Markdig.Wpf;assembly=Markdig.Wpf"
+        Title="FileSharer" Height="460" MinHeight="550" Width="950" MinWidth="750">
+
+    <DockPanel>
+        <Border DockPanel.Dock="Bottom" BorderBrush="LightGray" BorderThickness="0,1,0,0">
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="10">
+                <materialDesign:PackIcon Kind="Server" Foreground="#0071cb" Margin="0 0 5 0" FontSize="12" />
+                <TextBlock TextAlignment="Center" FontSize="12" 
+                            TextTrimming="CharacterEllipsis"
+                            TextWrapping="NoWrap"
+                            Foreground="#1a7f29"
+                            Text="{Binding ServerText}" />
+            </StackPanel>
+        </Border>
+        <Grid DockPanel.Dock="Top">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="2*" />
+            </Grid.ColumnDefinitions>
+            <StackPanel Orientation="Vertical" Grid.Column="0" VerticalAlignment="Center">
+                <TextBlock TextAlignment="Center" Margin="30 0" FontSize="18" 
+                         TextTrimming="CharacterEllipsis"
+                         TextWrapping="NoWrap"
+                         Text="{Binding QRFileName}" />
+                <Image Name="QRCodeImage" />
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="0">
+                    <Button Style="{StaticResource MaterialDesignIconButton}" ToolTip="复制文件地址">
+                        <materialDesign:PackIcon Kind="ContentCopy" />
+                    </Button>
+                    <Button Style="{StaticResource MaterialDesignIconButton}" ToolTip="下载文件" IsEnabled="False">
+                        <materialDesign:PackIcon Kind="CloudDownloadOutline" />
+                    </Button>
+                </StackPanel>
+            </StackPanel>
+
+            <TabControl Grid.Column="1" SelectedIndex="0" Foreground="DimGray" BorderThickness="1,0,0,0">
+
+                <!-- 原有的文件管理页面 -->
+                <TabItem Header="文件管理">
+                    <DockPanel>
+                        <Border BorderBrush="LightGray" BorderThickness="0 1 0 1" DockPanel.Dock="Top">
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"></ColumnDefinition>
+                                    <ColumnDefinition Width="120"></ColumnDefinition>
+                                </Grid.ColumnDefinitions>
+                                <TextBox VerticalAlignment="Center" materialDesign:HintAssist.Hint="输入文件名进行搜索" BorderThickness="0"
+                                 Text="{Binding SearchText}"
+                                 Style="{StaticResource MaterialDesignFloatingHintTextBox}" />
+                                <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Left" Margin="10">
+                                    <Button HorizontalAlignment="Left" ToolTip="搜索资源文件" Foreground="White" Command="{Binding SearchCommand}">
+                                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                            <materialDesign:PackIcon Kind="Search" />
+                                            <TextBlock Margin="8 0 0 0">搜索</TextBlock>
+                                        </StackPanel>
+                                    </Button>
+                                </StackPanel>
+                            </Grid>
+                        </Border>
+
+                        <DataGrid ItemsSource="{Binding Items}" AutoGenerateColumns="False" IsReadOnly="True">
+                            <DataGrid.Columns>
+                                <DataGridTextColumn Header="名称" Binding="{Binding FileName}" />
+                                <DataGridTextColumn Header="修改日期" Binding="{Binding LastModifiedText}" />
+                                <DataGridTextColumn Header="大小" Binding="{Binding SizeText}" />
+                            </DataGrid.Columns>
+
+                            <DataGrid.Resources>
+                                <ContextMenu x:Key="RowContextMenu">
+                                    <MenuItem Header="复制文件地址" />
+                                    <MenuItem Header="下载" IsEnabled="False" />
+                                </ContextMenu>
+                            </DataGrid.Resources>
+
+                            <DataGrid.RowStyle>
+                                <Style TargetType="DataGridRow">
+                                    <Setter Property="ContextMenu" Value="{StaticResource RowContextMenu}" />
+                                </Style>
+                            </DataGrid.RowStyle>
+                        </DataGrid>
+                    </DockPanel>
+                </TabItem>
+
+                <!-- 原有的服务日志页面 -->
+                <TabItem Header="服务日志">
+                    <TextBox Name="logBox" FontSize="14" IsReadOnly="True" Cursor="IBeam"
+                           Padding="8" VerticalContentAlignment="Top"
+                          VerticalScrollBarVisibility="Auto" TextWrapping="Wrap" BorderBrush="LightGray"
+                          Text="{Binding LogContent}" />
+                </TabItem>
+            </TabControl>
+        </Grid>
+    </DockPanel>
+</reactiveui:ReactiveWindow>

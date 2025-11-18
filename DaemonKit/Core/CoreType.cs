@@ -7,6 +7,8 @@ using System.Text;
 using System.Threading.Tasks;
 
 namespace DaemonKit.Core {
+
+
     public class OpenProcssArgs {
         public string Path = string.Empty;
         public string Arguments = string.Empty;

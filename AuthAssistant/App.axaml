@@ -10,7 +10,7 @@
     <Application.DataTemplates>
         <local:ViewLocator/>
     </Application.DataTemplates>
-  
+
     <Application.Styles>
 		<avalonia:MaterialIconStyles />
 		<themes:MaterialTheme BaseTheme="Light" PrimaryColor="Blue" SecondaryColor="Lime" />

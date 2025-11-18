@@ -5,6 +5,7 @@ using System.Net.Sockets;
 using System.Reactive.Linq;
 using System.Text;
 using System.Threading;
+using DaemonKit.Core;
 using DNHper;
 using Newtonsoft.Json;
 using ReactiveMarbles.ObservableEvents;
@@ -15,6 +16,7 @@ namespace DaemonKit {
     /// DaemonTable.xaml 的交互逻辑
     /// </summary>
     public partial class DaemonTable : ReactiveWindow<DaemonTableViewModel> {
+        
         public DaemonTable () {
             InitializeComponent ();
             this.ViewModel = new DaemonTableViewModel ();
@@ -29,13 +31,13 @@ namespace DaemonKit {
 
                 var _commandClient = new UdpClient (new IPEndPoint (IPAddress.Any, 0));
                 ViewModel.TryRestartCommand.Subscribe (_machineInfo => {
-                    var _commandBuffer = Encoding.UTF8.GetBytes (JsonConvert.SerializeObject (new Command { ID = Command.RESTART }));
-                    _commandClient.Send (_commandBuffer, _commandBuffer.Length, new IPEndPoint (IPAddress.Parse (_machineInfo.ID), 7008));
+                    var _commandBuffer = Encoding.UTF8.GetBytes (JsonConvert.SerializeObject (new Command { EventID = Command.RESTART }));
+                    _commandClient.Send (_commandBuffer, _commandBuffer.Length, new IPEndPoint (IPAddress.Parse (_machineInfo.ID), CommonVars.ControlPort));
                 });
 
                 ViewModel.TryShutdownCommand.Subscribe (_machineInfo => {
-                    var _commandBuffer = Encoding.UTF8.GetBytes (JsonConvert.SerializeObject (new Command { ID = Command.SHUTDOWN }));
-                    _commandClient.Send (_commandBuffer, _commandBuffer.Length, new IPEndPoint (IPAddress.Parse (_machineInfo.ID), 7008));
+                    var _commandBuffer = Encoding.UTF8.GetBytes (JsonConvert.SerializeObject (new Command { EventID = Command.SHUTDOWN }));
+                    _commandClient.Send (_commandBuffer, _commandBuffer.Length, new IPEndPoint (IPAddress.Parse (_machineInfo.ID), CommonVars.ControlPort));
                 });
 
                 ViewModel.OpenSMBShareCommand.Subscribe (_machineInfo => {
@@ -44,8 +46,8 @@ namespace DaemonKit {
                 });
 
                 ViewModel.TryRestartNodeTree.Subscribe (_machineInfo => {
-                    var _commandBuffer = Encoding.UTF8.GetBytes (JsonConvert.SerializeObject (new Command { ID = Command.RESTART_NODE_TREE }));
-                    _commandClient.Send (_commandBuffer, _commandBuffer.Length, new IPEndPoint (IPAddress.Parse (_machineInfo.ID), 7008));
+                    var _commandBuffer = Encoding.UTF8.GetBytes (JsonConvert.SerializeObject (new Command { EventID = Command.RESTART_NODE_TREE }));
+                    _commandClient.Send (_commandBuffer, _commandBuffer.Length, new IPEndPoint (IPAddress.Parse (_machineInfo.ID), CommonVars.ControlPort));
                 });
 
                 this.Events ().Closed
@@ -59,7 +61,7 @@ namespace DaemonKit {
 
         private CancellationTokenSource broadcastTokenSource = new CancellationTokenSource ();
         public async void startBroadcast () {
-            UdpClient udpClient = new UdpClient (new IPEndPoint (IPAddress.Any, 7007));
+            UdpClient udpClient = new UdpClient (new IPEndPoint (IPAddress.Any, CommonVars.MetaPort));
             udpClient.EnableBroadcast = true;
             while (!broadcastTokenSource.IsCancellationRequested) {
                 try {

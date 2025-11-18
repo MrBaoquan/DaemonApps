@@ -26,6 +26,7 @@
 
 #include <tlhelp32.h>
 #include <iostream>
+#include <algorithm>
 // Data
 static ID3D11Device *g_pd3dDevice = nullptr;
 static ID3D11DeviceContext *g_pd3dDeviceContext = nullptr;
@@ -184,7 +185,12 @@ int initImgui()
     mINI::INIStructure ini;
     if (file.read(ini) == false) {
 
-        ini["help"]["description"] = "\r\n {APPID} 为授权软件ID, 在显示时会被替换为真实ID \n timeout_kill_self 超时是否关闭主进程 \n timeout_kill_other 为退出时同时关闭的进程列表, 多个进程用 | 分隔 ";
+        ini["help"]["description"] = "\r\n {APPID} 为授权软件ID, 在显示时会被替换为真实ID, {COUNTDOWN}为程序退出倒计时 \n dialog 如果启用，则水印文字在dialog中间显示  \n timeout_kill_self 超时是否关闭主进程 \n timeout_kill_other 为退出时同时关闭的进程列表, 多个进程用 | 分隔";
+
+        ini["dialog"]["enable"] = "false";
+        ini["dialog"]["color"] = "#002F2F";
+        ini["dialog"]["width"] = "800";
+        ini["dialog"]["height"] = "400";
 
         ini["watermark"]["title"] = defaultWaterMark;
         ini["watermark"]["font_size"] = "80";
@@ -198,7 +204,8 @@ int initImgui()
         file.generate(ini,true);
     }
 
-    std::string watermark = ini["watermark"].has("title") ? ini["watermark"]["title"] : defaultWaterMark;
+    std::string watermarkTemplate = ini["watermark"].has("title") ? ini["watermark"]["title"] : defaultWaterMark;
+
 
     int auto_exit = ini["program"].has("timeout") ? std::stoi(ini["program"]["timeout"]) : 60;
     bool auto_exit_enable = auto_exit > 0;
@@ -215,20 +222,23 @@ int initImgui()
     auto_exit_process_list.erase(std::remove_if(auto_exit_process_list.begin(), auto_exit_process_list.end(), [](const std::string& s) { return s.find(".exe") == std::string::npos; }), auto_exit_process_list.end());
 
     // 限制水印除去{APPID}后最小长度为2
-    auto _customText = std::regex_replace(watermark, std::regex("\\{APPID\\}"), "");
+    auto _customText = std::regex_replace(watermarkTemplate, std::regex("\\{APPID\\}"), "");
     if (_customText.size() < 5) {
-        watermark = defaultWaterMark;
+        watermarkTemplate = defaultWaterMark;
     }
 
 
-    bool animate = ini["watermark"].has("animate") ? ini["watermark"]["animate"] == "true" : true;
+    bool showDialog = ini["dialog"].has("enable") ? ini["dialog"]["enable"] == "true" : false;
+    ImVec4 dialog_color = ini["dialog"].has("color") ? ConvertStringToColor(ini["dialog"]["color"]) : ConvertStringToColor("#002F2F");
+    int dialog_width = ini["dialog"].has("width") ? std::stoi(ini["dialog"]["width"]) : 960;
+    dialog_width = max(dialog_width, 640);
+    int dialog_height = ini["dialog"].has("height") ? std::stoi(ini["dialog"]["height"]) : 480;
+    dialog_height = max(dialog_height, 360);
 
+    bool animate = ini["watermark"].has("animate") ? ini["watermark"]["animate"] == "true" : true;
     int fontSize = ini["watermark"].has("font_size") ? std::stoi(ini["watermark"]["font_size"]) : 80;
     fontSize = std::clamp(fontSize, 36, 132);
     ImVec4 watermark_color = ini["watermark"].has("color") ? ConvertStringToColor(ini["watermark"]["color"]) : ConvertStringToColor("#FF6666");
-
-    // 将{APPID}替换为实际的APPID
-    watermark = std::regex_replace(watermark, std::regex("\\{APPID\\}"), GbkToUtf8(g_appID));
 
     // Show the window
     ::ShowWindow(hwnd, SW_SHOWDEFAULT);
@@ -288,7 +298,6 @@ int initImgui()
     ImVec2 titleVelocity = ImVec2(1, 1);
 
     // 限制30帧/s
-    
     const float frameTime = 1.0f / 60.0f;
     const auto frameDuration = duration_cast<milliseconds>(duration<float>(frameTime));
 
@@ -310,6 +319,18 @@ int initImgui()
 
 
         auto app_time_elapsed = std::chrono::duration_cast<std::chrono::seconds>(high_resolution_clock::now() - app_start_time);
+        if (auto_exit_enable &&timeout_kill_self) {
+
+        }
+        // 将{APPID}替换为实际的APPID
+        std::string watermarkText = std::regex_replace(watermarkTemplate, std::regex("\\{APPID\\}"), GbkToUtf8(g_appID));
+        // 将watermarkText中的{COUNTDOWN}替换为剩余时间
+        auto _remain = auto_exit - app_time_elapsed.count();
+        _remain = max(_remain, 0);
+
+        std::string countdownText = std::format("{:02d}:{:02d}:{:02d}", _remain / 3600, (_remain % 3600) / 60, _remain % 60);
+        watermarkText = std::regex_replace(watermarkText, std::regex("\\{COUNTDOWN\\}"), countdownText);
+
         if(auto_exit_enable && app_time_elapsed.count() > auto_exit){
 
             for (auto &process : auto_exit_process_list)
@@ -349,37 +370,66 @@ int initImgui()
             
             ImGui::PushStyleColor(ImGuiCol_WindowBg, ImVec4(1.0f, 1.0f, 1.0f, 0.0f));
             ImGui::Begin("Transparent", nullptr, ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoTitleBar);
-            
-            ImGui::PushFont(titleFont);
-            ImGui::PushStyleColor(ImGuiCol_Text, watermark_color);
-            const std::string& title = watermark;
-            ImVec2 titleSize = ImGui::CalcTextSize((const char*)(title.data()));
-
             float window_width = io.DisplaySize.x;
             float window_height = io.DisplaySize.y;
-            if(animate){
-                // 标题随机移动，不会超出屏幕，触碰到边界时反向移动
-                if(titlePosition.x + titleSize.x + 10 >= window_width){
-                    titleVelocity.x = -1;
-                }
-                if(titlePosition.x <= 0){
-                    titleVelocity.x = 1;
-                }
-                if(titlePosition.y + titleSize.y + 10 >= window_height){
-                    titleVelocity.y = -1;
-                }
-                if(titlePosition.y <= 0){
-                    titleVelocity.y = 1;
-                }
-                titlePosition.x += (titleVelocity.x);
-                titlePosition.y += (titleVelocity.y);
-            }else{
-                titlePosition = ImVec2((window_width - titleSize.x) - 50, 150);
+      
+            if (showDialog) {
+                ImGui::PushStyleColor(ImGuiCol_WindowBg, dialog_color);
+                ImVec2 licenseWindowSize = ImVec2(dialog_width, dialog_height);
+                ImGui::SetNextWindowPos(ImVec2((io.DisplaySize.x - licenseWindowSize.x) / 2, (io.DisplaySize.y - licenseWindowSize.y) / 2));
+                ImGui::SetNextWindowSize(licenseWindowSize);
+                ImGui::Begin("提示", nullptr, ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoTitleBar);
+
+                ImGui::PushFont(titleFont);
+                ImGui::PushStyleColor(ImGuiCol_Text, watermark_color);
+                const std::string& _tipText = watermarkText;
+                ImVec2 textSize = ImGui::CalcTextSize(_tipText.data());
+                // 计算文本的位置，使其居中
+                ImVec2 textPos = ImVec2(
+                    (licenseWindowSize.x - textSize.x) * 0.5f,  // X轴居中
+                    (licenseWindowSize.y - textSize.y) * 0.5f   // Y轴居中
+                );
+
+                // 设置文本位置
+                ImGui::SetCursorPos(textPos);
+                ImGui::Text(_tipText.data());
+                ImGui::PopFont();
+                ImGui::PopStyleColor(2);
+                ImGui::End();
             }
-            ImGui::SetCursorPos(titlePosition);
-            ImGui::Text((const char*)(title.data()));
-            ImGui::PopStyleColor();
-            ImGui::PopFont();
+            else {
+                ImGui::PushFont(titleFont);
+                ImGui::PushStyleColor(ImGuiCol_Text, watermark_color);
+                const std::string& title = watermarkText;
+                ImVec2 titleSize = ImGui::CalcTextSize((const char*)(title.data()));
+
+        
+                if (animate) {
+                    // 标题随机移动，不会超出屏幕，触碰到边界时反向移动
+                    if (titlePosition.x + titleSize.x + 10 >= window_width) {
+                        titleVelocity.x = -1;
+                    }
+                    if (titlePosition.x <= 0) {
+                        titleVelocity.x = 1;
+                    }
+                    if (titlePosition.y + titleSize.y + 10 >= window_height) {
+                        titleVelocity.y = -1;
+                    }
+                    if (titlePosition.y <= 0) {
+                        titleVelocity.y = 1;
+                    }
+                    titlePosition.x += (titleVelocity.x);
+                    titlePosition.y += (titleVelocity.y);
+                }
+                else {
+                    titlePosition = ImVec2((window_width - titleSize.x) - 50, 150);
+                }
+                ImGui::SetCursorPos(titlePosition);
+                ImGui::Text((const char*)(title.data()));
+                ImGui::PopStyleColor();
+                ImGui::PopFont();
+            }
+             
 
             static bool showActiveWindow = false;
             ImGui::SetCursorPosX(window_width - 90);
@@ -476,7 +526,6 @@ int initImgui()
 
                 ImGui::End();
             }
-
         }
 
         // Rendering

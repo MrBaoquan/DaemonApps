@@ -26,6 +26,7 @@ using Newtonsoft.Json;
 using ReactiveMarbles.ObservableEvents;
 using ReactiveUI;
 using System.Collections.Generic;
+using System.Reactive.Disposables;
 
 namespace DaemonKit
 {
@@ -56,7 +57,7 @@ namespace DaemonKit
             this.WhenActivated(disposables =>
             {
                 DataContext = this.ViewModel;
-                
+
                 Observable
                     .Timer(TimeSpan.Zero, TimeSpan.FromMilliseconds(200))
                     .ObserveOn(RxApp.MainThreadScheduler)
@@ -81,7 +82,7 @@ namespace DaemonKit
                     });
 
                 NLogger.Info("DaemonKit 已启动");
-                this.executeProgramsBeforeStart();
+                Utils.ExecuteProgramsBeforeStart();
 
                 FetchHardwareInfo();
                 this.hardwareInfoBox
@@ -135,7 +136,7 @@ namespace DaemonKit
                         rootProcessNode.SyncSettings(AppSettings);
                         settingsWindow.Hide();
                         saveConfig();
-                        syncSettings();
+                        Utils.SyncSettings();
                     });
                 });
 
@@ -334,7 +335,7 @@ namespace DaemonKit
                 {
                     NLogger.Info("准备退出程序，请稍后...");
                     rootProcessNode.KillNode();
-                    UnRegisterHotKey();
+                    Utils.UnRegisterHotKey(this);
                     Application.Current.Shutdown();
                 });
 
@@ -398,6 +399,8 @@ namespace DaemonKit
                 UdpClient _metaDataClient = new UdpClient();
                 MachineInfo _machineInfo = new MachineInfo();
                 _metaDataClient.EnableBroadcast = true;
+
+                // 守护检测
                 var _sendMsgDisposeable = Observable
                     .Timer(
                         TimeSpan.FromMilliseconds(AppSettings.DaemonInterval),
@@ -436,7 +439,10 @@ namespace DaemonKit
                         _metaDataClient.Send(
                             _data,
                             _data.Count(),
-                            new System.Net.IPEndPoint(System.Net.IPAddress.Broadcast, 7007)
+                            new System.Net.IPEndPoint(
+                                System.Net.IPAddress.Broadcast,
+                                CommonVars.MetaPort
+                            )
                         );
 
                         // crash进程检测
@@ -461,21 +467,75 @@ namespace DaemonKit
                         }
                     });
 
+                var _allChildNodes = rootProcessNode.AllChildren();
+
                 // 命令控制
                 var _recvCommandDisposable = onRecvCommand()
+                    .ObserveOn(RxApp.MainThreadScheduler)
                     .Subscribe(_command =>
                     {
-                        if (_command.ID == Command.RESTART)
+                        NLogger.Info($"收到远程命令: EventID={_command.EventID}");
+
+                        if (_command.EventID == Command.RESTART)
                         {
+                            NLogger.Info("执行系统重启命令");
                             ViewModel.RestartSystem.Execute().Subscribe();
                         }
-                        else if (_command.ID == Command.SHUTDOWN)
+                        else if (_command.EventID == Command.SHUTDOWN)
                         {
+                            NLogger.Info("执行系统关机命令");
                             ViewModel.ShutdownSystem.Execute().Subscribe();
                         }
-                        else if (_command.ID == Command.RESTART_NODE_TREE)
+                        else if (_command.EventID == Command.RESTART_NODE_TREE)
                         {
+                            NLogger.Info("执行重启进程树命令");
                             rootProcessNode.RunNode();
+                        }
+                        else if (_command.EventID == Command.STOP)
+                        {
+                            NLogger.Info("执行停止进程树命令");
+                            rootProcessNode.KillNode();
+                        }
+                        else if (_command.EventID == Command.HEARTBEAT)
+                        {
+                            // 心跳处理
+                            try
+                            {
+                                if (_command.Data == null)
+                                {
+                                    NLogger.Warn("心跳命令缺少数据");
+                                    return;
+                                }
+
+                                var _processPath = _command.Data.Value<string>("process");
+
+                                if (string.IsNullOrEmpty(_processPath))
+                                {
+                                    NLogger.Warn("心跳命令缺少进程路径");
+                                    return;
+                                }
+
+                                _processPath = _processPath.ToForwardSlash();
+                                var _processNode = _allChildNodes
+                                    .Where(_node => _node.NodePath.ToForwardSlash() == _processPath)
+                                    .FirstOrDefault();
+
+                                if (_processNode == null)
+                                {
+                                    NLogger.Warn($"未找到进程节点: {_processPath}");
+                                    return;
+                                }
+
+                                _processNode.NotifyHeartbeat();
+                            }
+                            catch (Exception ex)
+                            {
+                                NLogger.Error($"处理心跳命令异常: {ex.Message}");
+                            }
+                        }
+                        else
+                        {
+                            NLogger.Warn($"收到未知命令: EventID={_command.EventID}");
                         }
                     });
 
@@ -536,31 +596,117 @@ namespace DaemonKit
 
         private IObservable<Command> onRecvCommand()
         {
-            return Observable.Create<Command>(_observer =>
+            return Observable.Create<Command>(observer =>
             {
-                CancellationTokenSource _cts = new CancellationTokenSource();
+                var cts = new CancellationTokenSource();
+
+                UdpClient commandClient = null;
+                UdpClient heartbeatClient = null;
+
+                // 订阅取消时执行的清理操作
+                var disposable = Disposable.Create(() =>
+                {
+                    cts.Cancel();
+
+                    try
+                    {
+                        commandClient?.Close();
+                        heartbeatClient?.Close();
+                    }
+                    catch { }
+
+                    commandClient?.Dispose();
+                    heartbeatClient?.Dispose();
+
+                    cts.Dispose();
+                });
 
                 try
                 {
-                    UdpClient _commandClient = new UdpClient(7008);
-                    Observable.Start(async () =>
-                    {
-                        while (!_cts.IsCancellationRequested)
+                    // 初始化 UDP 客户端
+                    commandClient = new UdpClient(CommonVars.ControlPort);
+                    heartbeatClient = new UdpClient(CommonVars.HeartbeatPort);
+
+                    // 启动两个异步任务，接收数据并推送
+                    System.Threading.Tasks.Task.Run(
+                        async () =>
                         {
-                            var _command = await _commandClient.ReceiveAsync();
-                            var _commandStr = Encoding.UTF8.GetString(_command.Buffer);
-                            _observer.OnNext(JsonConvert.DeserializeObject<Command>(_commandStr));
-                        }
-                        _observer.OnCompleted();
-                        _commandClient.Close();
-                        _commandClient.Dispose();
-                    });
+                            try
+                            {
+                                while (!cts.Token.IsCancellationRequested)
+                                {
+                                    var result = await commandClient
+                                        .ReceiveAsync()
+                                        .ConfigureAwait(false);
+                                    var cmdStr = Encoding.UTF8.GetString(result.Buffer);
+                                    var cmd = JsonConvert.DeserializeObject<Command>(cmdStr);
+
+                                    // 空值检查
+                                    if (cmd != null)
+                                    {
+                                        observer.OnNext(cmd);
+                                    }
+                                    else
+                                    {
+                                        NLogger.Warn("接收到无效的命令数据（反序列化为null）");
+                                    }
+                                }
+                            }
+                            catch (Exception ex)
+                            {
+                                // 不终止流，记录错误并继续
+                                if (!cts.Token.IsCancellationRequested)
+                                {
+                                    NLogger.Error($"接收控制命令异常: {ex.Message}");
+                                }
+                            }
+                        },
+                        cts.Token
+                    );
+
+                    System.Threading.Tasks.Task.Run(
+                        async () =>
+                        {
+                            try
+                            {
+                                while (!cts.Token.IsCancellationRequested)
+                                {
+                                    var result = await heartbeatClient
+                                        .ReceiveAsync()
+                                        .ConfigureAwait(false);
+                                    var cmdStr = Encoding.UTF8.GetString(result.Buffer);
+                                    var cmd = JsonConvert.DeserializeObject<Command>(cmdStr);
+
+                                    // 空值检查
+                                    if (cmd == null)
+                                    {
+                                        NLogger.Warn("接收到无效的心跳数据（反序列化为null）");
+                                        continue;
+                                    }
+
+                                    if (cmd.EventID != Command.HEARTBEAT)
+                                        continue;
+                                    observer.OnNext(cmd);
+                                }
+                            }
+                            catch (Exception ex)
+                            {
+                                // 不终止流，记录错误并继续
+                                if (!cts.Token.IsCancellationRequested)
+                                {
+                                    NLogger.Error($"接收心跳命令异常: {ex.Message}");
+                                }
+                            }
+                        },
+                        cts.Token
+                    );
                 }
-                catch (System.Exception)
+                catch (Exception ex)
                 {
-                    _observer.OnCompleted();
+                    observer.OnError(ex);
                 }
-                return _cts;
+
+                return disposable;
             });
         }
 
@@ -573,87 +719,12 @@ namespace DaemonKit
         {
             this.hardwareInfoBox.Text = "硬件信息玩命读取中...";
 
-            Observable
-                .Start<string>(() =>
+            Utils
+                .FetchHardwareInfo()
+                .Subscribe(_text =>
                 {
-                    hardwareInfo.RefreshCPUList();
-                    hardwareInfo.RefreshVideoControllerList();
-                    hardwareInfo.RefreshMemoryList();
-                    hardwareInfo.RefreshNetworkAdapterList();
-                    hardwareInfo.RefreshMonitorList();
-                    hardwareInfo.RefreshBIOSList();
-                    hardwareInfo.RefreshMotherboardList();
-                    var _description = HardwareInfo
-                        .GetLocalIPv4Addresses()
-                        .Aggregate(
-                            "IPv4地址:" + "\r\n",
-                            (_current, _next) =>
-                            {
-                                return _current + _next + "\r\n";
-                            }
-                        );
-                    _description = hardwareInfo.CpuList.Aggregate(
-                        _description + "\r\nCPU:\r\n",
-                        (_current, _next) =>
-                        {
-                            return _current + _next.Name;
-                        }
-                    );
-                    _description = hardwareInfo.VideoControllerList.Aggregate(
-                        _description + "\r\n\r\nGPU:\r\n",
-                        (_current, _next) =>
-                        {
-                            return _current + _next.Name;
-                        }
-                    );
-                    _description = hardwareInfo.MemoryList.Aggregate(
-                        _description + "\r\n\r\n内存:\r\n",
-                        (_current, _next) =>
-                        {
-                            return _current
-                                + string.Format(
-                                    "{0}-{1}({2})",
-                                    _next.Manufacturer,
-                                    _next.PartNumber,
-                                    _next.Capacity.FormatBytes()
-                                )
-                                + "\r\n";
-                        }
-                    );
-                    _description = hardwareInfo.MonitorList.Aggregate(
-                        _description + "\r\n显示器:\r\n",
-                        (_current, _next) =>
-                        {
-                            return _current + _next.Name + "\r\n";
-                        }
-                    );
-                    _description = hardwareInfo.BiosList.Aggregate(
-                        _description + "\r\nBIOS:\r\n",
-                        (_current, _next) =>
-                        {
-                            return _current + _next.Manufacturer + " " + _next.Version + "\r\n";
-                        }
-                    );
-                    _description = hardwareInfo.MotherboardList.Aggregate(
-                        _description + "\r\n主板:\r\n",
-                        (_current, _next) =>
-                        {
-                            return _current + _next.Manufacturer + " " + _next.Product + "\r\n";
-                        }
-                    );
-                    return _description;
-                })
-                .ObserveOn(RxApp.MainThreadScheduler)
-                .Subscribe(
-                    _description =>
-                    {
-                        hardwareInfoBox.Text = _description;
-                    },
-                    _ =>
-                    {
-                        hardwareInfoBox.Text = "硬件信息获取失败！";
-                    }
-                );
+                    hardwareInfoBox.Text = _text;
+                });
         }
 
         /// <summary>
@@ -665,7 +736,6 @@ namespace DaemonKit
             {
                 USerialization.SerializeXML(new ExtensionConfig(), AppPathes.ExtensionConfigPath);
             }
-            ;
 
             try
             {
@@ -807,7 +877,7 @@ namespace DaemonKit
             }
             AppSettings = USerialization.DeserializeXML<AppSettings>(AppPathes.AppSettingPath);
 
-            syncSettings();
+            Utils.SyncSettings();
             rootProcessNode.SyncSettings(AppSettings);
         }
 
@@ -845,7 +915,7 @@ namespace DaemonKit
             var helper = new WindowInteropHelper(this);
             _source = HwndSource.FromHwnd(helper.Handle);
             _source.AddHook(HwndHook);
-            RegisterHotKey();
+            Utils.RegisterHotKey(this);
         }
 
         protected override void OnClosing(CancelEventArgs e)
@@ -853,36 +923,6 @@ namespace DaemonKit
             ViewModel.HideWindow.Execute().Subscribe();
             e.Cancel = true;
             base.OnClosing(e);
-        }
-
-        private void RegisterHotKey()
-        {
-            var helper = new WindowInteropHelper(this);
-            WinAPI.RegisterHotKey(helper.Handle, 100, (uint)KeyModifiers.Ctrl, 0x44);
-            WinAPI.RegisterHotKey(helper.Handle, 101, (uint)KeyModifiers.Ctrl, 0x52);
-            WinAPI.RegisterHotKey(helper.Handle, 102, (uint)KeyModifiers.Ctrl, 0x57);
-            WinAPI.RegisterHotKey(
-                helper.Handle,
-                103,
-                (uint)(KeyModifiers.Ctrl | KeyModifiers.Shift),
-                0x45
-            );
-            WinAPI.RegisterHotKey(
-                helper.Handle,
-                104,
-                (uint)(KeyModifiers.Ctrl | KeyModifiers.Shift),
-                0x57
-            );
-        }
-
-        private void UnRegisterHotKey()
-        {
-            var helper = new WindowInteropHelper(this);
-            WinAPI.UnregisterHotKey(helper.Handle, 100);
-            WinAPI.UnregisterHotKey(helper.Handle, 101);
-            WinAPI.UnregisterHotKey(helper.Handle, 102);
-            WinAPI.UnregisterHotKey(helper.Handle, 103);
-            WinAPI.UnregisterHotKey(helper.Handle, 104);
         }
 
         private IntPtr HwndHook(
@@ -957,146 +997,6 @@ namespace DaemonKit
                     break;
             }
             return IntPtr.Zero;
-        }
-
-        //static RegistryKey runKey = Registry.CurrentUser.OpenSubKey (@"SOFTWARE\Microsoft\Windows\CurrentVersion\Run", true);
-        const string appKey = "DaemonKit";
-
-        private void syncSettings()
-        {
-            if (AppSettings.StartUp)
-            {
-                //runKey.SetValue (appKey, AppPathes.ExecutorPath);
-                var _startUpTask = TaskService.Instance.AllTasks
-                    .Where(_task => _task.Name == appKey)
-                    .FirstOrDefault();
-                if (_startUpTask == null)
-                {
-                    TaskDefinition td = TaskService.Instance.NewTask();
-                    td.Principal.RunLevel = TaskRunLevel.Highest;
-                    td.Actions.Add(AppPathes.ExecutorPath);
-
-                    LogonTrigger lt = new LogonTrigger();
-                    td.Triggers.Add(lt);
-                    td.Settings.ExecutionTimeLimit = TimeSpan.Zero;
-                    TaskService.Instance.RootFolder.RegisterTaskDefinition(appKey, td);
-                    NLogger.Info("已设置开机启动.");
-                }
-                else if (
-                    (_startUpTask.Definition.Actions.First() as ExecAction).Path
-                    != AppPathes.ExecutorPath
-                )
-                {
-                    if (
-                        MessageBox.Show(
-                            $"已设置{_startUpTask.Definition.Actions.First()}为默认启动路径，是否更改当前进程为默认启动项",
-                            "启动路径冲突",
-                            MessageBoxButton.YesNoCancel,
-                            MessageBoxImage.Warning,
-                            MessageBoxResult.Cancel
-                        ) == MessageBoxResult.Yes
-                    )
-                    {
-                        _startUpTask.Definition.Actions.Clear();
-                        _startUpTask.Definition.Actions.Add(AppPathes.ExecutorPath);
-                        _startUpTask.RegisterChanges();
-                        NLogger.Info("已更改启动路径为: " + AppPathes.ExecutorPath);
-                        deleteShortcutIfExists();
-                        createShortcutIfNotExists();
-                    }
-                }
-            }
-            else
-            {
-                if (TaskService.Instance.AllTasks.ToList().Exists(_task => _task.Name == appKey))
-                {
-                    TaskService.Instance.RootFolder.DeleteTask(appKey, false);
-                    NLogger.Info("已取消开机启动.");
-                }
-            }
-
-            if (AppSettings.ShortCut)
-            {
-                createShortcutIfNotExists();
-            }
-            else
-            {
-                deleteShortcutIfExists();
-            }
-        }
-
-        private void deleteShortcutIfExists()
-        {
-            var _desktopDir = Environment.GetFolderPath(Environment.SpecialFolder.DesktopDirectory);
-            var _execLink = Path.Combine(_desktopDir, "运维管家.lnk");
-            if (System.IO.File.Exists(_execLink))
-            {
-                System.IO.File.Delete(_execLink);
-                NLogger.Info("已删除桌面快捷方式:{0}", _execLink);
-            }
-        }
-
-        /// <summary>
-        /// 创建桌面快捷方式
-        /// </summary>
-        private void createShortcutIfNotExists()
-        {
-            var _desktopDir = Environment.GetFolderPath(Environment.SpecialFolder.DesktopDirectory);
-            var _execLink = Path.Combine(_desktopDir, "运维管家.lnk");
-
-            if (System.IO.File.Exists(_execLink))
-            {
-                return;
-            }
-            NLogger.Info("已创建桌面快捷方式:{0}.", _execLink);
-
-            var shellType = Type.GetTypeFromProgID("WScript.Shell");
-            dynamic shell = Activator.CreateInstance(shellType);
-            var _shortcut = shell.CreateShortcut(_execLink);
-
-            // WshShellClass wsh = new WshShellClass ();
-            // IWshShortcut _shortcut = (IWshShortcut) wsh.CreateShortcut (_execLink);
-            _shortcut.IconLocation = Path.Combine(AppPathes.ResDir, "Icons/logo.ico");
-            _shortcut.TargetPath = AppPathes.ExecutorPath;
-            _shortcut.Save();
-        }
-
-        /// <summary>
-        /// 在进程树启动前执行的脚本文件
-        /// </summary>
-        private void executeProgramsBeforeStart()
-        {
-            if (!Directory.Exists(AppPathes.StartUpHooksDir))
-                return;
-            var _files = Directory.GetFiles(
-                AppPathes.StartUpHooksDir,
-                "*.*",
-                SearchOption.TopDirectoryOnly
-            );
-
-            _files
-                .Where(_path => _path.EndsWith(".bat") || _path.EndsWith(".cmd"))
-                .ToList()
-                .ForEach(_script =>
-                {
-                    // WinAPI.OpenProcess("cmd.exe", $"/k {_script}", true, false);
-                    WinAPI.OpenProcess(
-                        "C:\\Windows\\System32\\cmd.exe",
-                        $"/c {_script}",
-                        true,
-                        false
-                    );
-                    NLogger.Info("StartUp Hook 执行脚本:{0}", Path.GetFileName(_script));
-                });
-
-            _files
-                .Where(_path => _path.EndsWith(".exe"))
-                .ToList()
-                .ForEach(_program =>
-                {
-                    WinAPI.OpenProcess(_program, "", true);
-                    NLogger.Info("StartUp Hook 执行程序:{0}", Path.GetFileName(_program));
-                });
         }
     }
 }

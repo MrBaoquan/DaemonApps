@@ -25,10 +25,6 @@
     <None Remove="Costura64\LicHper.dll" />
   </ItemGroup>
 
-  <ItemGroup>
-    <EmbeddedResource Include="Costura64\LicHper.dll" />
-  </ItemGroup>
-
 
   <ItemGroup>
     <PackageReference Include="Avalonia" Version="11.0.10" />
