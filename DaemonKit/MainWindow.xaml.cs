@@ -45,6 +45,7 @@ namespace DaemonKit
             ViewModel = new MainViewModel();
 
             NLogger.LogFileDir = "Logs";
+            NLogger.LogFileName = "DaemonKit.log";
             NLogger.Initialize();
 
             // 节点编辑窗口
@@ -302,7 +303,7 @@ namespace DaemonKit
                 {
                     if (
                         this.Visibility == Visibility.Visible
-                        && (this.WindowState != WindowState.Minimized)
+                        && (this.WindowState != System.Windows.WindowState.Minimized)
                     )
                         return;
                     this.Visibility = Visibility.Visible;
@@ -949,7 +950,7 @@ namespace DaemonKit
                         handled = true;
                         if (
                             this.Visibility == Visibility.Hidden
-                            || this.WindowState == WindowState.Minimized
+                            || this.WindowState == System.Windows.WindowState.Minimized
                         )
                         {
                             ViewModel.ShowWindow.Execute().Subscribe();
@@ -960,7 +961,7 @@ namespace DaemonKit
                         handled = true;
                         if (
                             this.Visibility == Visibility.Hidden
-                            || this.WindowState == WindowState.Minimized
+                            || this.WindowState == System.Windows.WindowState.Minimized
                         )
                         {
                             ViewModel.ShowWindow.Execute().Subscribe();

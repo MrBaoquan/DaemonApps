@@ -11,36 +11,39 @@ namespace FileSharer.Utils
 {
     public class AppConfig
     {
-
         public int ServerPort { get; set; } = 6699;
         public string BaseFolder { get; set; } = "file_sharer";
 
-        public string SearchText (string search)
+        public string SearchText(string search)
         {
             return $"{BaseFolder}/{search}";
         }
 
         [XmlIgnore]
         public string HTTPServer = string.Empty;
-        
+
         [XmlIgnore]
         public string ServerUrl => $"http://+:{ServerPort}";
 
         public string AssetUrl(string filename)
         {
-            if(HTTPServer == string.Empty)
+            if (HTTPServer == string.Empty)
             {
-                HTTPServer = $"http://{DNHper.Network.GetMainIPAddress()}:{AppConfig.Instance.ServerPort}";
+                HTTPServer =
+                    $"http://{DNHper.Network.GetMainIPAddress()}:{AppConfig.Instance.ServerPort}";
             }
             return $"{HTTPServer}/assets/{filename}".ToForwardSlash();
         }
 
         private static AppConfig? _instance = null;
+
         [XmlIgnore]
-        public static AppConfig Instance {
+        public static AppConfig Instance
+        {
             get
             {
-                if(_instance !=null) return _instance;
+                if (_instance != null)
+                    return _instance;
                 if (File.Exists(Paths.AppConfigPath) == false)
                 {
                     var _folder = Path.GetDirectoryName(Paths.AppConfigPath);
@@ -53,16 +56,17 @@ namespace FileSharer.Utils
                 }
                 else
                 {
-                    _instance = DNHper.USerialization.DeserializeXML<AppConfig>(Paths.AppConfigPath);
+                    _instance = DNHper.USerialization.DeserializeXML<AppConfig>(
+                        Paths.AppConfigPath
+                    );
                 }
                 return _instance;
             }
         }
-    
+
         public static void Save()
         {
             DNHper.USerialization.SerializeXML(Instance, Paths.AppConfigPath);
         }
-    
     }
 }

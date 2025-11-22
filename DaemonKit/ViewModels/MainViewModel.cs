@@ -17,7 +17,7 @@ namespace DaemonKit
         public bool RunAs = true;
     }
 
-    public class MainViewModel : ReactiveObject
+    public partial class MainViewModel : ReactiveObject
     {
         private ProcessCommandParameter openCMD_args = new ProcessCommandParameter
         {
@@ -115,6 +115,9 @@ namespace DaemonKit
 
             this.ShutdownSystem = ReactiveCommand.Create(() => { });
             this.RestartSystem = ReactiveCommand.Create(() => { });
+
+            // 初始化音量控制
+            InitializeVolumeControl();
         }
 
         private string _Text = "测试内容";
