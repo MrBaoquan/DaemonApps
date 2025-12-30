@@ -35,8 +35,14 @@ namespace DaemonKit
     /// </summary>
     public partial class MainWindow : ReactiveWindow<MainViewModel>
     {
+        #region Fields
+
         public static AppSettings AppSettings { get; set; }
         ProcessItem rootProcessNode = null!;
+
+        #endregion
+
+        #region Constructor
 
         public MainWindow()
         {
@@ -554,8 +560,7 @@ namespace DaemonKit
             });
 
             var _appVersion = Assembly.GetExecutingAssembly().GetName().Version;
-            this.Title =
-                $"运维管家 v{_appVersion.Major}.{_appVersion.Minor}.{_appVersion.Build}.{_appVersion.Revision.ToString("0000")}";
+            this.Title = $"运维管家 v{_appVersion.Major}.{_appVersion.Minor}.{_appVersion.Build}";
 
             InputBindings.Add(
                 new KeyBinding
@@ -711,6 +716,10 @@ namespace DaemonKit
             });
         }
 
+        #endregion
+
+        #region Hardware Info
+
         static readonly HardwareInfo hardwareInfo = new HardwareInfo();
 
         /// <summary>
@@ -727,6 +736,10 @@ namespace DaemonKit
                     hardwareInfoBox.Text = _text;
                 });
         }
+
+        #endregion
+
+        #region Configuration Management
 
         /// <summary>
         /// 加载拓展菜单
@@ -908,6 +921,10 @@ namespace DaemonKit
             NLogger.Info("配置文件保存成功.");
         }
 
+        #endregion
+
+        #region Window Lifecycle & Hotkey Handling
+
         private HwndSource _source;
 
         protected override void OnSourceInitialized(EventArgs e)
@@ -999,5 +1016,7 @@ namespace DaemonKit
             }
             return IntPtr.Zero;
         }
+
+        #endregion
     }
 }

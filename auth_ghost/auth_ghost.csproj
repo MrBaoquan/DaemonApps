@@ -36,6 +36,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\CloudDisk\CloudDisk.csproj" />
+    <ProjectReference Include="..\LicHper\LicHper.vcxproj" />
   </ItemGroup>
 
 </Project>

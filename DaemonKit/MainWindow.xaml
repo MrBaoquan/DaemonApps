@@ -29,190 +29,18 @@
                            WindowStartupLocation="CenterScreen">
 
     <Window.Resources>
-        <!-- 尺寸常量 -->
-        <System:Double x:Key="ProcessControlButtonSize">20</System:Double>
-        <System:Double x:Key="MiniButtonSize">20</System:Double>
-        <System:Double x:Key="PowerButtonSize">24</System:Double>
-        <System:Double x:Key="SmallIconSize">12</System:Double>
-        <System:Double x:Key="MediumIconSize">15</System:Double>
-        <System:Double x:Key="VolumeSliderWidth">150</System:Double>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <!-- 引入外部样式资源 -->
+                <ResourceDictionary Source="Styles/ButtonStyles.xaml"/>
+                <ResourceDictionary Source="Styles/VolumeSliderStyle.xaml"/>
+                <ResourceDictionary Source="Styles/TreeViewStyles.xaml"/>
+            </ResourceDictionary.MergedDictionaries>
 
-        <!-- 音量图标转换器 -->
-        <local:VolumeToIconConverter x:Key="VolumeToIconConverter"/>
-        <local:VolumeWithMuteToIconConverter x:Key="VolumeWithMuteToIconConverter"/>
-
-        <!-- 进程控制按钮样式 -->
-        <Style x:Key="ProcessControlButtonStyle"
-               TargetType="Button"
-               BasedOn="{StaticResource MaterialDesignIconButton}">
-            <Setter Property="Width"
-                    Value="{StaticResource ProcessControlButtonSize}"/>
-            <Setter Property="Height"
-                    Value="{StaticResource ProcessControlButtonSize}"/>
-        </Style>
-
-        <!-- Mini按钮样式 -->
-        <Style x:Key="MiniActionButtonStyle"
-               TargetType="Button"
-               BasedOn="{StaticResource MaterialDesignFloatingActionMiniButton}">
-            <Setter Property="Width"
-                    Value="{StaticResource MiniButtonSize}"/>
-            <Setter Property="Height"
-                    Value="{StaticResource MiniButtonSize}"/>
-        </Style>
-
-        <!-- 电源按钮样式 -->
-        <Style x:Key="PowerButtonStyle"
-               TargetType="Button"
-               BasedOn="{StaticResource MaterialDesignFlatButton}">
-            <Setter Property="Height"
-                    Value="36"/>
-            <Setter Property="HorizontalContentAlignment"
-                    Value="Left"/>
-            <Setter Property="Padding"
-                    Value="8 4"/>
-        </Style>
-
-        <!-- 音量滑块样式 - 完全移除按下效果 -->
-        <Style x:Key="VolumeSliderStyle"
-               TargetType="Slider">
-            <Setter Property="Focusable"
-                    Value="False"/>
-            <Setter Property="Template">
-                <Setter.Value>
-                    <ControlTemplate TargetType="Slider">
-                        <Grid Width="30"
-                              HorizontalAlignment="Center">
-                            <!-- 背景轨道 -->
-                            <Rectangle Width="3"
-                                       Fill="#E0E0E0"
-                                       RadiusX="1.5"
-                                       RadiusY="1.5"
-                                       VerticalAlignment="Stretch"
-                                       HorizontalAlignment="Center"/>
-                            <!-- 滑块轨道 -->
-                            <Track x:Name="PART_Track"
-                                   Orientation="Vertical"
-                                   HorizontalAlignment="Center">
-                                <Track.DecreaseRepeatButton>
-                                    <RepeatButton Command="Slider.DecreaseLarge">
-                                        <RepeatButton.Style>
-                                            <Style TargetType="RepeatButton">
-                                                <Setter Property="Template">
-                                                    <Setter.Value>
-                                                        <ControlTemplate TargetType="RepeatButton">
-                                                            <Rectangle Width="3"
-                                                                       Fill="{DynamicResource PrimaryHueMidBrush}"
-                                                                       RadiusX="1.5"
-                                                                       RadiusY="1.5"/>
-                                                        </ControlTemplate>
-                                                    </Setter.Value>
-                                                </Setter>
-                                            </Style>
-                                        </RepeatButton.Style>
-                                    </RepeatButton>
-                                </Track.DecreaseRepeatButton>
-                                <Track.IncreaseRepeatButton>
-                                    <RepeatButton Command="Slider.IncreaseLarge">
-                                        <RepeatButton.Style>
-                                            <Style TargetType="RepeatButton">
-                                                <Setter Property="Template">
-                                                    <Setter.Value>
-                                                        <ControlTemplate TargetType="RepeatButton">
-                                                            <Rectangle Width="3"
-                                                                       Fill="Transparent"/>
-                                                        </ControlTemplate>
-                                                    </Setter.Value>
-                                                </Setter>
-                                            </Style>
-                                        </RepeatButton.Style>
-                                    </RepeatButton>
-                                </Track.IncreaseRepeatButton>
-                                <Track.Thumb>
-                                    <Thumb Focusable="False">
-                                        <Thumb.Style>
-                                            <Style TargetType="Thumb">
-                                                <Setter Property="Template">
-                                                    <Setter.Value>
-                                                        <ControlTemplate TargetType="Thumb">
-                                                            <Ellipse Fill="{DynamicResource PrimaryHueMidBrush}"
-                                                                     Width="16"
-                                                                     Height="16"
-                                                                     Stroke="White"
-                                                                     StrokeThickness="2">
-                                                                <Ellipse.Effect>
-                                                                    <DropShadowEffect BlurRadius="4"
-                                                                                      ShadowDepth="1"
-                                                                                      Opacity="0.3"
-                                                                                      Color="Black"/>
-                                                                </Ellipse.Effect>
-                                                            </Ellipse>
-                                                        </ControlTemplate>
-                                                    </Setter.Value>
-                                                </Setter>
-                                            </Style>
-                                        </Thumb.Style>
-                                    </Thumb>
-                                </Track.Thumb>
-                            </Track>
-                        </Grid>
-                    </ControlTemplate>
-                </Setter.Value>
-            </Setter>
-        </Style>
-
-        <!-- 上下文菜单 -->
-        <ContextMenu x:Key="RootMenu">
-            <MenuItem Header="设置备注"
-                      Command="{Binding RelativeSource={RelativeSource FindAncestor, AncestorType={x:Type Window}, AncestorLevel=1}, Path=DataContext.EnableNameInput}"
-                      CommandParameter="{Binding RelativeSource={RelativeSource Self},Path=DataContext}"/>
-            <MenuItem Header="添加子节点"
-                      Command="{Binding RelativeSource={RelativeSource FindAncestor, AncestorType={x:Type Window}, AncestorLevel=1}, Path=DataContext.AddTreeNode}"/>
-            <MenuItem Header="编辑计划任务"
-                      Command="{Binding RelativeSource={RelativeSource FindAncestor, AncestorType={x:Type Window}, AncestorLevel=1}, Path=DataContext.EditSchedule}"/>
-        </ContextMenu>
-
-        <ContextMenu x:Key="ChildMenu">
-            <MenuItem Header="打开所在文件夹"
-                      Command="{Binding RelativeSource={RelativeSource FindAncestor, AncestorType={x:Type Window}, AncestorLevel=1}, Path=DataContext.ShowInExplorer}"/>
-            <MenuItem Header="编辑结点信息"
-                      Command="{Binding RelativeSource={RelativeSource FindAncestor, AncestorType={x:Type Window}, AncestorLevel=1}, Path=DataContext.EditTreeNode}"/>
-            <MenuItem Header="编辑计划任务"
-                      Command="{Binding RelativeSource={RelativeSource FindAncestor, AncestorType={x:Type Window}, AncestorLevel=1}, Path=DataContext.EditSchedule}"/>
-            <Separator/>
-            <MenuItem Header="节点操作">
-                <MenuItem Header="添加子节点"
-                          Command="{Binding RelativeSource={RelativeSource FindAncestor, AncestorType={x:Type Window}, AncestorLevel=1}, Path=DataContext.AddTreeNode}"/>
-                <MenuItem Header="删除该节点"
-                          Command="{Binding RelativeSource={RelativeSource FindAncestor, AncestorType={x:Type Window}, AncestorLevel=1}, Path=DataContext.DeleteTreeNode}"/>
-            </MenuItem>
-        </ContextMenu>
-
-        <!-- TreeViewItem样式 -->
-        <Style x:Key="ProcessTreeViewItemStyle"
-               TargetType="{x:Type TreeViewItem}"
-               BasedOn="{StaticResource MaterialDesignTreeViewItem}">
-            <Setter Property="IsExpanded"
-                    Value="True"/>
-            <Setter Property="HorizontalAlignment"
-                    Value="Stretch"/>
-            <Setter Property="HorizontalContentAlignment"
-                    Value="Stretch"/>
-            <Setter Property="Margin"
-                    Value="0 10 0 0"/>
-            <Style.Triggers>
-                <DataTrigger Binding="{Binding IsSuperRoot}"
-                             Value="True">
-                    <Setter Property="ContextMenu"
-                            Value="{StaticResource RootMenu}"/>
-                </DataTrigger>
-                <DataTrigger Binding="{Binding IsSuperRoot}"
-                             Value="False">
-                    <Setter Property="ContextMenu"
-                            Value="{StaticResource ChildMenu}"/>
-                </DataTrigger>
-            </Style.Triggers>
-        </Style>
+            <!-- 音量图标转换器 -->
+            <local:VolumeToIconConverter x:Key="VolumeToIconConverter"/>
+            <local:VolumeWithMuteToIconConverter x:Key="VolumeWithMuteToIconConverter"/>
+        </ResourceDictionary>
     </Window.Resources>
 
     <materialDesign:DialogHost Name="MainDialog"
@@ -372,11 +200,11 @@
                                                           FallbackValue="VolumeHigh"
                                                           Mode="OneWay">
                                                 <Binding Path="SystemVolume"
-                                                        Mode="OneWay"
-                                                        UpdateSourceTrigger="PropertyChanged"/>
+                                                         Mode="OneWay"
+                                                         UpdateSourceTrigger="PropertyChanged"/>
                                                 <Binding Path="IsMuted"
-                                                        Mode="OneWay"
-                                                        UpdateSourceTrigger="PropertyChanged"/>
+                                                         Mode="OneWay"
+                                                         UpdateSourceTrigger="PropertyChanged"/>
                                             </MultiBinding>
                                         </materialDesign:PackIcon.Kind>
                                     </materialDesign:PackIcon>
@@ -421,7 +249,7 @@
                                                                      Foreground="{DynamicResource PrimaryHueMidBrush}">
                                                 <materialDesign:PackIcon.Kind>
                                                     <MultiBinding Converter="{StaticResource VolumeWithMuteToIconConverter}"
-                                                            FallbackValue="VolumeHigh">
+                                                                  FallbackValue="VolumeHigh">
                                                         <Binding Path="SystemVolume"/>
                                                         <Binding Path="IsMuted"/>
                                                     </MultiBinding>
@@ -537,6 +365,7 @@
                                         <StackPanel Orientation="Horizontal">
                                             <TextBlock VerticalAlignment="Center"
                                                        Style="{StaticResource MaterialDesignSubtitle2TextBlock}"
+                                                       FontWeight="Bold"
                                                        Text="{Binding Name}"/>
                                             <StackPanel HorizontalAlignment="Left"
                                                         Orientation="Horizontal"

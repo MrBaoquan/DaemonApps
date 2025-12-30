@@ -1,76 +1,150 @@
-﻿ <reactiveui:ReactiveWindow
-        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
-        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-        xmlns:local="clr-namespace:DaemonKit"
-        x:Class="DaemonKit.Settings"
-        x:TypeArguments="local:SettingsViewModel"
-        xmlns:fa="http://schemas.fontawesome.io/icons/"
-        xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes"
-        xmlns:reactiveui="http://reactiveui.net"
-        mc:Ignorable="d"
-        WindowStartupLocation="CenterScreen"
-        Title="设置" Height="480" Width="430">
+﻿<reactiveui:ReactiveWindow
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:local="clr-namespace:DaemonKit"
+    x:Class="DaemonKit.Settings"
+    x:TypeArguments="local:SettingsViewModel"
+    xmlns:fa="http://schemas.fontawesome.io/icons/"
+    xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes"
+    xmlns:reactiveui="http://reactiveui.net"
+    mc:Ignorable="d"
+    WindowStartupLocation="CenterScreen"
+    Title="设置"
+        Height="480"
+        Width="430">
     <Grid>
         <Grid.ColumnDefinitions>
             <ColumnDefinition Width="1*"/>
             <ColumnDefinition Width="8*"/>
             <ColumnDefinition Width="1*"/>
         </Grid.ColumnDefinitions>
-        <StackPanel Orientation="Vertical" Margin="20 30 20 20" Grid.Column="1">
-            <DockPanel  Height="30" VerticalAlignment="Center">
-                <TextBlock VerticalAlignment="Center" Padding="0 0 20 0">桌面快捷方式</TextBlock>
-                <ToggleButton HorizontalAlignment="Right" Style="{StaticResource MaterialDesignSwitchLightToggleButton}" ToolTip="桌面快捷方式" IsChecked="{Binding Path=ShortCut, Mode=TwoWay}" />
+        <StackPanel Orientation="Vertical"
+                Margin="20 30 20 20"
+                Grid.Column="1">
+            <DockPanel  Height="30"
+                    VerticalAlignment="Center">
+                <TextBlock VerticalAlignment="Center"
+                        Padding="0 0 20 0">桌面快捷方式</TextBlock>
+                <ToggleButton HorizontalAlignment="Right"
+                        Style="{StaticResource MaterialDesignSwitchLightToggleButton}"
+                        ToolTip="桌面快捷方式"
+                        IsChecked="{Binding Path=ShortCut, Mode=TwoWay}"/>
             </DockPanel>
-            <DockPanel  Height="30" VerticalAlignment="Center">
-                <TextBlock VerticalAlignment="Center" Padding="0 0 20 0">开机启动</TextBlock>
-                <ToggleButton HorizontalAlignment="Right" Style="{StaticResource MaterialDesignSwitchLightToggleButton}" ToolTip="开机启动" IsChecked="{Binding Path=StartUp, Mode=TwoWay}" />
+            <DockPanel  Height="30"
+                    VerticalAlignment="Center">
+                <TextBlock VerticalAlignment="Center"
+                        Padding="0 0 20 0">开机启动</TextBlock>
+                <ToggleButton HorizontalAlignment="Right"
+                        Style="{StaticResource MaterialDesignSwitchLightToggleButton}"
+                        ToolTip="开机启动"
+                        IsChecked="{Binding Path=StartUp, Mode=TwoWay}"/>
             </DockPanel>
-            <DockPanel  Height="30" VerticalAlignment="Center">
-                <TextBlock VerticalAlignment="Center" Padding="0 0 20 0">启动后最小化运行</TextBlock>
-                <ToggleButton HorizontalAlignment="Right" Style="{StaticResource MaterialDesignSwitchLightToggleButton}" ToolTip="启动后最小化运行" IsChecked="{Binding Path=MinimizeStartUp, Mode=TwoWay}" />
+            <DockPanel  Height="30"
+                    VerticalAlignment="Center">
+                <TextBlock VerticalAlignment="Center"
+                        Padding="0 0 20 0">启动后最小化运行</TextBlock>
+                <ToggleButton HorizontalAlignment="Right"
+                        Style="{StaticResource MaterialDesignSwitchLightToggleButton}"
+                        ToolTip="启动后最小化运行"
+                        IsChecked="{Binding Path=MinimizeStartUp, Mode=TwoWay}"/>
             </DockPanel>
-            <DockPanel  Height="30" VerticalAlignment="Center">
-                <TextBlock VerticalAlignment="Center" Padding="0 0 20 0">启动后禁用桌面</TextBlock>
-                <ToggleButton HorizontalAlignment="Right" Style="{StaticResource MaterialDesignSwitchLightToggleButton}" ToolTip="启动后禁用桌面" IsChecked="{Binding Path=DisableExplorer, Mode=TwoWay}" />
+            <DockPanel  Height="30"
+                    VerticalAlignment="Center">
+                <TextBlock VerticalAlignment="Center"
+                        Padding="0 0 20 0">启动后禁用桌面</TextBlock>
+                <ToggleButton HorizontalAlignment="Right"
+                        Style="{StaticResource MaterialDesignSwitchLightToggleButton}"
+                        ToolTip="启动后禁用桌面"
+                        IsChecked="{Binding Path=DisableExplorer, Mode=TwoWay}"/>
             </DockPanel>
 
-            <TextBox Style="{StaticResource MaterialDesignFloatingHintTextBox}" Margin="0 0" FontSize="15" Text="{Binding DelayDaemon}" VerticalAlignment="Center" materialDesign:TextFieldAssist.SuffixText="ms" Cursor="IBeam">
+            <TextBox Style="{StaticResource MaterialDesignFloatingHintTextBox}"
+                    Margin="0 0"
+                    FontSize="15"
+                    Text="{Binding StartUpDelay}"
+                    VerticalAlignment="Center"
+                    materialDesign:TextFieldAssist.SuffixText="秒"
+                    Cursor="IBeam">
                 <materialDesign:HintAssist.Hint>
-                    <StackPanel Orientation="Horizontal" Margin="0 0 0 0">
-                        <TextBlock Text="延迟启动进程树" />
+                    <StackPanel Orientation="Horizontal"
+                            Margin="0 0 0 0">
+                        <TextBlock Text="开机后延迟启动"/>
                     </StackPanel>
                 </materialDesign:HintAssist.Hint>
             </TextBox>
-            <TextBox Style="{StaticResource MaterialDesignFloatingHintTextBox}" Margin="0 0" FontSize="15" Text="{Binding DaemonInterval}" VerticalAlignment="Center" materialDesign:TextFieldAssist.SuffixText="ms" Cursor="IBeam">
+            <TextBox Style="{StaticResource MaterialDesignFloatingHintTextBox}"
+                    Margin="0 0"
+                    FontSize="15"
+                    Text="{Binding DelayDaemon}"
+                    VerticalAlignment="Center"
+                    materialDesign:TextFieldAssist.SuffixText="ms"
+                    Cursor="IBeam">
                 <materialDesign:HintAssist.Hint>
-                    <StackPanel Orientation="Horizontal" Margin="0 0 0 0">
-                        <TextBlock Text="进程守护间隔" />
+                    <StackPanel Orientation="Horizontal"
+                            Margin="0 0 0 0">
+                        <TextBlock Text="延迟启动进程树"/>
                     </StackPanel>
                 </materialDesign:HintAssist.Hint>
             </TextBox>
-            <TextBox Style="{StaticResource MaterialDesignFloatingHintTextBox}" Margin="0 0" FontSize="15" Text="{Binding ErrorCount}" VerticalAlignment="Center" materialDesign:TextFieldAssist.SuffixText="次" Cursor="IBeam">
+            <TextBox Style="{StaticResource MaterialDesignFloatingHintTextBox}"
+                    Margin="0 0"
+                    FontSize="15"
+                    Text="{Binding DaemonInterval}"
+                    VerticalAlignment="Center"
+                    materialDesign:TextFieldAssist.SuffixText="ms"
+                    Cursor="IBeam">
                 <materialDesign:HintAssist.Hint>
-                    <StackPanel Orientation="Horizontal" Margin="0 0 0 0">
-                        <TextBlock Text="无响应容忍度" />
+                    <StackPanel Orientation="Horizontal"
+                            Margin="0 0 0 0">
+                        <TextBlock Text="进程守护间隔"/>
                     </StackPanel>
                 </materialDesign:HintAssist.Hint>
             </TextBox>
-            <TextBox Style="{StaticResource MaterialDesignFloatingHintTextBox}" Margin="0 0" FontSize="15" Text="{Binding CrashWindows}" VerticalAlignment="Center" Cursor="IBeam">
+            <TextBox Style="{StaticResource MaterialDesignFloatingHintTextBox}"
+                    Margin="0 0"
+                    FontSize="15"
+                    Text="{Binding ErrorCount}"
+                    VerticalAlignment="Center"
+                    materialDesign:TextFieldAssist.SuffixText="次"
+                    Cursor="IBeam">
                 <materialDesign:HintAssist.Hint>
-                    <StackPanel Orientation="Horizontal" Margin="0 0 0 0">
-                        <TextBlock Text="Crash进程(多个进程以|隔开, 无需加后缀名)" />
+                    <StackPanel Orientation="Horizontal"
+                            Margin="0 0 0 0">
+                        <TextBlock Text="无响应容忍度"/>
+                    </StackPanel>
+                </materialDesign:HintAssist.Hint>
+            </TextBox>
+            <TextBox Style="{StaticResource MaterialDesignFloatingHintTextBox}"
+                    Margin="0 0"
+                    FontSize="15"
+                    Text="{Binding CrashWindows}"
+                    VerticalAlignment="Center"
+                    Cursor="IBeam">
+                <materialDesign:HintAssist.Hint>
+                    <StackPanel Orientation="Horizontal"
+                            Margin="0 0 0 0">
+                        <TextBlock Text="Crash进程(多个进程以|隔开, 无需加后缀名)"/>
                     </StackPanel>
                 </materialDesign:HintAssist.Hint>
             </TextBox>
 
-            <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="0 50 0 0">
-                <Button Style="{StaticResource MaterialDesignRaisedButton}" Margin="15 0" Content="应用" Command="{Binding Confirm}" Cursor="Hand" />
-                <Button Margin="5 0" Style="{StaticResource MaterialDesignRaisedButton}" Content="取消" Command="{Binding Cancel}" />
+            <StackPanel Orientation="Horizontal"
+                    HorizontalAlignment="Center"
+                    Margin="0 50 0 0">
+                <Button Style="{StaticResource MaterialDesignRaisedButton}"
+                        Margin="15 0"
+                        Content="应用"
+                        Command="{Binding Confirm}"
+                        Cursor="Hand"/>
+                <Button Margin="5 0"
+                        Style="{StaticResource MaterialDesignRaisedButton}"
+                        Content="取消"
+                        Command="{Binding Cancel}"/>
             </StackPanel>
         </StackPanel>
 
     </Grid>
-    
+
 </reactiveui:ReactiveWindow>

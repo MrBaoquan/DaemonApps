@@ -16,7 +16,6 @@ namespace DaemonKit
 {
     internal class Utils
     {
-
         public static void DeleteShortcutIfExists()
         {
             var _desktopDir = Environment.GetFolderPath(Environment.SpecialFolder.DesktopDirectory);
@@ -59,7 +58,6 @@ namespace DaemonKit
             {
                 NLogger.Error("创建桌面快捷方式失败");
             }
-
         }
 
         /// <summary>
@@ -101,6 +99,7 @@ namespace DaemonKit
         }
 
         static readonly HardwareInfo hardwareInfo = new HardwareInfo();
+
         public static IObservable<string> FetchHardwareInfo()
         {
             return Observable
@@ -173,7 +172,7 @@ namespace DaemonKit
                     );
                     return _description;
                 })
-                .Catch<string,Exception>(ex=> Observable.Return("硬件信息获取失败"))
+                .Catch<string, Exception>(ex => Observable.Return("硬件信息获取失败"))
                 .ObserveOn(RxApp.MainThreadScheduler);
         }
 
@@ -206,6 +205,7 @@ namespace DaemonKit
             WinAPI.UnregisterHotKey(helper.Handle, 103);
             WinAPI.UnregisterHotKey(helper.Handle, 104);
         }
+
         //static RegistryKey runKey = Registry.CurrentUser.OpenSubKey (@"SOFTWARE\Microsoft\Windows\CurrentVersion\Run", true);
         const string appKey = "DaemonKit";
 
@@ -225,10 +225,16 @@ namespace DaemonKit
                     td.Actions.Add(AppPathes.ExecutorPath);
 
                     LogonTrigger lt = new LogonTrigger();
+                    if (AppSettings.StartUpDelay > 0)
+                    {
+                        lt.Delay = TimeSpan.FromSeconds(AppSettings.StartUpDelay);
+                    }
                     td.Triggers.Add(lt);
                     td.Settings.ExecutionTimeLimit = TimeSpan.Zero;
                     TaskService.Instance.RootFolder.RegisterTaskDefinition(appKey, td);
-                    NLogger.Info("已设置开机启动.");
+                    NLogger.Info(
+                        $"已设置开机启动{(AppSettings.StartUpDelay > 0 ? $"（延迟 {AppSettings.StartUpDelay} 秒）" : "")}."
+                    );
                 }
                 else if (
                     (_startUpTask.Definition.Actions.First() as ExecAction).Path
@@ -247,10 +253,51 @@ namespace DaemonKit
                     {
                         _startUpTask.Definition.Actions.Clear();
                         _startUpTask.Definition.Actions.Add(AppPathes.ExecutorPath);
+
+                        // 更新延迟启动配置
+                        var logonTrigger = _startUpTask.Definition.Triggers
+                            .OfType<LogonTrigger>()
+                            .FirstOrDefault();
+                        if (logonTrigger != null)
+                        {
+                            if (AppSettings.StartUpDelay > 0)
+                            {
+                                logonTrigger.Delay = TimeSpan.FromSeconds(AppSettings.StartUpDelay);
+                            }
+                            else
+                            {
+                                logonTrigger.Delay = TimeSpan.Zero;
+                            }
+                        }
+
                         _startUpTask.RegisterChanges();
                         NLogger.Info("已更改启动路径为: " + AppPathes.ExecutorPath);
                         Utils.DeleteShortcutIfExists();
                         Utils.CreateShortcutIfNotExists();
+                    }
+                }
+                else
+                {
+                    // 路径正确，但可能需要更新延迟时间
+                    var logonTrigger = _startUpTask.Definition.Triggers
+                        .OfType<LogonTrigger>()
+                        .FirstOrDefault();
+                    if (logonTrigger != null)
+                    {
+                        var currentDelay = logonTrigger.Delay.TotalSeconds;
+                        if (currentDelay != AppSettings.StartUpDelay)
+                        {
+                            if (AppSettings.StartUpDelay > 0)
+                            {
+                                logonTrigger.Delay = TimeSpan.FromSeconds(AppSettings.StartUpDelay);
+                            }
+                            else
+                            {
+                                logonTrigger.Delay = TimeSpan.Zero;
+                            }
+                            _startUpTask.RegisterChanges();
+                            NLogger.Info($"已更新开机启动延迟为 {AppSettings.StartUpDelay} 秒.");
+                        }
                     }
                 }
             }

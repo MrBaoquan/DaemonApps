@@ -1,0 +1,97 @@
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:System="clr-namespace:System;assembly=System.Runtime"
+                    xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes">
+
+    <!-- 音量滑块宽度常量 -->
+    <System:Double x:Key="VolumeSliderWidth">150</System:Double>
+
+    <!-- 音量滑块样式 - 完全移除按下效果 -->
+    <Style x:Key="VolumeSliderStyle"
+           TargetType="Slider">
+        <Setter Property="Focusable"
+                Value="False"/>
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="Slider">
+                    <Grid Width="30"
+                          HorizontalAlignment="Center">
+                        <!-- 背景轨道 -->
+                        <Rectangle Width="3"
+                                   Fill="#E0E0E0"
+                                   RadiusX="1.5"
+                                   RadiusY="1.5"
+                                   VerticalAlignment="Stretch"
+                                   HorizontalAlignment="Center"/>
+                        <!-- 滑块轨道 -->
+                        <Track x:Name="PART_Track"
+                               Orientation="Vertical"
+                               HorizontalAlignment="Center">
+                            <Track.DecreaseRepeatButton>
+                                <RepeatButton Command="Slider.DecreaseLarge">
+                                    <RepeatButton.Style>
+                                        <Style TargetType="RepeatButton">
+                                            <Setter Property="Template">
+                                                <Setter.Value>
+                                                    <ControlTemplate TargetType="RepeatButton">
+                                                        <Rectangle Width="3"
+                                                                   Fill="{DynamicResource PrimaryHueMidBrush}"
+                                                                   RadiusX="1.5"
+                                                                   RadiusY="1.5"/>
+                                                    </ControlTemplate>
+                                                </Setter.Value>
+                                            </Setter>
+                                        </Style>
+                                    </RepeatButton.Style>
+                                </RepeatButton>
+                            </Track.DecreaseRepeatButton>
+                            <Track.IncreaseRepeatButton>
+                                <RepeatButton Command="Slider.IncreaseLarge">
+                                    <RepeatButton.Style>
+                                        <Style TargetType="RepeatButton">
+                                            <Setter Property="Template">
+                                                <Setter.Value>
+                                                    <ControlTemplate TargetType="RepeatButton">
+                                                        <Rectangle Width="3"
+                                                                   Fill="Transparent"/>
+                                                    </ControlTemplate>
+                                                </Setter.Value>
+                                            </Setter>
+                                        </Style>
+                                    </RepeatButton.Style>
+                                </RepeatButton>
+                            </Track.IncreaseRepeatButton>
+                            <Track.Thumb>
+                                <Thumb Focusable="False">
+                                    <Thumb.Style>
+                                        <Style TargetType="Thumb">
+                                            <Setter Property="Template">
+                                                <Setter.Value>
+                                                    <ControlTemplate TargetType="Thumb">
+                                                        <Ellipse Fill="{DynamicResource PrimaryHueMidBrush}"
+                                                                 Width="16"
+                                                                 Height="16"
+                                                                 Stroke="White"
+                                                                 StrokeThickness="2">
+                                                            <Ellipse.Effect>
+                                                                <DropShadowEffect BlurRadius="4"
+                                                                                  ShadowDepth="1"
+                                                                                  Opacity="0.3"
+                                                                                  Color="Black"/>
+                                                            </Ellipse.Effect>
+                                                        </Ellipse>
+                                                    </ControlTemplate>
+                                                </Setter.Value>
+                                            </Setter>
+                                        </Style>
+                                    </Thumb.Style>
+                                </Thumb>
+                            </Track.Thumb>
+                        </Track>
+                    </Grid>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+</ResourceDictionary>

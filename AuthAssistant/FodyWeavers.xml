@@ -10,9 +10,10 @@
 			Material.Icons.Avalonia.*
 		</ExcludeAssemblies>
 		<Unmanaged64Assemblies>
+<!--
 			LicHper
-			
-			
+
+
 			av_libglesv2
 			D3DCompiler_47_cor3
 			libHarfBuzzSharp
@@ -21,8 +22,7 @@
 			PresentationNative_cor3
 			vcruntime140_cor3
 			wpfgfx_cor3
-			
-
+-->
 		</Unmanaged64Assemblies>
 	</Costura>
 </Weavers>
