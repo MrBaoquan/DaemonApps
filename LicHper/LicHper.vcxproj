@@ -79,10 +79,10 @@
     <IncludePath>C:\Users\Administrator\source\repos\DaemonApps\LicHper\imgui;C:\Users\Administrator\source\repos\DaemonApps\LicHper\imgui\backends;C:\Users\Administrator\source\repos\DaemonApps\LicHper\cereal</IncludePath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
-    <IncludePath>C:\Users\Administrator\source\repos\DaemonApps\LicHper\imgui;C:\Users\Administrator\source\repos\DaemonApps\LicHper\imgui\backends;C:\Users\Administrator\source\repos\DaemonApps\LicHper\cereal</IncludePath>
+    <IncludePath>C:\Users\Administrator\source\repos\DaemonApps\LicHper\imgui;C:\Users\Administrator\source\repos\DaemonApps\LicHper\imgui\backends;C:\Users\Administrator\source\repos\DaemonApps\LicHper\cereal;C:\Users\Administrator\source\repos\DaemonApps\LicHper\vcpkg\installed\x64-windows-static\include</IncludePath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
-    <IncludePath>C:\Users\Administrator\source\repos\DaemonApps\LicHper\imgui;C:\Users\Administrator\source\repos\DaemonApps\LicHper\imgui\backends;C:\Users\Administrator\source\repos\DaemonApps\LicHper\cereal</IncludePath>
+    <IncludePath>C:\Users\Administrator\source\repos\DaemonApps\LicHper\imgui;C:\Users\Administrator\source\repos\DaemonApps\LicHper\imgui\backends;C:\Users\Administrator\source\repos\DaemonApps\LicHper\cereal;C:\Users\Administrator\source\repos\DaemonApps\LicHper\vcpkg\installed\x64-windows-static\include</IncludePath>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <ClCompile>
@@ -136,21 +136,25 @@
       <PrecompiledHeaderFile>pch.h</PrecompiledHeaderFile>
       <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
       <LanguageStandard>stdcpp20</LanguageStandard>
+      <AdditionalOptions>/utf-8 %(AdditionalOptions)</AdditionalOptions>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <EnableUAC>false</EnableUAC>
-      <AdditionalLibraryDirectories>C:\Users\Administrator\source\repos\DaemonApps\LicHper\cryptopp\lib\x64;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
-      <AdditionalDependencies>wbemuuid.lib;d3d11.lib;d3dcompiler.lib;dxgi.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalLibraryDirectories>C:\Users\Administrator\source\repos\DaemonApps\LicHper\cryptopp\lib\x64;C:\Users\Administrator\source\repos\DaemonApps\LicHper\vcpkg\installed\x64-windows-static\debug\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalDependencies>wbemuuid.lib;d3d11.lib;d3dcompiler.lib;dxgi.lib;minhook.x64d.lib;spdlogd.lib;fmtd.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
     <PostBuildEvent>
       <Command>if not exist "$(SolutionDir)AuthAssistant\bin\$(Configuration)\net6.0-windows8.0" md "$(SolutionDir)AuthAssistant\bin\$(Configuration)\net6.0-windows8.0"
 copy /Y "$(TargetPath)" "$(SolutionDir)AuthAssistant\bin\$(Configuration)\net6.0-windows8.0\"
+copy /Y "$(TargetDir)$(TargetName).pdb" "$(SolutionDir)AuthAssistant\bin\$(Configuration)\net6.0-windows8.0\"
 if not exist "$(SolutionDir)AuthAssistant\Costura64" md "$(SolutionDir)AuthAssistant\Costura64"
 copy /Y "$(TargetPath)" "$(SolutionDir)AuthAssistant\Costura64\"
+copy /Y "$(TargetDir)$(TargetName).pdb" "$(SolutionDir)AuthAssistant\Costura64\"
 if not exist "$(SolutionDir)auth_ghost\Costura64" md "$(SolutionDir)auth_ghost\Costura64"
-copy /Y "$(TargetPath)" "$(SolutionDir)auth_ghost\Costura64\"</Command>
+copy /Y "$(TargetPath)" "$(SolutionDir)auth_ghost\Costura64\"
+copy /Y "$(TargetDir)$(TargetName).pdb" "$(SolutionDir)auth_ghost\Costura64\"</Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
@@ -165,6 +169,7 @@ copy /Y "$(TargetPath)" "$(SolutionDir)auth_ghost\Costura64\"</Command>
       <PrecompiledHeaderFile>pch.h</PrecompiledHeaderFile>
       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
       <LanguageStandard>stdcpp20</LanguageStandard>
+      <AdditionalOptions>/utf-8 %(AdditionalOptions)</AdditionalOptions>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
@@ -172,8 +177,8 @@ copy /Y "$(TargetPath)" "$(SolutionDir)auth_ghost\Costura64\"</Command>
       <OptimizeReferences>true</OptimizeReferences>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <EnableUAC>false</EnableUAC>
-      <AdditionalLibraryDirectories>C:\Users\Administrator\source\repos\DaemonApps\LicHper\cryptopp\lib\x64;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
-      <AdditionalDependencies>wbemuuid.lib;d3d11.lib;d3dcompiler.lib;dxgi.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalLibraryDirectories>C:\Users\Administrator\source\repos\DaemonApps\LicHper\cryptopp\lib\x64;C:\Users\Administrator\source\repos\DaemonApps\LicHper\vcpkg\installed\x64-windows-static\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalDependencies>wbemuuid.lib;d3d11.lib;d3dcompiler.lib;dxgi.lib;minhook.x64.lib;spdlog.lib;fmt.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
     <PostBuildEvent>
       <Command>if not exist "$(SolutionDir)AuthAssistant\bin\$(Configuration)\net6.0-windows8.0" md "$(SolutionDir)AuthAssistant\bin\$(Configuration)\net6.0-windows8.0"
@@ -185,6 +190,13 @@ copy /Y "$(TargetPath)" "$(SolutionDir)auth_ghost\Costura64\"</Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClInclude Include="Hooks\DXGIHook.h" />
+    <ClInclude Include="Rendering\HookRenderer.h" />
+    <ClInclude Include="Rendering\IWatermarkRenderer.h" />
+    <ClInclude Include="Rendering\Logger.h" />
+    <ClInclude Include="Rendering\OverlayRenderer.h" />
+    <ClInclude Include="Rendering\RenderManager.h" />
+    <ClInclude Include="Rendering\WatermarkConfig.h" />
     <ClInclude Include="imgui\backends\imgui_impl_dx11.h" />
     <ClInclude Include="imgui\backends\imgui_impl_win32.h" />
     <ClInclude Include="imgui\imconfig.h" />
@@ -198,6 +210,10 @@ copy /Y "$(TargetPath)" "$(SolutionDir)auth_ghost\Costura64\"</Command>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="dllmain.cpp" />
+    <ClCompile Include="Hooks\DXGIHook.cpp" />
+    <ClCompile Include="Rendering\HookRenderer.cpp" />
+    <ClCompile Include="Rendering\OverlayRenderer.cpp" />
+    <ClCompile Include="Rendering\RenderManager.cpp" />
     <ClCompile Include="imgui\backends\imgui_impl_dx11.cpp" />
     <ClCompile Include="imgui\backends\imgui_impl_win32.cpp" />
     <ClCompile Include="imgui\imgui.cpp" />

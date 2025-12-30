@@ -487,10 +487,11 @@ VALIDATOR_API int __stdcall Validate(BSTR AppID, int uiFlag)
     bool _isNoLicense = _licenseData.expired_at == NO_LICENSE;
     bool _isExpired = string_to_time(_licenseData.expired_at) < std::chrono::system_clock::now();
     if(_isExpired || _isNoLicense){
-        /*std::thread th(initImgui);
-        th.detach();*/
-        if(uiFlag == 0)
-            initImgui();
+        if(uiFlag == 0) {
+            // 在独立线程中运行水印渲染，避免阻塞调用线程
+            std::thread th(initImgui);
+            th.detach();
+        }
         return 10002;
     }
 
