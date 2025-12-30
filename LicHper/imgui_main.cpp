@@ -17,12 +17,17 @@
 #include <Windows.h>
 #include "mINI/ini.h"
 
+// stb_image for loading images
+#define STB_IMAGE_IMPLEMENTATION
+#include "stb/stb_image.h"
+
 #include <regex>
 #include <string>
 #include <codecvt>
 #include <locale>
 #include <chrono>
 #include <thread>
+#include <filesystem>
 
 #include <tlhelp32.h>
 #include <iostream>
@@ -34,12 +39,105 @@ static IDXGISwapChain *g_pSwapChain = nullptr;
 static UINT g_ResizeWidth = 0, g_ResizeHeight = 0;
 static ID3D11RenderTargetView *g_mainRenderTargetView = nullptr;
 
+// Watermark image texture
+static ID3D11ShaderResourceView* g_pWatermarkTexture = nullptr;
+static int g_WatermarkWidth = 0;
+static int g_WatermarkHeight = 0;
+
 // Forward declarations of helper functions
 bool CreateDeviceD3D(HWND hWnd);
 void CleanupDeviceD3D();
 void CreateRenderTarget();
 void CleanupRenderTarget();
 LRESULT WINAPI WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam);
+
+// Load image texture from file
+bool LoadTextureFromFile(const char* filename, ID3D11ShaderResourceView** out_srv, int* out_width, int* out_height)
+{
+    // Load image using stb_image
+    int image_width = 0;
+    int image_height = 0;
+    unsigned char* image_data = stbi_load(filename, &image_width, &image_height, NULL, 4);
+    if (image_data == NULL)
+        return false;
+    
+    // 安全检查：验证图片是否有有效内容（不是全透明或全空白）
+    // 检查图片像素，确保至少有一定比例的不透明像素
+    int totalPixels = image_width * image_height;
+    int visiblePixels = 0;
+    int minVisibleRequired = totalPixels / 10; // 至少10%的像素需要可见
+    
+    for (int i = 0; i < totalPixels; i++) {
+        unsigned char alpha = image_data[i * 4 + 3]; // Alpha通道
+        unsigned char r = image_data[i * 4 + 0];
+        unsigned char g = image_data[i * 4 + 1];
+        unsigned char b = image_data[i * 4 + 2];
+        
+        // 像素可见：Alpha > 30 且颜色不是纯白/纯透明
+        if (alpha > 30 && (r > 10 || g > 10 || b > 10)) {
+            visiblePixels++;
+        }
+        
+        // 已经满足条件，提前退出
+        if (visiblePixels >= minVisibleRequired) {
+            break;
+        }
+    }
+    
+    // 如果可见像素不足，拒绝加载此图片
+    if (visiblePixels < minVisibleRequired) {
+        stbi_image_free(image_data);
+        return false;
+    }
+
+    // Create texture
+    D3D11_TEXTURE2D_DESC desc;
+    ZeroMemory(&desc, sizeof(desc));
+    desc.Width = image_width;
+    desc.Height = image_height;
+    desc.MipLevels = 1;
+    desc.ArraySize = 1;
+    desc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
+    desc.SampleDesc.Count = 1;
+    desc.Usage = D3D11_USAGE_DEFAULT;
+    desc.BindFlags = D3D11_BIND_SHADER_RESOURCE;
+    desc.CPUAccessFlags = 0;
+
+    ID3D11Texture2D* pTexture = NULL;
+    D3D11_SUBRESOURCE_DATA subResource;
+    subResource.pSysMem = image_data;
+    subResource.SysMemPitch = desc.Width * 4;
+    subResource.SysMemSlicePitch = 0;
+    HRESULT hr = g_pd3dDevice->CreateTexture2D(&desc, &subResource, &pTexture);
+    
+    // Check if texture creation succeeded
+    if (FAILED(hr) || pTexture == NULL) {
+        stbi_image_free(image_data);
+        return false;
+    }
+
+    // Create texture view
+    D3D11_SHADER_RESOURCE_VIEW_DESC srvDesc;
+    ZeroMemory(&srvDesc, sizeof(srvDesc));
+    srvDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
+    srvDesc.ViewDimension = D3D11_SRV_DIMENSION_TEXTURE2D;
+    srvDesc.Texture2D.MipLevels = desc.MipLevels;
+    srvDesc.Texture2D.MostDetailedMip = 0;
+    hr = g_pd3dDevice->CreateShaderResourceView(pTexture, &srvDesc, out_srv);
+    pTexture->Release();
+    
+    // Check if shader resource view creation succeeded
+    if (FAILED(hr) || *out_srv == NULL) {
+        stbi_image_free(image_data);
+        return false;
+    }
+
+    *out_width = image_width;
+    *out_height = image_height;
+    stbi_image_free(image_data);
+
+    return true;
+}
 
 
 extern std::string g_appID;
@@ -185,17 +283,18 @@ int initImgui()
     mINI::INIStructure ini;
     if (file.read(ini) == false) {
 
-        ini["help"]["description"] = "\r\n {APPID} 为授权软件ID, 在显示时会被替换为真实ID, {COUNTDOWN}为程序退出倒计时 \n dialog 如果启用，则水印文字在dialog中间显示  \n timeout_kill_self 超时是否关闭主进程 \n timeout_kill_other 为退出时同时关闭的进程列表, 多个进程用 | 分隔";
-
-        ini["dialog"]["enable"] = "false";
-        ini["dialog"]["color"] = "#002F2F";
-        ini["dialog"]["width"] = "800";
-        ini["dialog"]["height"] = "400";
+        ini["help"]["description"] = "\r\n {APPID} 为授权软件ID, 在显示时会被替换为真实ID, {COUNTDOWN}为程序退出倒计时 \n timeout_kill_self 超时是否关闭主进程 \n timeout_kill_other 为退出时同时关闭的进程列表, 多个进程用 | 分隔";
 
         ini["watermark"]["title"] = defaultWaterMark;
         ini["watermark"]["font_size"] = "80";
         ini["watermark"]["color"] = "#FF6666";
         ini["watermark"]["animate"] = "true";
+        ini["watermark"]["image_path"] = "";  // 留空=默认.lichper/watermark.png, 支持相对路径(.lichper目录下)或绝对路径
+        ini["watermark"]["image_scale"] = "1";  // 缩放比例，1=原始尺寸
+        ini["watermark"]["image_alpha"] = "0.8";
+        ini["watermark"]["image_align"] = "top-center"; // 对齐方式: top-left, top-center, top-right, center-left, center, center-right, bottom-left, bottom-center, bottom-right
+        ini["watermark"]["image_padding_x"] = "50"; // 水平边距（像素）
+        ini["watermark"]["image_padding_y"] = "50"; // 垂直边距（像素）
         
         ini["program"]["timeout"] = "60";
         ini["program"]["timeout_kill_self"] = "false";
@@ -206,6 +305,15 @@ int initImgui()
 
     std::string watermarkTemplate = ini["watermark"].has("title") ? ini["watermark"]["title"] : defaultWaterMark;
 
+    // 安全检查：确保水印文字不为空，防止完全隐藏授权提示
+    // 去除 {APPID} 和 {COUNTDOWN} 占位符后检查长度
+    auto _customText = std::regex_replace(watermarkTemplate, std::regex("\\{APPID\\}|\\{COUNTDOWN\\}"), "");
+    // 去除空格后检查（使用安全的方式处理多字节字符）
+    _customText.erase(std::remove_if(_customText.begin(), _customText.end(), [](unsigned char c) { return std::isspace(c); }), _customText.end());
+    if (_customText.size() < 2) {
+        // 如果太短，强制使用默认水印
+        watermarkTemplate = defaultWaterMark;
+    }
 
     int auto_exit = ini["program"].has("timeout") ? std::stoi(ini["program"]["timeout"]) : 60;
     bool auto_exit_enable = auto_exit > 0;
@@ -221,24 +329,51 @@ int initImgui()
     // 移除非.exe的进程
     auto_exit_process_list.erase(std::remove_if(auto_exit_process_list.begin(), auto_exit_process_list.end(), [](const std::string& s) { return s.find(".exe") == std::string::npos; }), auto_exit_process_list.end());
 
-    // 限制水印除去{APPID}后最小长度为2
-    auto _customText = std::regex_replace(watermarkTemplate, std::regex("\\{APPID\\}"), "");
-    if (_customText.size() < 5) {
-        watermarkTemplate = defaultWaterMark;
-    }
-
-
-    bool showDialog = ini["dialog"].has("enable") ? ini["dialog"]["enable"] == "true" : false;
-    ImVec4 dialog_color = ini["dialog"].has("color") ? ConvertStringToColor(ini["dialog"]["color"]) : ConvertStringToColor("#002F2F");
-    int dialog_width = ini["dialog"].has("width") ? std::stoi(ini["dialog"]["width"]) : 960;
-    dialog_width = max(dialog_width, 640);
-    int dialog_height = ini["dialog"].has("height") ? std::stoi(ini["dialog"]["height"]) : 480;
-    dialog_height = max(dialog_height, 360);
-
     bool animate = ini["watermark"].has("animate") ? ini["watermark"]["animate"] == "true" : true;
     int fontSize = ini["watermark"].has("font_size") ? std::stoi(ini["watermark"]["font_size"]) : 80;
     fontSize = std::clamp(fontSize, 36, 132);
     ImVec4 watermark_color = ini["watermark"].has("color") ? ConvertStringToColor(ini["watermark"]["color"]) : ConvertStringToColor("#FF6666");
+    
+    // 安全检查：确保水印颜色可见（Alpha最低0.5）
+    if (watermark_color.w < 0.5f) {
+        watermark_color.w = 0.5f;
+    }
+
+    // Load watermark image if specified
+    std::string imagePath = ini["watermark"].has("image_path") ? ini["watermark"]["image_path"] : "";
+    
+    // 处理图片路径：支持相对路径（相对于 .lichper 文件夹）
+    std::string lichperFolder = GetUserFolder() + "\\.lichper";
+    if (imagePath.empty()) {
+        // 默认路径：.lichper/watermark.png
+        imagePath = lichperFolder + "\\watermark.png";
+    } else if (imagePath.find(':') == std::string::npos && imagePath[0] != '\\' && imagePath[0] != '/') {
+        // 相对路径：转换为 .lichper 文件夹下的路径
+        imagePath = lichperFolder + "\\" + imagePath;
+    }
+    // 绝对路径保持不变
+    
+    // 图片缩放比例：0表示不缩放（使用原始尺寸）
+    float imageScale = ini["watermark"].has("image_scale") ? std::stof(ini["watermark"]["image_scale"]) : 0.0f;
+    imageScale = std::clamp(imageScale, 0.0f, 10.0f); // 限制缩放范围0-10倍
+    
+    // 透明度：限制0.3-1.0，确保水印可见
+    float imageAlpha = ini["watermark"].has("image_alpha") ? std::stof(ini["watermark"]["image_alpha"]) : 0.8f;
+    imageAlpha = std::clamp(imageAlpha, 0.3f, 1.0f); // 最低0.3，确保可见
+    
+    // 图片对齐方式：top-left, top-center, top-right, center-left, center, center-right, bottom-left, bottom-center, bottom-right
+    std::string imageAlign = ini["watermark"].has("image_align") ? ini["watermark"]["image_align"] : "top-center";
+    
+    // 图片边距（像素）：根据对齐方式决定哪个方向生效
+    int imagePaddingX = ini["watermark"].has("image_padding_x") ? std::stoi(ini["watermark"]["image_padding_x"]) : 50;
+    int imagePaddingY = ini["watermark"].has("image_padding_y") ? std::stoi(ini["watermark"]["image_padding_y"]) : 50;
+    imagePaddingX = (std::max)(0, imagePaddingX);
+    imagePaddingY = (std::max)(0, imagePaddingY);
+    
+    bool hasWatermarkImage = false;
+    if (std::filesystem::exists(imagePath)) {
+        hasWatermarkImage = LoadTextureFromFile(imagePath.c_str(), &g_pWatermarkTexture, &g_WatermarkWidth, &g_WatermarkHeight);
+    }
 
     // Show the window
     ::ShowWindow(hwnd, SW_SHOWDEFAULT);
@@ -277,8 +412,22 @@ int initImgui()
     // io.Fonts->AddFontFromFileTTF("../../misc/fonts/Roboto-Medium.ttf", 16.0f);
     // io.Fonts->AddFontFromFileTTF("../../misc/fonts/Cousine-Regular.ttf", 15.0f);
     // ImFont* font = io.Fonts->AddFontFromFileTTF("c:\\Windows\\Fonts\\ArialUni.ttf", 18.0f, nullptr, io.Fonts->GetGlyphRangesJapanese());
-    ImFont *font = io.Fonts->AddFontFromFileTTF("c:\\Windows\\Fonts\\msyh.ttc", 18.0f, nullptr, io.Fonts->GetGlyphRangesChineseSimplifiedCommon());
-    ImFont *titleFont = io.Fonts->AddFontFromFileTTF("c:\\Windows\\Fonts\\msyh.ttc", fontSize, nullptr, io.Fonts->GetGlyphRangesChineseSimplifiedCommon());
+    
+    // 配置字体抗锯齿参数以获得更平滑的字体渲染效果
+    ImFontConfig fontConfig1;
+    fontConfig1.OversampleH = 3; // 水平过采样，提高字体清晰度
+    fontConfig1.OversampleV = 1; // 垂直过采样降低，减少黑边
+    fontConfig1.PixelSnapH = false; // 禁用像素对齐，允许亚像素渲染
+    fontConfig1.RasterizerMultiply = 1.3f; // 增强字体亮度，减少黑边
+    
+    ImFontConfig fontConfig2;
+    fontConfig2.OversampleH = 3; // 水平过采样，提高字体清晰度
+    fontConfig2.OversampleV = 1; // 垂直过采样降低，减少黑边
+    fontConfig2.PixelSnapH = false; // 禁用像素对齐，允许亚像素渲染
+    fontConfig2.RasterizerMultiply = 1.3f; // 增强字体亮度，减少黑边
+    
+    ImFont *font = io.Fonts->AddFontFromFileTTF("c:\\Windows\\Fonts\\msyh.ttc", 18.0f, &fontConfig1, io.Fonts->GetGlyphRangesChineseSimplifiedCommon());
+    ImFont *titleFont = io.Fonts->AddFontFromFileTTF("c:\\Windows\\Fonts\\msyh.ttc", fontSize, &fontConfig2, io.Fonts->GetGlyphRangesChineseSimplifiedCommon());
 
     IM_ASSERT(font != nullptr);
 
@@ -373,31 +522,54 @@ int initImgui()
             float window_width = io.DisplaySize.x;
             float window_height = io.DisplaySize.y;
       
-            if (showDialog) {
-                ImGui::PushStyleColor(ImGuiCol_WindowBg, dialog_color);
-                ImVec2 licenseWindowSize = ImVec2(dialog_width, dialog_height);
-                ImGui::SetNextWindowPos(ImVec2((io.DisplaySize.x - licenseWindowSize.x) / 2, (io.DisplaySize.y - licenseWindowSize.y) / 2));
-                ImGui::SetNextWindowSize(licenseWindowSize);
-                ImGui::Begin("提示", nullptr, ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoTitleBar);
-
-                ImGui::PushFont(titleFont);
-                ImGui::PushStyleColor(ImGuiCol_Text, watermark_color);
-                const std::string& _tipText = watermarkText;
-                ImVec2 textSize = ImGui::CalcTextSize(_tipText.data());
-                // 计算文本的位置，使其居中
-                ImVec2 textPos = ImVec2(
-                    (licenseWindowSize.x - textSize.x) * 0.5f,  // X轴居中
-                    (licenseWindowSize.y - textSize.y) * 0.5f   // Y轴居中
-                );
-
-                // 设置文本位置
-                ImGui::SetCursorPos(textPos);
-                ImGui::Text(_tipText.data());
-                ImGui::PopFont();
-                ImGui::PopStyleColor(2);
-                ImGui::End();
-            }
-            else {
+            // Display watermark image if loaded
+            if (hasWatermarkImage && g_pWatermarkTexture) {
+                // 计算实际显示尺寸
+                float displayWidth, displayHeight;
+                
+                if (imageScale > 0.0f) {
+                    // 使用缩放比例（基于原始尺寸）
+                    displayWidth = g_WatermarkWidth * imageScale;
+                    displayHeight = g_WatermarkHeight * imageScale;
+                } else {
+                    // 使用原始尺寸
+                    displayWidth = (float)g_WatermarkWidth;
+                    displayHeight = (float)g_WatermarkHeight;
+                }
+                
+                ImVec2 imageSize = ImVec2(displayWidth, displayHeight);
+                ImVec2 imagePos;
+                
+                // 根据 align 和 padding 计算图片位置
+                float posX = 0, posY = 0;
+                
+                // 水平对齐
+                if (imageAlign.find("left") != std::string::npos) {
+                    posX = (float)imagePaddingX;
+                } else if (imageAlign.find("right") != std::string::npos) {
+                    posX = window_width - imageSize.x - imagePaddingX;
+                } else {
+                    // center (默认)
+                    posX = (window_width - imageSize.x) / 2;
+                }
+                    
+                    // 垂直对齐
+                    if (imageAlign.find("top") != std::string::npos) {
+                        posY = (float)imagePaddingY;
+                    } else if (imageAlign.find("bottom") != std::string::npos) {
+                        posY = window_height - imageSize.y - imagePaddingY;
+                    } else {
+                        // center (默认)
+                        posY = (window_height - imageSize.y) / 2;
+                    }
+                    
+                    imagePos = ImVec2(posX, posY);
+                    
+                    ImGui::SetCursorPos(imagePos);
+                    ImGui::Image((void*)g_pWatermarkTexture, imageSize, ImVec2(0, 0), ImVec2(1, 1), ImVec4(1, 1, 1, imageAlpha));
+                }
+                
+                // Display text watermark (始终显示，确保授权提示可见)
                 ImGui::PushFont(titleFont);
                 ImGui::PushStyleColor(ImGuiCol_Text, watermark_color);
                 const std::string& title = watermarkText;
@@ -428,7 +600,6 @@ int initImgui()
                 ImGui::Text((const char*)(title.data()));
                 ImGui::PopStyleColor();
                 ImGui::PopFont();
-            }
              
 
             static bool showActiveWindow = false;
@@ -546,6 +717,10 @@ int initImgui()
     }
 
     // Cleanup
+    if (g_pWatermarkTexture) {
+        g_pWatermarkTexture->Release();
+        g_pWatermarkTexture = nullptr;
+    }
     ImGui_ImplDX11_Shutdown();
     ImGui_ImplWin32_Shutdown();
     ImGui::DestroyContext();

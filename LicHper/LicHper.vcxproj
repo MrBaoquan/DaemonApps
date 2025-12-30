@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
-<Project DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+<Project DefaultTargets="Build"
+  xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup Label="ProjectConfigurations">
     <ProjectConfiguration Include="Debug|Win32">
       <Configuration>Debug</Configuration>
@@ -144,10 +145,12 @@
       <AdditionalDependencies>wbemuuid.lib;d3d11.lib;d3dcompiler.lib;dxgi.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
     <PostBuildEvent>
-      <Command>copy $(SolutionDir)x64\Debug\LicHper.dll $(SolutionDir)AuthAssistant\bin\Debug\net6.0-windows8.0\ /y
-copy $(SolutionDir)x64\Debug\LicHper.pdb $(SolutionDir)AuthAssistant\bin\Debug\net6.0-windows8.0\ /y
-copy $(SolutionDir)x64\Debug\LicHper.dll $(SolutionDir)auth_ghost\bin\Debug\net6.0-windows\ /y
-copy $(SolutionDir)x64\Debug\LicHper.pdb $(SolutionDir)auth_ghost\bin\Debug\net6.0-windows\ /y</Command>
+      <Command>if not exist "$(SolutionDir)AuthAssistant\bin\$(Configuration)\net6.0-windows8.0" md "$(SolutionDir)AuthAssistant\bin\$(Configuration)\net6.0-windows8.0"
+copy /Y "$(TargetPath)" "$(SolutionDir)AuthAssistant\bin\$(Configuration)\net6.0-windows8.0\"
+if not exist "$(SolutionDir)AuthAssistant\Costura64" md "$(SolutionDir)AuthAssistant\Costura64"
+copy /Y "$(TargetPath)" "$(SolutionDir)AuthAssistant\Costura64\"
+if not exist "$(SolutionDir)auth_ghost\Costura64" md "$(SolutionDir)auth_ghost\Costura64"
+copy /Y "$(TargetPath)" "$(SolutionDir)auth_ghost\Costura64\"</Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
@@ -173,9 +176,12 @@ copy $(SolutionDir)x64\Debug\LicHper.pdb $(SolutionDir)auth_ghost\bin\Debug\net6
       <AdditionalDependencies>wbemuuid.lib;d3d11.lib;d3dcompiler.lib;dxgi.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
     <PostBuildEvent>
-      <Command>copy $(SolutionDir)x64\Release\LicHper.dll $(SolutionDir)AuthAssistant\bin\Release\net6.0-windows8.0\ /y
-copy $(SolutionDir)x64\Release\LicHper.dll $(SolutionDir)AuthAssistant\Costura64\ /y
-copy $(SolutionDir)x64\Release\LicHper.dll $(SolutionDir)auth_ghost\Costura64\ /y</Command>
+      <Command>if not exist "$(SolutionDir)AuthAssistant\bin\$(Configuration)\net6.0-windows8.0" md "$(SolutionDir)AuthAssistant\bin\$(Configuration)\net6.0-windows8.0"
+copy /Y "$(TargetPath)" "$(SolutionDir)AuthAssistant\bin\$(Configuration)\net6.0-windows8.0\"
+if not exist "$(SolutionDir)AuthAssistant\Costura64" md "$(SolutionDir)AuthAssistant\Costura64"
+copy /Y "$(TargetPath)" "$(SolutionDir)AuthAssistant\Costura64\"
+if not exist "$(SolutionDir)auth_ghost\Costura64" md "$(SolutionDir)auth_ghost\Costura64"
+copy /Y "$(TargetPath)" "$(SolutionDir)auth_ghost\Costura64\"</Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup>
@@ -202,6 +208,7 @@ copy $(SolutionDir)x64\Release\LicHper.dll $(SolutionDir)auth_ghost\Costura64\ /
     <ClCompile Include="imgui_main.cpp" />
     <ClCompile Include="validator.cpp" />
   </ItemGroup>
+
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
   </ImportGroup>
