@@ -2,11 +2,14 @@
 
 #include "IWatermarkRenderer.h"
 #include "WatermarkConfig.h"
+#include "WatermarkRenderer.h"
+#include "D3D12WatermarkRenderer.h"
 #include "../Hooks/DXGIHook.h"
 #include <d3d11.h>
 #include <atomic>
 #include <mutex>
 #include <thread>
+#include <memory>
 
 namespace LicHper {
 
@@ -25,6 +28,8 @@ public:
     RenderMode GetMode() const override { return RenderMode::Hook; }
     bool IsRunning() const override { return m_running; }
     void SetExitCallback(ExitCallback callback) override { m_exitCallback = callback; }
+    void SetFallbackCallback(FallbackCallback callback) override { m_fallbackCallback = callback; }
+    bool NeedsFallback() const override { return m_needsFallback; }
     
     // 检测宿主是否使用 DirectX
     static bool IsHostUsingDirectX();
@@ -37,28 +42,26 @@ private:
     // 状态
     std::atomic<bool> m_running{ false };
     std::atomic<bool> m_initialized{ false };
-    std::atomic<bool> m_imguiInitialized{ false };
+    std::atomic<bool> m_needsFallback{ false };  // 需要回退到 Overlay 模式
     ExitCallback m_exitCallback = nullptr;
+    FallbackCallback m_fallbackCallback = nullptr;
     
     // 窗口
     HWND m_hwndHost = nullptr;
+    HWND m_hwndTarget = nullptr;  // Hook 目标窗口
     
-    // ImGui 资源
+    // D3D11 共享水印渲染组件
+    std::unique_ptr<WatermarkRenderer> m_watermarkRenderer;
+    
+    // D3D12 原生水印渲染器
+    std::unique_ptr<D3D12WatermarkRenderer> m_d3d12Renderer;
+    bool m_usingD3D12 = false;  // 是否使用 D3D12 渲染
+    
+    // ImGui 资源 (D3D11)
     ID3D11RenderTargetView* m_pRenderTargetView = nullptr;
     
-    // 水印纹理
-    ID3D11ShaderResourceView* m_pWatermarkTexture = nullptr;
-    int m_watermarkWidth = 0;
-    int m_watermarkHeight = 0;
-    bool m_hasWatermarkImage = false;
-    
-    // 字体
-    ImFont* m_font = nullptr;
-    ImFont* m_titleFont = nullptr;
-    
-    // 动画状态
-    ImVec2 m_titlePosition{ 0, 0 };
-    ImVec2 m_titleVelocity{ 1, 1 };
+    // 授权窗口状态
+    bool m_showLicenseWindow = false;
     
     // 时间
     std::chrono::high_resolution_clock::time_point m_startTime;
@@ -71,21 +74,25 @@ private:
     void OnResizeBuffers(IDXGISwapChain* pSwapChain, UINT BufferCount,
         UINT Width, UINT Height, DXGI_FORMAT NewFormat, UINT SwapChainFlags);
     
+    // 输入处理
+    void ProcessInput();
+    void InstallInputHook();
+    void UninstallInputHook();
+    static LRESULT CALLBACK KeyboardHookProc(int nCode, WPARAM wParam, LPARAM lParam);
+    static LRESULT CALLBACK GetMsgHookProc(int nCode, WPARAM wParam, LPARAM lParam);
+    static HookRenderer* s_instance;
+    HHOOK m_hKeyboardHook = nullptr;
+    HHOOK m_hGetMsgHook = nullptr;
+    bool m_inputHookInstalled = false;
+    
     // 初始化 ImGui（在 Hook 回调中首次调用）
     bool InitializeImGui(IDXGISwapChain* pSwapChain);
+    bool InitializeD3D12Renderer(IDXGISwapChain* pSwapChain);
     void CleanupImGui();
-    
-    // 加载水印纹理
-    bool LoadWatermarkTexture(ID3D11Device* pDevice);
     
     // 渲染方法
     void RenderWatermark();
-    void RenderWatermarkImage(float windowWidth, float windowHeight);
-    void RenderWatermarkText(const std::string& text, float windowWidth, float windowHeight);
-    
-    // 工具方法
-    std::string ProcessWatermarkText();
-    std::string FormatCountdown(int seconds);
+    void RenderWatermarkD3D12(IDXGISwapChain* pSwapChain);
 };
 
 } // namespace LicHper

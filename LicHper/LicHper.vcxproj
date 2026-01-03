@@ -143,7 +143,7 @@
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <EnableUAC>false</EnableUAC>
       <AdditionalLibraryDirectories>C:\Users\Administrator\source\repos\DaemonApps\LicHper\cryptopp\lib\x64;C:\Users\Administrator\source\repos\DaemonApps\LicHper\vcpkg\installed\x64-windows-static\debug\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
-      <AdditionalDependencies>wbemuuid.lib;d3d11.lib;d3dcompiler.lib;dxgi.lib;minhook.x64d.lib;spdlogd.lib;fmtd.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>wbemuuid.lib;d3d11.lib;d3d12.lib;d3dcompiler.lib;dxgi.lib;minhook.x64d.lib;spdlogd.lib;fmtd.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
     <PostBuildEvent>
       <Command>if not exist "$(SolutionDir)AuthAssistant\bin\$(Configuration)\net6.0-windows8.0" md "$(SolutionDir)AuthAssistant\bin\$(Configuration)\net6.0-windows8.0"
@@ -178,7 +178,7 @@ copy /Y "$(TargetDir)$(TargetName).pdb" "$(SolutionDir)auth_ghost\Costura64\"</C
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <EnableUAC>false</EnableUAC>
       <AdditionalLibraryDirectories>C:\Users\Administrator\source\repos\DaemonApps\LicHper\cryptopp\lib\x64;C:\Users\Administrator\source\repos\DaemonApps\LicHper\vcpkg\installed\x64-windows-static\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
-      <AdditionalDependencies>wbemuuid.lib;d3d11.lib;d3dcompiler.lib;dxgi.lib;minhook.x64.lib;spdlog.lib;fmt.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>wbemuuid.lib;d3d11.lib;d3d12.lib;d3dcompiler.lib;dxgi.lib;minhook.x64.lib;spdlog.lib;fmt.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
     <PostBuildEvent>
       <Command>if not exist "$(SolutionDir)AuthAssistant\bin\$(Configuration)\net6.0-windows8.0" md "$(SolutionDir)AuthAssistant\bin\$(Configuration)\net6.0-windows8.0"
@@ -197,7 +197,10 @@ copy /Y "$(TargetPath)" "$(SolutionDir)auth_ghost\Costura64\"</Command>
     <ClInclude Include="Rendering\OverlayRenderer.h" />
     <ClInclude Include="Rendering\RenderManager.h" />
     <ClInclude Include="Rendering\WatermarkConfig.h" />
+    <ClInclude Include="Rendering\WatermarkRenderer.h" />
+    <ClInclude Include="Rendering\D3D12WatermarkRenderer.h" />
     <ClInclude Include="imgui\backends\imgui_impl_dx11.h" />
+    <ClInclude Include="imgui\backends\imgui_impl_dx12.h" />
     <ClInclude Include="imgui\backends\imgui_impl_win32.h" />
     <ClInclude Include="imgui\imconfig.h" />
     <ClInclude Include="imgui\imgui.h" />
@@ -214,7 +217,10 @@ copy /Y "$(TargetPath)" "$(SolutionDir)auth_ghost\Costura64\"</Command>
     <ClCompile Include="Rendering\HookRenderer.cpp" />
     <ClCompile Include="Rendering\OverlayRenderer.cpp" />
     <ClCompile Include="Rendering\RenderManager.cpp" />
+    <ClCompile Include="Rendering\WatermarkRenderer.cpp" />
+    <ClCompile Include="Rendering\D3D12WatermarkRenderer.cpp" />
     <ClCompile Include="imgui\backends\imgui_impl_dx11.cpp" />
+    <ClCompile Include="imgui\backends\imgui_impl_dx12.cpp" />
     <ClCompile Include="imgui\backends\imgui_impl_win32.cpp" />
     <ClCompile Include="imgui\imgui.cpp" />
     <ClCompile Include="imgui\imgui_demo.cpp" />

@@ -1,6 +1,7 @@
 #pragma once
 
 #include <d3d11.h>
+#include <functional>
 #include "imgui.h"
 #include "WatermarkConfig.h"
 
@@ -41,6 +42,13 @@ public:
     // 设置退出回调
     using ExitCallback = void(*)(int exitCode);
     virtual void SetExitCallback(ExitCallback callback) = 0;
+    
+    // 设置回退回调（当 Hook 模式失败时调用）
+    using FallbackCallback = std::function<void()>;
+    virtual void SetFallbackCallback(FallbackCallback callback) {}
+    
+    // 检查是否需要回退到其他模式
+    virtual bool NeedsFallback() const { return false; }
 };
 
 } // namespace LicHper

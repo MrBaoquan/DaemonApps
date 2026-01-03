@@ -2,10 +2,12 @@
 
 #include "IWatermarkRenderer.h"
 #include "WatermarkConfig.h"
+#include "WatermarkRenderer.h"
 #include <d3d11.h>
 #include <string>
 #include <vector>
 #include <chrono>
+#include <memory>
 
 namespace LicHper {
 
@@ -36,11 +38,8 @@ private:
     IDXGISwapChain* m_pSwapChain = nullptr;
     ID3D11RenderTargetView* m_mainRenderTargetView = nullptr;
     
-    // 水印图片纹理
-    ID3D11ShaderResourceView* m_pWatermarkTexture = nullptr;
-    int m_watermarkWidth = 0;
-    int m_watermarkHeight = 0;
-    bool m_hasWatermarkImage = false;
+    // 共享水印渲染组件
+    std::unique_ptr<WatermarkRenderer> m_watermarkRenderer;
     
     // 窗口
     HWND m_hwnd = nullptr;
@@ -54,14 +53,7 @@ private:
     bool m_running = false;
     bool m_initialized = false;
     ExitCallback m_exitCallback = nullptr;
-    
-    // 动画状态
-    ImVec2 m_titlePosition = ImVec2(0, 0);
-    ImVec2 m_titleVelocity = ImVec2(1, 1);
-    
-    // 字体
-    ImFont* m_font = nullptr;
-    ImFont* m_titleFont = nullptr;
+    bool m_showLicenseWindow = false;
     
     // 时间
     std::chrono::high_resolution_clock::time_point m_startTime;
@@ -72,19 +64,9 @@ private:
     void CleanupDeviceD3D();
     void CreateRenderTarget();
     void CleanupRenderTarget();
-    bool LoadWatermarkTexture();
-    void SetupImGui();
-    void CleanupImGui();
     
     // 渲染方法
     void RenderFrame();
-    void RenderWatermarkImage(float windowWidth, float windowHeight);
-    void RenderWatermarkText(const std::string& text, float windowWidth, float windowHeight);
-    void RenderLicenseWindow();
-    
-    // 工具方法
-    std::string FormatCountdown(int remainSeconds);
-    std::string ProcessWatermarkText();
     
     // 窗口过程
     static LRESULT WINAPI WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam);

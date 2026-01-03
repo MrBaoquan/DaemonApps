@@ -3,43 +3,22 @@
 #include "imgui.h"
 #include "imgui_impl_win32.h"
 #include "imgui_impl_dx11.h"
-#include "../stb/stb_image.h"
-#include "../mINI/ini.h"
 
-#include <regex>
-#include <format>
 #include <thread>
-#include <filesystem>
 #include <tlhelp32.h>
 
 // 外部声明（全局命名空间）
 extern std::string g_appID;
 void reqQuitAllTargetWindows();
-int RenewByLicense(const char* key);
 std::string GetUserFolder();
+
+// Forward declare message handler from imgui_impl_win32.cpp
+extern IMGUI_IMPL_API LRESULT ImGui_ImplWin32_WndProcHandler(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam);
 
 namespace LicHper {
 
 // 静态实例指针（用于窗口过程回调）
 OverlayRenderer* OverlayRenderer::s_instance = nullptr;
-
-// 编码转换
-static std::string GbkToUtf8(const std::string& gbkStr) {
-    int len = MultiByteToWideChar(CP_ACP, 0, gbkStr.c_str(), -1, NULL, 0);
-    wchar_t* wstr = new wchar_t[len + 1];
-    memset(wstr, 0, (len + 1) * sizeof(wchar_t));
-    MultiByteToWideChar(CP_ACP, 0, gbkStr.c_str(), -1, wstr, len);
-
-    len = WideCharToMultiByte(CP_UTF8, 0, wstr, -1, NULL, 0, NULL, NULL);
-    char* str = new char[len + 1];
-    memset(str, 0, len + 1);
-    WideCharToMultiByte(CP_UTF8, 0, wstr, -1, str, len, NULL, NULL);
-
-    std::string strTemp = str;
-    delete[] wstr;
-    delete[] str;
-    return strTemp;
-}
 
 static std::wstring ToWString(const std::string& str) {
     int strLength = (int)str.length() + 1;
@@ -72,6 +51,7 @@ static void KillProcessByName(const char* processName) {
 
 OverlayRenderer::OverlayRenderer() {
     s_instance = this;
+    m_watermarkRenderer = std::make_unique<WatermarkRenderer>();
 }
 
 OverlayRenderer::~OverlayRenderer() {
@@ -87,36 +67,42 @@ bool OverlayRenderer::Initialize(HWND hWndHost) {
     
     // 创建覆盖窗口
     if (!CreateOverlayWindow()) {
+        LOG_ERROR("OverlayRenderer: Failed to create overlay window");
         return false;
     }
     
     // 初始化 DirectX
     if (!CreateDeviceD3D()) {
+        LOG_ERROR("OverlayRenderer: Failed to create D3D device");
         ::DestroyWindow(m_hwnd);
         ::UnregisterClassW(m_wc.lpszClassName, m_wc.hInstance);
         return false;
     }
     
-    // 加载水印图片
-    LoadWatermarkTexture();
-    
     // 显示窗口
     ::ShowWindow(m_hwnd, SW_SHOWDEFAULT);
     ::UpdateWindow(m_hwnd);
     
-    // 设置 ImGui
-    SetupImGui();
+    // 初始化共享水印渲染器
+    m_watermarkRenderer->UpdateConfig(m_config);
+    m_watermarkRenderer->SetStartTime(m_startTime);
+    if (!m_watermarkRenderer->InitializeImGui(m_pd3dDevice, m_pd3dDeviceContext, m_hwnd)) {
+        LOG_ERROR("OverlayRenderer: Failed to initialize ImGui");
+        CleanupDeviceD3D();
+        ::DestroyWindow(m_hwnd);
+        ::UnregisterClassW(m_wc.lpszClassName, m_wc.hInstance);
+        return false;
+    }
     
     m_initialized = true;
+    LOG_INFO("OverlayRenderer: Initialized successfully");
     return true;
 }
 
 void OverlayRenderer::UpdateConfig(const WatermarkConfig& config) {
     m_config = config;
-    
-    // 如果已初始化，重新加载水印图片
-    if (m_initialized) {
-        LoadWatermarkTexture();
+    if (m_watermarkRenderer) {
+        m_watermarkRenderer->UpdateConfig(config);
     }
 }
 
@@ -124,6 +110,7 @@ void OverlayRenderer::RunRenderLoop() {
     if (!m_initialized) return;
     
     m_running = true;
+    LOG_INFO("OverlayRenderer: Starting render loop");
     
     const float frameTime = 1.0f / 60.0f;
     const auto frameDuration = std::chrono::duration_cast<std::chrono::milliseconds>(
@@ -174,6 +161,8 @@ void OverlayRenderer::RunRenderLoop() {
         }
     }
     
+    LOG_INFO("OverlayRenderer: Render loop ended");
+    
     // 通知退出
     reqQuitAllTargetWindows();
     
@@ -187,14 +176,12 @@ void OverlayRenderer::Shutdown() {
     
     if (!m_initialized) return;
     
-    // 清理水印纹理
-    if (m_pWatermarkTexture) {
-        m_pWatermarkTexture->Release();
-        m_pWatermarkTexture = nullptr;
-    }
+    LOG_INFO("OverlayRenderer: Shutting down");
     
-    // 清理 ImGui
-    CleanupImGui();
+    // 清理共享水印渲染器
+    if (m_watermarkRenderer) {
+        m_watermarkRenderer->CleanupImGui();
+    }
     
     // 清理 DirectX
     CleanupDeviceD3D();
@@ -318,378 +305,44 @@ void OverlayRenderer::CleanupRenderTarget() {
     }
 }
 
-bool OverlayRenderer::LoadWatermarkTexture() {
-    // 释放旧纹理
-    if (m_pWatermarkTexture) {
-        m_pWatermarkTexture->Release();
-        m_pWatermarkTexture = nullptr;
-    }
-    m_hasWatermarkImage = false;
-    
-    // 处理图片路径
-    std::string imagePath = m_config.imagePath;
-    std::string lichperFolder = GetUserFolder() + "\\.lichper";
-    
-    if (imagePath.empty()) {
-        imagePath = lichperFolder + "\\watermark.png";
-    } else if (imagePath.find(':') == std::string::npos && 
-               imagePath[0] != '\\' && imagePath[0] != '/') {
-        imagePath = lichperFolder + "\\" + imagePath;
-    }
-    
-    if (!std::filesystem::exists(imagePath)) {
-        return false;
-    }
-    
-    // 加载图片
-    int width, height;
-    unsigned char* data = stbi_load(imagePath.c_str(), &width, &height, NULL, 4);
-    if (!data) return false;
-    
-    // 验证图片内容
-    int totalPixels = width * height;
-    int visiblePixels = 0;
-    int minRequired = totalPixels / 10;
-    
-    for (int i = 0; i < totalPixels && visiblePixels < minRequired; i++) {
-        unsigned char a = data[i * 4 + 3];
-        unsigned char r = data[i * 4 + 0];
-        unsigned char g = data[i * 4 + 1];
-        unsigned char b = data[i * 4 + 2];
-        if (a > 30 && (r > 10 || g > 10 || b > 10)) {
-            visiblePixels++;
-        }
-    }
-    
-    if (visiblePixels < minRequired) {
-        stbi_image_free(data);
-        return false;
-    }
-    
-    // 创建纹理
-    D3D11_TEXTURE2D_DESC desc;
-    ZeroMemory(&desc, sizeof(desc));
-    desc.Width = width;
-    desc.Height = height;
-    desc.MipLevels = 1;
-    desc.ArraySize = 1;
-    desc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
-    desc.SampleDesc.Count = 1;
-    desc.Usage = D3D11_USAGE_DEFAULT;
-    desc.BindFlags = D3D11_BIND_SHADER_RESOURCE;
-    
-    ID3D11Texture2D* pTexture = nullptr;
-    D3D11_SUBRESOURCE_DATA subResource;
-    subResource.pSysMem = data;
-    subResource.SysMemPitch = width * 4;
-    subResource.SysMemSlicePitch = 0;
-    
-    HRESULT hr = m_pd3dDevice->CreateTexture2D(&desc, &subResource, &pTexture);
-    if (FAILED(hr) || !pTexture) {
-        stbi_image_free(data);
-        return false;
-    }
-    
-    D3D11_SHADER_RESOURCE_VIEW_DESC srvDesc;
-    ZeroMemory(&srvDesc, sizeof(srvDesc));
-    srvDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
-    srvDesc.ViewDimension = D3D11_SRV_DIMENSION_TEXTURE2D;
-    srvDesc.Texture2D.MipLevels = 1;
-    
-    hr = m_pd3dDevice->CreateShaderResourceView(pTexture, &srvDesc, &m_pWatermarkTexture);
-    pTexture->Release();
-    stbi_image_free(data);
-    
-    if (FAILED(hr)) return false;
-    
-    m_watermarkWidth = width;
-    m_watermarkHeight = height;
-    m_hasWatermarkImage = true;
-    return true;
-}
-
-void OverlayRenderer::SetupImGui() {
-    LOG_INFO("Setting up ImGui, device=0x{:X}, context=0x{:X}", 
-        reinterpret_cast<uintptr_t>(m_pd3dDevice),
-        reinterpret_cast<uintptr_t>(m_pd3dDeviceContext));
-    
-    if (!m_pd3dDevice || !m_pd3dDeviceContext) {
-        LOG_ERROR("Cannot setup ImGui: D3D device or context is null!");
-        return;
-    }
-    
-    IMGUI_CHECKVERSION();
-    ImGui::CreateContext();
-    ImGuiIO& io = ImGui::GetIO();
-    io.IniFilename = nullptr;
-    io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
-    io.ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad;
-    io.Fonts->Flags |= ImFontAtlasFlags_NoPowerOfTwoHeight;
-    
-    ImGui::StyleColorsDark();
-    
-    ImGui_ImplWin32_Init(m_hwnd);
-    ImGui_ImplDX11_Init(m_pd3dDevice, m_pd3dDeviceContext);
-    
-    // 配置字体
-    ImFontConfig fontConfig;
-    fontConfig.OversampleH = 3;
-    fontConfig.OversampleV = 1;
-    fontConfig.PixelSnapH = false;
-    fontConfig.RasterizerMultiply = 1.3f;
-    
-    int fontSize = std::clamp(m_config.fontSize, 36, 132);
-    
-    m_font = io.Fonts->AddFontFromFileTTF(
-        "c:\\Windows\\Fonts\\msyh.ttc", 18.0f, &fontConfig,
-        io.Fonts->GetGlyphRangesChineseSimplifiedCommon());
-    
-    ImFontConfig titleFontConfig;
-    titleFontConfig.OversampleH = 3;
-    titleFontConfig.OversampleV = 1;
-    titleFontConfig.PixelSnapH = false;
-    titleFontConfig.RasterizerMultiply = 1.3f;
-    
-    m_titleFont = io.Fonts->AddFontFromFileTTF(
-        "c:\\Windows\\Fonts\\msyh.ttc", (float)fontSize, &titleFontConfig,
-        io.Fonts->GetGlyphRangesChineseSimplifiedCommon());
-}
-
-void OverlayRenderer::CleanupImGui() {
-    ImGui_ImplDX11_Shutdown();
-    ImGui_ImplWin32_Shutdown();
-    ImGui::DestroyContext();
-}
-
-std::string OverlayRenderer::ProcessWatermarkText() {
-    std::string text = m_config.title;
-    
-    // 替换 {APPID}
-    text = std::regex_replace(text, std::regex("\\{APPID\\}"), GbkToUtf8(m_config.appID));
-    
-    // 替换 {COUNTDOWN}
-    auto elapsed = std::chrono::duration_cast<std::chrono::seconds>(
-        std::chrono::high_resolution_clock::now() - m_startTime);
-    int remain = m_config.timeout - (int)elapsed.count();
-    remain = (std::max)(remain, 0);
-    
-    std::string countdown = FormatCountdown(remain);
-    text = std::regex_replace(text, std::regex("\\{COUNTDOWN\\}"), countdown);
-    
-    return text;
-}
-
-std::string OverlayRenderer::FormatCountdown(int seconds) {
-    return std::format("{:02d}:{:02d}:{:02d}", 
-        seconds / 3600, (seconds % 3600) / 60, seconds % 60);
-}
-
 void OverlayRenderer::RenderFrame() {
+    if (!m_watermarkRenderer || !m_watermarkRenderer->IsInitialized()) return;
+    
     ImGuiIO& io = ImGui::GetIO();
-    
-    // 开始新帧
-    ImGui_ImplDX11_NewFrame();
-    ImGui_ImplWin32_NewFrame();
-    ImGui::NewFrame();
-    
     float windowWidth = io.DisplaySize.x;
     float windowHeight = io.DisplaySize.y;
     
-    // 设置全屏透明窗口
-    ImGui::SetNextWindowPos(ImVec2(0, 0));
-    ImGui::SetNextWindowSize(ImVec2(windowWidth, windowHeight));
-    ImGui::PushStyleColor(ImGuiCol_WindowBg, ImVec4(1.0f, 1.0f, 1.0f, 0.0f));
-    ImGui::Begin("Transparent", nullptr, 
-        ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove | 
-        ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoTitleBar);
-    
-    // 渲染水印图片
-    RenderWatermarkImage(windowWidth, windowHeight);
-    
-    // 渲染水印文字
-    std::string watermarkText = ProcessWatermarkText();
-    RenderWatermarkText(watermarkText, windowWidth, windowHeight);
-    
-    // 授权按钮
-    static bool showLicenseWindow = false;
-    ImGui::SetCursorPosX(windowWidth - 90);
-    if (m_config.animate) ImGui::SetCursorPosY(100);
-    
-    ImGui::PushStyleColor(ImGuiCol_Button, (ImVec4)ImColor::HSV(0.0f, 0.6f, 0.6f));
-    ImGui::PushStyleColor(ImGuiCol_ButtonHovered, (ImVec4)ImColor::HSV(0.0f, 0.7f, 0.7f));
-    ImGui::PushStyleColor(ImGuiCol_ButtonActive, (ImVec4)ImColor::HSV(0.0f, 0.8f, 0.8f));
-    
-    if (!showLicenseWindow) {
-        if (ImGui::ArrowButton("##right", ImGuiDir_Right)) {
-            showLicenseWindow = true;
-        }
-    } else {
-        if (ImGui::ArrowButton("##down", ImGuiDir_Down)) {
-            showLicenseWindow = false;
-        }
-    }
-    ImGui::PopStyleColor(3);
-    
-    ImGui::End();
-    ImGui::PopStyleColor();
-    
-    // 授权窗口
-    if (showLicenseWindow) {
-        RenderLicenseWindow();
-    }
-    
-    // 渲染
-    ImGui::Render();
-    
-    float clearColor[4] = { 0.0f, 0.0f, 0.0f, 0.0f };
+    // 设置渲染目标
+    const float clear_color[4] = { 0.0f, 0.0f, 0.0f, 0.0f };
     m_pd3dDeviceContext->OMSetRenderTargets(1, &m_mainRenderTargetView, nullptr);
-    m_pd3dDeviceContext->ClearRenderTargetView(m_mainRenderTargetView, clearColor);
-    ImGui_ImplDX11_RenderDrawData(ImGui::GetDrawData());
+    m_pd3dDeviceContext->ClearRenderTargetView(m_mainRenderTargetView, clear_color);
     
+    // 开始新帧
+    m_watermarkRenderer->BeginFrame();
+    
+    // 渲染水印内容
+    m_watermarkRenderer->RenderWatermarkContent(windowWidth, windowHeight);
+    
+    // 渲染授权窗口
+    if (m_watermarkRenderer->RenderLicenseWindow(m_showLicenseWindow, windowWidth, windowHeight, 
+        [this]() { m_running = false; })) {
+        m_running = false;
+    }
+    
+    // 结束帧并渲染
+    m_watermarkRenderer->EndFrame();
+    
+    // Present
     m_pSwapChain->Present(1, 0);
 }
 
-void OverlayRenderer::RenderWatermarkImage(float windowWidth, float windowHeight) {
-    if (!m_hasWatermarkImage || !m_pWatermarkTexture) return;
-    
-    float scale = std::clamp(m_config.imageScale, 0.1f, 10.0f);
-    float displayWidth = m_watermarkWidth * scale;
-    float displayHeight = m_watermarkHeight * scale;
-    
-    ImVec2 imageSize(displayWidth, displayHeight);
-    float posX = 0, posY = 0;
-    
-    // 水平对齐
-    if (m_config.imageAlign.find("left") != std::string::npos) {
-        posX = (float)m_config.imagePaddingX;
-    } else if (m_config.imageAlign.find("right") != std::string::npos) {
-        posX = windowWidth - imageSize.x - m_config.imagePaddingX;
-    } else {
-        posX = (windowWidth - imageSize.x) / 2;
-    }
-    
-    // 垂直对齐
-    if (m_config.imageAlign.find("top") != std::string::npos) {
-        posY = (float)m_config.imagePaddingY;
-    } else if (m_config.imageAlign.find("bottom") != std::string::npos) {
-        posY = windowHeight - imageSize.y - m_config.imagePaddingY;
-    } else {
-        posY = (windowHeight - imageSize.y) / 2;
-    }
-    
-    float alpha = std::clamp(m_config.imageAlpha, 0.3f, 1.0f);
-    
-    ImGui::SetCursorPos(ImVec2(posX, posY));
-    ImGui::Image((void*)m_pWatermarkTexture, imageSize, 
-        ImVec2(0, 0), ImVec2(1, 1), ImVec4(1, 1, 1, alpha));
-}
-
-void OverlayRenderer::RenderWatermarkText(const std::string& text, float windowWidth, float windowHeight) {
-    ImGui::PushFont(m_titleFont);
-    
-    // 确保颜色可见
-    ImVec4 color = m_config.color;
-    if (color.w < 0.5f) color.w = 0.5f;
-    
-    ImGui::PushStyleColor(ImGuiCol_Text, color);
-    
-    ImVec2 textSize = ImGui::CalcTextSize(text.c_str());
-    
-    if (m_config.animate) {
-        // 动画：碰撞边界反弹
-        if (m_titlePosition.x + textSize.x + 10 >= windowWidth) m_titleVelocity.x = -1;
-        if (m_titlePosition.x <= 0) m_titleVelocity.x = 1;
-        if (m_titlePosition.y + textSize.y + 10 >= windowHeight) m_titleVelocity.y = -1;
-        if (m_titlePosition.y <= 0) m_titleVelocity.y = 1;
-        
-        m_titlePosition.x += m_titleVelocity.x;
-        m_titlePosition.y += m_titleVelocity.y;
-    } else {
-        m_titlePosition = ImVec2((windowWidth - textSize.x) - 50, 150);
-    }
-    
-    ImGui::SetCursorPos(m_titlePosition);
-    ImGui::Text("%s", text.c_str());
-    
-    ImGui::PopStyleColor();
-    ImGui::PopFont();
-}
-
-void OverlayRenderer::RenderLicenseWindow() {
-    ImGuiIO& io = ImGui::GetIO();
-    static std::string licenseError;
-    static char inputText[1024 * 16] = "";
-    
-    ImVec2 windowSize(640, 420);
-    ImGui::SetNextWindowPos(ImVec2(
-        (io.DisplaySize.x - windowSize.x) / 2,
-        (io.DisplaySize.y - windowSize.y) / 2));
-    ImGui::SetNextWindowSize(windowSize);
-    
-    ImGui::Begin("License", nullptr, 
-        ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove | 
-        ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoTitleBar);
-    
-    ImGui::SetCursorPos(ImVec2(20, 20));
-    std::string tipText = std::format("请输入软件授权码:    APPID - [{}]", GbkToUtf8(m_config.appID));
-    ImGui::Text("%s", tipText.c_str());
-    
-    ImVec2 inputSize(600, 250);
-    ImGui::SetCursorPosX((windowSize.x - inputSize.x) / 2);
-    ImGui::SetCursorPosY(50);
-    ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(16.0f, 16.0f));
-    ImGui::InputTextMultiline("##source", inputText, IM_ARRAYSIZE(inputText), inputSize);
-    ImGui::PopStyleVar();
-    
-    if (!licenseError.empty()) {
-        ImGui::SetCursorPos(ImVec2(20, 310));
-        ImGui::TextColored(ImVec4(1.0f, 0.0f, 0.0f, 1.0f), "%s", licenseError.c_str());
-    }
-    
-    // 按钮
-    ImGui::SetCursorPos(ImVec2((windowSize.x - 240 - 30) / 2, 340));
-    
-    ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.8f, 0.2f, 0.2f, 1.0f));
-    ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.9f, 0.3f, 0.3f, 1.0f));
-    ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(0.7f, 0.1f, 0.1f, 1.0f));
-    
-    if (ImGui::Button("取消", ImVec2(120, 40))) {
-        // 关闭窗口由外部处理
-    }
-    ImGui::PopStyleColor(3);
-    
-    ImGui::SameLine();
-    ImGui::SetCursorPosX((windowSize.x - 240 - 30) / 2 + 150);
-    
-    ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.2f, 0.8f, 0.2f, 1.0f));
-    ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.3f, 0.9f, 0.3f, 1.0f));
-    ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(0.1f, 0.7f, 0.1f, 1.0f));
-    
-    if (ImGui::Button("确认", ImVec2(120, 40))) {
-        if (RenewByLicense(inputText) != 0) {
-            licenseError = "授权码错误，请检查...";
-        } else {
-            m_running = false;
-        }
-    }
-    ImGui::PopStyleColor(3);
-    
-    ImGui::End();
-}
-
-} // namespace LicHper
-
-// 窗口过程 - ImGui 处理函数声明在 namespace 外
-extern IMGUI_IMPL_API LRESULT ImGui_ImplWin32_WndProcHandler(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam);
-
-LRESULT WINAPI LicHper::OverlayRenderer::WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam) {
-    if (::ImGui_ImplWin32_WndProcHandler(hWnd, msg, wParam, lParam))
+LRESULT WINAPI OverlayRenderer::WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam) {
+    if (ImGui_ImplWin32_WndProcHandler(hWnd, msg, wParam, lParam))
         return true;
     
     switch (msg) {
     case WM_SIZE:
-        if (wParam == SIZE_MINIMIZED) return 0;
-        if (s_instance && s_instance->m_pSwapChain) {
+        if (s_instance && s_instance->m_pd3dDevice && wParam != SIZE_MINIMIZED) {
             s_instance->CleanupRenderTarget();
             s_instance->m_pSwapChain->ResizeBuffers(0, (UINT)LOWORD(lParam), (UINT)HIWORD(lParam), 
                 DXGI_FORMAT_UNKNOWN, 0);
@@ -697,7 +350,8 @@ LRESULT WINAPI LicHper::OverlayRenderer::WndProc(HWND hWnd, UINT msg, WPARAM wPa
         }
         return 0;
     case WM_SYSCOMMAND:
-        if ((wParam & 0xfff0) == SC_KEYMENU) return 0;
+        if ((wParam & 0xfff0) == SC_KEYMENU)
+            return 0;
         break;
     case WM_DESTROY:
         ::PostQuitMessage(0);
@@ -705,3 +359,5 @@ LRESULT WINAPI LicHper::OverlayRenderer::WndProc(HWND hWnd, UINT msg, WPARAM wPa
     }
     return ::DefWindowProcW(hWnd, msg, wParam, lParam);
 }
+
+} // namespace LicHper

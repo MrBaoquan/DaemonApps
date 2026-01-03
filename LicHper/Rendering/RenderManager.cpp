@@ -157,6 +157,26 @@ void RenderManager::Run() {
     m_running.store(true);
     LOG_INFO("Starting render loop with {} mode", RenderModeToString(m_renderer->GetMode()));
     m_renderer->RunRenderLoop();
+    
+    // 检查是否需要回退到 Overlay 模式
+    if (m_renderer->NeedsFallback() && m_renderer->GetMode() == RenderMode::Hook) {
+        LOG_INFO("Hook mode failed, falling back to Overlay mode...");
+        
+        // 关闭当前渲染器
+        m_renderer->Shutdown();
+        m_renderer.reset();
+        
+        // 创建 Overlay 渲染器
+        m_renderer = CreateRenderer(RenderMode::Overlay);
+        if (m_renderer && m_renderer->Initialize(m_hwndHost)) {
+            LOG_INFO("Fallback to Overlay mode successful");
+            m_renderer->UpdateConfig(m_config);
+            m_renderer->RunRenderLoop();
+        } else {
+            LOG_ERROR("Fallback to Overlay mode failed");
+        }
+    }
+    
     LOG_INFO("Render loop ended");
     m_running.store(false);
 }

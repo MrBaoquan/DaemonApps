@@ -17,7 +17,6 @@ namespace auth_ghost
     /// </summary>
     public partial class MainWindow : Window
     {
-
         [DllImport(
             "LicHper.dll",
             CallingConvention = CallingConvention.StdCall,

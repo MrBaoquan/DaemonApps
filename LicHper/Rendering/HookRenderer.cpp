@@ -3,12 +3,12 @@
 #include "imgui.h"
 #include "imgui_impl_win32.h"
 #include "imgui_impl_dx11.h"
-#include "../stb/stb_image.h"
 
-#include <regex>
-#include <format>
-#include <filesystem>
+#include <windows.h>
 #include <tlhelp32.h>
+
+// Forward declare message handler from imgui_impl_win32.cpp
+extern IMGUI_IMPL_API LRESULT ImGui_ImplWin32_WndProcHandler(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam);
 
 // 外部声明（全局命名空间）
 extern std::string g_appID;
@@ -17,23 +17,8 @@ std::string GetUserFolder();
 
 namespace LicHper {
 
-// 编码转换
-static std::string GbkToUtf8(const std::string& gbkStr) {
-    int len = MultiByteToWideChar(CP_ACP, 0, gbkStr.c_str(), -1, NULL, 0);
-    wchar_t* wstr = new wchar_t[len + 1];
-    memset(wstr, 0, (len + 1) * sizeof(wchar_t));
-    MultiByteToWideChar(CP_ACP, 0, gbkStr.c_str(), -1, wstr, len);
-
-    len = WideCharToMultiByte(CP_UTF8, 0, wstr, -1, NULL, 0, NULL, NULL);
-    char* str = new char[len + 1];
-    memset(str, 0, len + 1);
-    WideCharToMultiByte(CP_UTF8, 0, wstr, -1, str, len, NULL, NULL);
-
-    std::string strTemp = str;
-    delete[] wstr;
-    delete[] str;
-    return strTemp;
-}
+// 静态实例指针
+HookRenderer* HookRenderer::s_instance = nullptr;
 
 // 终止进程
 static void KillProcessByName(const char* processName) {
@@ -44,7 +29,7 @@ static void KillProcessByName(const char* processName) {
         if (Process32First(hSnapshot, &pe32)) {
             do {
                 if (strcmp(pe32.szExeFile, processName) == 0) {
-                    HANDLE hProcess = OpenProcess(PROCESS_ALL_ACCESS, false, pe32.th32ProcessID);
+                    HANDLE hProcess = OpenProcess(PROCESS_ALL_ACCESS, FALSE, pe32.th32ProcessID);
                     if (hProcess) {
                         TerminateProcess(hProcess, 0);
                         CloseHandle(hProcess);
@@ -57,17 +42,20 @@ static void KillProcessByName(const char* processName) {
 }
 
 HookRenderer::HookRenderer() {
+    s_instance = this;
+    m_watermarkRenderer = std::make_unique<WatermarkRenderer>();
+    m_d3d12Renderer = std::make_unique<D3D12WatermarkRenderer>();
 }
 
 HookRenderer::~HookRenderer() {
     // 确保回调被清除，防止悬空指针
     DXGIHook::Instance().ClearCallbacks();
     Shutdown();
+    s_instance = nullptr;
 }
 
 bool HookRenderer::IsHostUsingDirectX() {
     // 检查是否是 WPF 应用程序（WPF 使用 DirectX 但不适合 Hook 模式）
-    // WPF 应用程序会加载 wpfgfx_v0400.dll 或 PresentationCore.dll
     HMODULE hWpfGfx = GetModuleHandleA("wpfgfx_v0400.dll");
     HMODULE hPresentationCore = GetModuleHandleA("PresentationCore.dll");
     if (hWpfGfx != nullptr || hPresentationCore != nullptr) {
@@ -82,12 +70,20 @@ bool HookRenderer::IsHostUsingDirectX() {
         return false;
     }
     
-    // 检查是否加载了 d3d11.dll 或 dxgi.dll
+    // 检查是否加载了 D3D12（UE5 等引擎使用 D3D12）
+    // 现在支持 D3D12 原生渲染
+    HMODULE hD3D12 = GetModuleHandleA("d3d12.dll");
+    if (hD3D12 != nullptr) {
+        LOG_INFO("D3D12 application detected, Hook mode will use D3D12 native rendering");
+        return true;
+    }
+    
+    // 检查是否加载了 d3d11.dll（纯 D3D11 应用）
     HMODULE hD3D11 = GetModuleHandleA("d3d11.dll");
     HMODULE hDXGI = GetModuleHandleA("dxgi.dll");
     
-    if (hD3D11 != nullptr || hDXGI != nullptr) {
-        LOG_INFO("DirectX application detected, Hook mode suitable");
+    if (hD3D11 != nullptr && hDXGI != nullptr) {
+        LOG_INFO("D3D11 application detected, Hook mode suitable");
         return true;
     }
     
@@ -114,16 +110,24 @@ bool HookRenderer::Initialize(HWND hWndHost) {
     });
     
     if (!hook.Initialize()) {
+        LOG_ERROR("HookRenderer: Failed to initialize DXGI Hook");
         return false;
     }
     
     m_initialized = true;
+    LOG_INFO("HookRenderer: Initialized successfully");
     return true;
 }
 
 void HookRenderer::UpdateConfig(const WatermarkConfig& config) {
     std::lock_guard<std::mutex> lock(m_configMutex);
     m_config = config;
+    if (m_watermarkRenderer) {
+        m_watermarkRenderer->UpdateConfig(config);
+    }
+    if (m_d3d12Renderer) {
+        m_d3d12Renderer->UpdateConfig(config);
+    }
 }
 
 void HookRenderer::RunRenderLoop() {
@@ -136,6 +140,7 @@ void HookRenderer::RunRenderLoop() {
     }
     
     m_running = true;
+    LOG_INFO("HookRenderer: Starting render loop");
     
     // 确保之前的线程已结束
     if (m_timeoutThread.joinable()) {
@@ -185,6 +190,8 @@ void HookRenderer::RunRenderLoop() {
     if (m_timeoutThread.joinable()) {
         m_timeoutThread.join();
     }
+    
+    LOG_INFO("HookRenderer: Render loop ended");
 }
 
 void HookRenderer::Shutdown() {
@@ -195,41 +202,75 @@ void HookRenderer::Shutdown() {
     
     if (!m_initialized) return;
     
+    LOG_INFO("HookRenderer: Shutting down");
+    
     // 等待超时线程结束
     if (m_timeoutThread.joinable()) {
         m_timeoutThread.join();
     }
     
-    // 清理 ImGui
+    // 清理 D3D12 渲染器
+    if (m_d3d12Renderer) {
+        m_d3d12Renderer->Shutdown();
+    }
+    
+    // 清理 ImGui (D3D11)
     CleanupImGui();
     
     // 关闭 Hook
     DXGIHook::Instance().Shutdown();
     
     m_initialized = false;
+    m_usingD3D12 = false;
 }
 
 void HookRenderer::OnPresent(IDXGISwapChain* pSwapChain) {
     if (!m_running) return;
     
-    // 首次调用时初始化 ImGui
-    if (!m_imguiInitialized) {
-        if (!InitializeImGui(pSwapChain)) {
-            return;
-        }
-    }
+    auto& hook = DXGIHook::Instance();
     
-    // 渲染水印
-    RenderWatermark();
+    // 检查是否是 D3D12 模式
+    if (hook.IsD3D12()) {
+        // D3D12 模式：使用原生 D3D12 渲染器
+        if (!m_d3d12Renderer->IsInitialized()) {
+            if (!InitializeD3D12Renderer(pSwapChain)) {
+                // 如果没有命令队列，触发回退
+                if (!hook.GetD3D12CommandQueue()) {
+                    LOG_INFO("HookRenderer: D3D12 CommandQueue not available, triggering fallback");
+                    m_needsFallback = true;
+                    m_running = false;
+                }
+                return;
+            }
+        }
+        
+        // D3D12 渲染
+        RenderWatermarkD3D12(pSwapChain);
+    } else {
+        // D3D11 模式：使用原有逻辑
+        if (!m_watermarkRenderer || !m_watermarkRenderer->IsInitialized()) {
+            if (!InitializeImGui(pSwapChain)) {
+                return;
+            }
+        }
+        
+        // D3D11 渲染
+        RenderWatermark();
+    }
 }
 
 void HookRenderer::OnResizeBuffers(IDXGISwapChain* pSwapChain, UINT BufferCount,
     UINT Width, UINT Height, DXGI_FORMAT NewFormat, UINT SwapChainFlags) {
     
-    // 释放 RenderTargetView
+    // 释放 D3D11 RenderTargetView
     if (m_pRenderTargetView) {
         m_pRenderTargetView->Release();
         m_pRenderTargetView = nullptr;
+    }
+    
+    // D3D12 渲染器需要在下一帧重新初始化
+    if (m_d3d12Renderer && m_d3d12Renderer->IsInitialized()) {
+        m_d3d12Renderer->OnResize(Width, Height);
     }
 }
 
@@ -238,17 +279,34 @@ bool HookRenderer::InitializeImGui(IDXGISwapChain* pSwapChain) {
     ID3D11Device* pDevice = hook.GetDevice();
     ID3D11DeviceContext* pContext = hook.GetDeviceContext();
     
-    if (!pDevice || !pContext) return false;
+    if (!pDevice || !pContext) {
+        LOG_ERROR("HookRenderer: Cannot initialize ImGui - device or context is null");
+        // 检查是否是 D3D12 应用，如果是则标记需要回退
+        if (hook.IsD3D12()) {
+            LOG_INFO("HookRenderer: D3D12 detected at runtime, marking for fallback to Overlay mode");
+            m_needsFallback = true;
+            m_running = false;  // 停止渲染循环
+        }
+        return false;
+    }
     
     // 获取后台缓冲区
     ID3D11Texture2D* pBackBuffer = nullptr;
     if (FAILED(pSwapChain->GetBuffer(0, IID_PPV_ARGS(&pBackBuffer)))) {
+        LOG_ERROR("HookRenderer: Failed to get back buffer");
+        // 也可能是 D3D12 但未检测到，标记回退
+        if (hook.IsD3D12()) {
+            LOG_INFO("HookRenderer: D3D12 SwapChain detected, marking for fallback to Overlay mode");
+            m_needsFallback = true;
+            m_running = false;
+        }
         return false;
     }
     
     // 创建 RenderTargetView
     if (FAILED(pDevice->CreateRenderTargetView(pBackBuffer, nullptr, &m_pRenderTargetView))) {
         pBackBuffer->Release();
+        LOG_ERROR("HookRenderer: Failed to create render target view");
         return false;
     }
     pBackBuffer->Release();
@@ -256,65 +314,34 @@ bool HookRenderer::InitializeImGui(IDXGISwapChain* pSwapChain) {
     // 获取窗口句柄
     DXGI_SWAP_CHAIN_DESC desc;
     pSwapChain->GetDesc(&desc);
-    HWND hWnd = desc.OutputWindow;
+    m_hwndTarget = desc.OutputWindow;
     
-    // 初始化 ImGui
-    IMGUI_CHECKVERSION();
-    ImGui::CreateContext();
-    ImGuiIO& io = ImGui::GetIO();
-    io.IniFilename = nullptr;
-    io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
-    io.Fonts->Flags |= ImFontAtlasFlags_NoPowerOfTwoHeight;
-    
-    ImGui::StyleColorsDark();
-    
-    ImGui_ImplWin32_Init(hWnd);
-    ImGui_ImplDX11_Init(pDevice, pContext);
-    
-    // 配置字体
-    ImFontConfig fontConfig;
-    fontConfig.OversampleH = 3;
-    fontConfig.OversampleV = 1;
-    fontConfig.PixelSnapH = false;
-    fontConfig.RasterizerMultiply = 1.3f;
-    
-    WatermarkConfig config;
+    // 初始化共享水印渲染器
     {
         std::lock_guard<std::mutex> lock(m_configMutex);
-        config = m_config;
+        m_watermarkRenderer->UpdateConfig(m_config);
+    }
+    m_watermarkRenderer->SetStartTime(m_startTime);
+    
+    if (!m_watermarkRenderer->InitializeImGui(pDevice, pContext, m_hwndTarget)) {
+        LOG_ERROR("HookRenderer: Failed to initialize shared watermark renderer");
+        if (m_pRenderTargetView) {
+            m_pRenderTargetView->Release();
+            m_pRenderTargetView = nullptr;
+        }
+        return false;
     }
     
-    int fontSize = std::clamp(config.fontSize, 36, 132);
+    // 安装输入 Hook
+    InstallInputHook();
     
-    m_font = io.Fonts->AddFontFromFileTTF(
-        "c:\\Windows\\Fonts\\msyh.ttc", 18.0f, &fontConfig,
-        io.Fonts->GetGlyphRangesChineseSimplifiedCommon());
-    
-    ImFontConfig titleFontConfig;
-    titleFontConfig.OversampleH = 3;
-    titleFontConfig.OversampleV = 1;
-    titleFontConfig.PixelSnapH = false;
-    titleFontConfig.RasterizerMultiply = 1.3f;
-    
-    m_titleFont = io.Fonts->AddFontFromFileTTF(
-        "c:\\Windows\\Fonts\\msyh.ttc", (float)fontSize, &titleFontConfig,
-        io.Fonts->GetGlyphRangesChineseSimplifiedCommon());
-    
-    // 加载水印纹理
-    LoadWatermarkTexture(pDevice);
-    
-    m_imguiInitialized = true;
+    LOG_INFO("HookRenderer: ImGui initialized successfully");
     return true;
 }
 
 void HookRenderer::CleanupImGui() {
-    if (!m_imguiInitialized) return;
-    
-    // 释放水印纹理
-    if (m_pWatermarkTexture) {
-        m_pWatermarkTexture->Release();
-        m_pWatermarkTexture = nullptr;
-    }
+    // 卸载输入 Hook
+    UninstallInputHook();
     
     // 释放 RenderTargetView
     if (m_pRenderTargetView) {
@@ -322,141 +349,15 @@ void HookRenderer::CleanupImGui() {
         m_pRenderTargetView = nullptr;
     }
     
-    ImGui_ImplDX11_Shutdown();
-    ImGui_ImplWin32_Shutdown();
-    ImGui::DestroyContext();
-    
-    m_imguiInitialized = false;
-}
-
-bool HookRenderer::LoadWatermarkTexture(ID3D11Device* pDevice) {
-    if (!pDevice) return false;
-    
-    // 释放旧纹理
-    if (m_pWatermarkTexture) {
-        m_pWatermarkTexture->Release();
-        m_pWatermarkTexture = nullptr;
+    // 清理共享水印渲染器
+    if (m_watermarkRenderer) {
+        m_watermarkRenderer->CleanupImGui();
     }
-    m_hasWatermarkImage = false;
-    
-    WatermarkConfig config;
-    {
-        std::lock_guard<std::mutex> lock(m_configMutex);
-        config = m_config;
-    }
-    
-    // 处理图片路径
-    std::string imagePath = config.imagePath;
-    std::string lichperFolder = GetUserFolder() + "\\.lichper";
-    
-    if (imagePath.empty()) {
-        imagePath = lichperFolder + "\\watermark.png";
-    } else if (imagePath.find(':') == std::string::npos && 
-               imagePath[0] != '\\' && imagePath[0] != '/') {
-        imagePath = lichperFolder + "\\" + imagePath;
-    }
-    
-    if (!std::filesystem::exists(imagePath)) {
-        return false;
-    }
-    
-    // 加载图片
-    int width, height;
-    unsigned char* data = stbi_load(imagePath.c_str(), &width, &height, NULL, 4);
-    if (!data) return false;
-    
-    // 验证图片内容
-    int totalPixels = width * height;
-    int visiblePixels = 0;
-    int minRequired = totalPixels / 10;
-    
-    for (int i = 0; i < totalPixels && visiblePixels < minRequired; i++) {
-        unsigned char a = data[i * 4 + 3];
-        unsigned char r = data[i * 4 + 0];
-        unsigned char g = data[i * 4 + 1];
-        unsigned char b = data[i * 4 + 2];
-        if (a > 30 && (r > 10 || g > 10 || b > 10)) {
-            visiblePixels++;
-        }
-    }
-    
-    if (visiblePixels < minRequired) {
-        stbi_image_free(data);
-        return false;
-    }
-    
-    // 创建纹理
-    D3D11_TEXTURE2D_DESC desc;
-    ZeroMemory(&desc, sizeof(desc));
-    desc.Width = width;
-    desc.Height = height;
-    desc.MipLevels = 1;
-    desc.ArraySize = 1;
-    desc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
-    desc.SampleDesc.Count = 1;
-    desc.Usage = D3D11_USAGE_DEFAULT;
-    desc.BindFlags = D3D11_BIND_SHADER_RESOURCE;
-    
-    ID3D11Texture2D* pTexture = nullptr;
-    D3D11_SUBRESOURCE_DATA subResource;
-    subResource.pSysMem = data;
-    subResource.SysMemPitch = width * 4;
-    subResource.SysMemSlicePitch = 0;
-    
-    HRESULT hr = pDevice->CreateTexture2D(&desc, &subResource, &pTexture);
-    if (FAILED(hr) || !pTexture) {
-        stbi_image_free(data);
-        return false;
-    }
-    
-    D3D11_SHADER_RESOURCE_VIEW_DESC srvDesc;
-    ZeroMemory(&srvDesc, sizeof(srvDesc));
-    srvDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
-    srvDesc.ViewDimension = D3D11_SRV_DIMENSION_TEXTURE2D;
-    srvDesc.Texture2D.MipLevels = 1;
-    
-    hr = pDevice->CreateShaderResourceView(pTexture, &srvDesc, &m_pWatermarkTexture);
-    pTexture->Release();
-    stbi_image_free(data);
-    
-    if (FAILED(hr)) return false;
-    
-    m_watermarkWidth = width;
-    m_watermarkHeight = height;
-    m_hasWatermarkImage = true;
-    return true;
-}
-
-std::string HookRenderer::ProcessWatermarkText() {
-    WatermarkConfig config;
-    {
-        std::lock_guard<std::mutex> lock(m_configMutex);
-        config = m_config;
-    }
-    
-    std::string text = config.title;
-    
-    // 替换 {APPID}
-    text = std::regex_replace(text, std::regex("\\{APPID\\}"), GbkToUtf8(config.appID));
-    
-    // 替换 {COUNTDOWN}
-    auto elapsed = std::chrono::duration_cast<std::chrono::seconds>(
-        std::chrono::high_resolution_clock::now() - m_startTime);
-    int remain = config.timeout - (int)elapsed.count();
-    remain = (std::max)(remain, 0);
-    
-    std::string countdown = FormatCountdown(remain);
-    text = std::regex_replace(text, std::regex("\\{COUNTDOWN\\}"), countdown);
-    
-    return text;
-}
-
-std::string HookRenderer::FormatCountdown(int seconds) {
-    return std::format("{:02d}:{:02d}:{:02d}", 
-        seconds / 3600, (seconds % 3600) / 60, seconds % 60);
 }
 
 void HookRenderer::RenderWatermark() {
+    if (!m_watermarkRenderer || !m_watermarkRenderer->IsInitialized()) return;
+    
     auto& hook = DXGIHook::Instance();
     ID3D11DeviceContext* pContext = hook.GetDeviceContext();
     
@@ -474,118 +375,140 @@ void HookRenderer::RenderWatermark() {
         if (!m_pRenderTargetView) return;
     }
     
+    // 处理输入
+    ProcessInput();
+    
     // 设置渲染目标
     pContext->OMSetRenderTargets(1, &m_pRenderTargetView, nullptr);
-    
-    // 开始新帧
-    ImGui_ImplDX11_NewFrame();
-    ImGui_ImplWin32_NewFrame();
-    ImGui::NewFrame();
     
     ImGuiIO& io = ImGui::GetIO();
     float windowWidth = io.DisplaySize.x;
     float windowHeight = io.DisplaySize.y;
     
-    // 设置全屏透明窗口
-    ImGui::SetNextWindowPos(ImVec2(0, 0));
-    ImGui::SetNextWindowSize(ImVec2(windowWidth, windowHeight));
-    ImGui::PushStyleColor(ImGuiCol_WindowBg, ImVec4(0.0f, 0.0f, 0.0f, 0.0f));
-    ImGui::Begin("Watermark", nullptr, 
-        ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove | 
-        ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoTitleBar |
-        ImGuiWindowFlags_NoInputs | ImGuiWindowFlags_NoBackground);
+    // 开始新帧
+    m_watermarkRenderer->BeginFrame();
     
-    // 渲染水印图片
-    RenderWatermarkImage(windowWidth, windowHeight);
+    // 渲染水印内容
+    m_watermarkRenderer->RenderWatermarkContent(windowWidth, windowHeight);
     
-    // 渲染水印文字
-    std::string watermarkText = ProcessWatermarkText();
-    RenderWatermarkText(watermarkText, windowWidth, windowHeight);
+    // 渲染授权窗口
+    if (m_watermarkRenderer->RenderLicenseWindow(m_showLicenseWindow, windowWidth, windowHeight,
+        [this]() { m_running = false; })) {
+        m_running = false;
+    }
     
-    ImGui::End();
-    ImGui::PopStyleColor();
+    // 结束帧并渲染
+    m_watermarkRenderer->EndFrame();
+}
+
+void HookRenderer::ProcessInput() {
+    if (!m_hwndTarget) return;
+    
+    ImGuiIO& io = ImGui::GetIO();
+    
+    // 获取鼠标位置
+    POINT pt;
+    if (GetCursorPos(&pt)) {
+        ScreenToClient(m_hwndTarget, &pt);
+        io.MousePos = ImVec2((float)pt.x, (float)pt.y);
+    }
+    
+    // 获取鼠标按键状态
+    io.MouseDown[0] = (GetAsyncKeyState(VK_LBUTTON) & 0x8000) != 0;
+    io.MouseDown[1] = (GetAsyncKeyState(VK_RBUTTON) & 0x8000) != 0;
+    io.MouseDown[2] = (GetAsyncKeyState(VK_MBUTTON) & 0x8000) != 0;
+}
+
+void HookRenderer::InstallInputHook() {
+    if (m_inputHookInstalled) return;
+    
+    // 安装 GetMessage Hook 来拦截窗口消息（包括 WM_CHAR）
+    m_hGetMsgHook = SetWindowsHookExA(WH_GETMESSAGE, GetMsgHookProc, nullptr, GetCurrentThreadId());
+    if (m_hGetMsgHook) {
+        m_inputHookInstalled = true;
+        LOG_INFO("HookRenderer: GetMessage hook installed successfully");
+    } else {
+        LOG_ERROR("HookRenderer: Failed to install GetMessage hook, error: {}", GetLastError());
+    }
+}
+
+void HookRenderer::UninstallInputHook() {
+    if (!m_inputHookInstalled) return;
+    
+    if (m_hGetMsgHook) {
+        UnhookWindowsHookEx(m_hGetMsgHook);
+        m_hGetMsgHook = nullptr;
+    }
+    
+    m_inputHookInstalled = false;
+    LOG_INFO("HookRenderer: Input hooks uninstalled");
+}
+
+LRESULT CALLBACK HookRenderer::KeyboardHookProc(int nCode, WPARAM wParam, LPARAM lParam) {
+    // 未使用，保留以防需要
+    return CallNextHookEx(nullptr, nCode, wParam, lParam);
+}
+
+LRESULT CALLBACK HookRenderer::GetMsgHookProc(int nCode, WPARAM wParam, LPARAM lParam) {
+    if (nCode >= 0 && s_instance && wParam == PM_REMOVE) {
+        MSG* pMsg = reinterpret_cast<MSG*>(lParam);
+        
+        // 将消息转发给 ImGui
+        if (pMsg->hwnd == s_instance->m_hwndTarget || 
+            pMsg->hwnd == nullptr ||
+            GetParent(pMsg->hwnd) == s_instance->m_hwndTarget) {
+            
+            ImGui_ImplWin32_WndProcHandler(pMsg->hwnd, pMsg->message, pMsg->wParam, pMsg->lParam);
+        }
+    }
+    
+    return CallNextHookEx(s_instance ? s_instance->m_hGetMsgHook : nullptr, nCode, wParam, lParam);
+}
+
+bool HookRenderer::InitializeD3D12Renderer(IDXGISwapChain* pSwapChain) {
+    auto& hook = DXGIHook::Instance();
+    
+    ID3D12Device* pDevice = hook.GetD3D12Device();
+    ID3D12CommandQueue* pCommandQueue = hook.GetD3D12CommandQueue();
+    
+    if (!pDevice || !pCommandQueue) {
+        LOG_ERROR("HookRenderer: D3D12 device or command queue not available");
+        return false;
+    }
+    
+    // 获取窗口句柄
+    DXGI_SWAP_CHAIN_DESC desc;
+    pSwapChain->GetDesc(&desc);
+    m_hwndTarget = desc.OutputWindow;
+    
+    // 初始化 D3D12 渲染器
+    {
+        std::lock_guard<std::mutex> lock(m_configMutex);
+        m_d3d12Renderer->UpdateConfig(m_config);
+    }
+    m_d3d12Renderer->SetStartTime(m_startTime);
+    m_d3d12Renderer->SetExitCallback([this]() { m_running = false; });
+    
+    if (!m_d3d12Renderer->Initialize(pSwapChain, pDevice, pCommandQueue, m_hwndTarget)) {
+        LOG_ERROR("HookRenderer: Failed to initialize D3D12 renderer");
+        return false;
+    }
+    
+    // 安装输入 Hook
+    InstallInputHook();
+    
+    LOG_INFO("HookRenderer: D3D12 renderer initialized successfully");
+    return true;
+}
+
+void HookRenderer::RenderWatermarkD3D12(IDXGISwapChain* pSwapChain) {
+    if (!m_d3d12Renderer || !m_d3d12Renderer->IsInitialized()) return;
+    
+    // 处理输入（更新 ImGui 输入状态）
+    ProcessInput();
     
     // 渲染
-    ImGui::Render();
-    ImGui_ImplDX11_RenderDrawData(ImGui::GetDrawData());
-}
-
-void HookRenderer::RenderWatermarkImage(float windowWidth, float windowHeight) {
-    if (!m_hasWatermarkImage || !m_pWatermarkTexture) return;
-    
-    WatermarkConfig config;
-    {
-        std::lock_guard<std::mutex> lock(m_configMutex);
-        config = m_config;
-    }
-    
-    float scale = std::clamp(config.imageScale, 0.1f, 10.0f);
-    float displayWidth = m_watermarkWidth * scale;
-    float displayHeight = m_watermarkHeight * scale;
-    
-    ImVec2 imageSize(displayWidth, displayHeight);
-    float posX = 0, posY = 0;
-    
-    // 水平对齐
-    if (config.imageAlign.find("left") != std::string::npos) {
-        posX = (float)config.imagePaddingX;
-    } else if (config.imageAlign.find("right") != std::string::npos) {
-        posX = windowWidth - imageSize.x - config.imagePaddingX;
-    } else {
-        posX = (windowWidth - imageSize.x) / 2;
-    }
-    
-    // 垂直对齐
-    if (config.imageAlign.find("top") != std::string::npos) {
-        posY = (float)config.imagePaddingY;
-    } else if (config.imageAlign.find("bottom") != std::string::npos) {
-        posY = windowHeight - imageSize.y - config.imagePaddingY;
-    } else {
-        posY = (windowHeight - imageSize.y) / 2;
-    }
-    
-    float alpha = std::clamp(config.imageAlpha, 0.3f, 1.0f);
-    
-    ImGui::SetCursorPos(ImVec2(posX, posY));
-    ImGui::Image((void*)m_pWatermarkTexture, imageSize, 
-        ImVec2(0, 0), ImVec2(1, 1), ImVec4(1, 1, 1, alpha));
-}
-
-void HookRenderer::RenderWatermarkText(const std::string& text, float windowWidth, float windowHeight) {
-    ImGui::PushFont(m_titleFont);
-    
-    WatermarkConfig config;
-    {
-        std::lock_guard<std::mutex> lock(m_configMutex);
-        config = m_config;
-    }
-    
-    // 确保颜色可见
-    ImVec4 color = config.color;
-    if (color.w < 0.5f) color.w = 0.5f;
-    
-    ImGui::PushStyleColor(ImGuiCol_Text, color);
-    
-    ImVec2 textSize = ImGui::CalcTextSize(text.c_str());
-    
-    if (config.animate) {
-        // 动画：碰撞边界反弹
-        if (m_titlePosition.x + textSize.x + 10 >= windowWidth) m_titleVelocity.x = -1;
-        if (m_titlePosition.x <= 0) m_titleVelocity.x = 1;
-        if (m_titlePosition.y + textSize.y + 10 >= windowHeight) m_titleVelocity.y = -1;
-        if (m_titlePosition.y <= 0) m_titleVelocity.y = 1;
-        
-        m_titlePosition.x += m_titleVelocity.x;
-        m_titlePosition.y += m_titleVelocity.y;
-    } else {
-        m_titlePosition = ImVec2((windowWidth - textSize.x) - 50, 150);
-    }
-    
-    ImGui::SetCursorPos(m_titlePosition);
-    ImGui::Text("%s", text.c_str());
-    
-    ImGui::PopStyleColor();
-    ImGui::PopFont();
+    m_d3d12Renderer->Render(pSwapChain);
 }
 
 } // namespace LicHper
