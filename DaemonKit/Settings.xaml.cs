@@ -15,27 +15,62 @@ using System.Windows.Shapes;
 using DaemonKit.Core;
 using ReactiveMarbles.ObservableEvents;
 using ReactiveUI;
-namespace DaemonKit {
+
+namespace DaemonKit
+{
     /// <summary>
     /// Settings.xaml 的交互逻辑
     /// </summary>
-    public partial class Settings : ReactiveWindow<SettingsViewModel> {
-        public Settings () {
-            InitializeComponent ();
-            this.WhenActivated (d => {
-                ViewModel = new SettingsViewModel ();
+    public partial class Settings : ReactiveWindow<SettingsViewModel>
+    {
+        public Settings()
+        {
+            InitializeComponent();
+            ViewModel = new SettingsViewModel();
+
+            this.WhenActivated(d =>
+            {
                 DataContext = ViewModel;
 
-                ViewModel.Cancel.Subscribe (_ => {
-                    this.Hide ();
+                ViewModel.Confirm.Subscribe(_ =>
+                {
+                    // 延迟设置 DialogResult，确保窗口已完全作为对话框显示
+                    Dispatcher.BeginInvoke(
+                        new Action(() =>
+                        {
+                            try
+                            {
+                                this.DialogResult = true;
+                            }
+                            catch
+                            {
+                                // 如果设置失败，直接关闭窗口
+                            }
+                            this.Close();
+                        }),
+                        System.Windows.Threading.DispatcherPriority.ApplicationIdle
+                    );
+                });
+
+                ViewModel.Cancel.Subscribe(_ =>
+                {
+                    Dispatcher.BeginInvoke(
+                        new Action(() =>
+                        {
+                            try
+                            {
+                                this.DialogResult = false;
+                            }
+                            catch
+                            {
+                                // 如果设置失败，直接关闭窗口
+                            }
+                            this.Close();
+                        }),
+                        System.Windows.Threading.DispatcherPriority.ApplicationIdle
+                    );
                 });
             });
-        }
-
-        protected override void OnClosing (CancelEventArgs e) {
-            base.OnClosing (e);
-            this.Hide ();
-            e.Cancel = true;
         }
     }
 }

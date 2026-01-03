@@ -1,140 +1,233 @@
 ﻿<reactiveui:ReactiveWindow
-        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
-        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-        xmlns:local="clr-namespace:DaemonKit"
-    
-        xmlns:reactiveui="http://reactiveui.net"
-        x:Class="DaemonKit.ProcessNodeForm"
-        x:TypeArguments="local:PNFViewModel"
-        xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes"
-        mc:Ignorable="d"
-        WindowStartupLocation="CenterScreen"
-        Title="{Binding Title}" Height="550" Width="500" MinHeight="550" MinWidth="500">
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:local="clr-namespace:DaemonKit"
+    xmlns:reactiveui="http://reactiveui.net"
+    x:Class="DaemonKit.ProcessNodeForm"
+    x:TypeArguments="local:PNFViewModel"
+    xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes"
+    mc:Ignorable="d"
+    WindowStartupLocation="CenterScreen"
+    Title="{Binding Title}"
+    Height="630"
+    Width="620"
+    MinHeight="630"
+    MinWidth="620">
 
-    <materialDesign:Card Margin="0 5 0 0" Padding="15 30 15 15">
-        <StackPanel Orientation="Vertical">
+    <Border Background="{DynamicResource MaterialDesign.Brush.Background}"
+            Padding="25,20,25,20">
+        <ScrollViewer VerticalScrollBarVisibility="Auto"
+                      HorizontalScrollBarVisibility="Disabled">
+            <StackPanel Orientation="Vertical">
 
-            <TextBox Style="{StaticResource MaterialDesignFloatingHintTextBox}" FontSize="17" Text="{Binding Path}" Margin="0 10" VerticalAlignment="Center">
-                <TextBox.InputBindings>
-                    <MouseBinding Command="{Binding SelectProcess}" MouseAction="LeftClick" />
-                </TextBox.InputBindings>
-                <materialDesign:HintAssist.Hint>
-                    <StackPanel Orientation="Horizontal" Margin="0 0 0 0">
-                        <TextBlock Text="进程路径" />
-                    </StackPanel>
-                </materialDesign:HintAssist.Hint>
-            </TextBox>
-            
-            <TextBox Style="{StaticResource MaterialDesignFloatingHintTextBox}" FontSize="17" Text="{Binding Name}" Margin="0 10" VerticalAlignment="Center">
-                <materialDesign:HintAssist.Hint>
-                    <StackPanel Orientation="Horizontal" Margin="0 0 0 0">
-                        <TextBlock Text="进程名(友好名称)"/>
-                    </StackPanel>
-                </materialDesign:HintAssist.Hint>
-            </TextBox>
+                <!-- 基本信息分组 -->
+                <TextBlock Text="基本信息"
+                           FontSize="16"
+                           FontWeight="SemiBold"
+                           Margin="0,5,0,20"
+                           Foreground="{DynamicResource MaterialDesign.Brush.Primary}"/>
 
-            <TextBox Style="{StaticResource MaterialDesignFloatingHintTextBox}" Margin="0 10" FontSize="17" Text="{Binding Arguments}" VerticalAlignment="Center" >
-                <materialDesign:HintAssist.Hint>
-                    <StackPanel Orientation="Horizontal" Margin="0 0 0 0">
-                        <TextBlock Text="启动参数" />
-                    </StackPanel>
-                </materialDesign:HintAssist.Hint>
-            </TextBox>
-            <TextBox Style="{StaticResource MaterialDesignFloatingHintTextBox}" Margin="0 10" FontSize="17" Text="{Binding Delay}" VerticalAlignment="Center" materialDesign:TextFieldAssist.SuffixText="ms">
-                <materialDesign:HintAssist.Hint>
-                    <StackPanel Orientation="Horizontal" Margin="0 0 0 0">
-                        <TextBlock Text="延迟启动 (相对上级节点)" />
-                    </StackPanel>
-                </materialDesign:HintAssist.Hint>
-            </TextBox>
-            <Grid Margin="0 5 0 10">
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="50*"/>
-                    <ColumnDefinition Width="50*"/>
-                </Grid.ColumnDefinitions>
-                <StackPanel Orientation="Vertical" Grid.Row="0" Grid.Column="0" Background="White">
-                    <CheckBox 
-                        IsChecked="{Binding Path=MoveWindow, Mode=TwoWay}"
-                        Content="调整窗口位置" />
+                <materialDesign:Card Padding="20,18,20,20"
+                                     Margin="0,0,0,25"
+                                     materialDesign:ElevationAssist.Elevation="Dp2">
                     <Grid>
                         <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="50*"/>
-                            <ColumnDefinition Width="50*"/>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="18"/>
+                            <ColumnDefinition Width="*"/>
                         </Grid.ColumnDefinitions>
-                        <TextBox
-                            Grid.Row="0" Grid.Column="0"
-                            IsEnabled="{Binding MoveWindow}"
-                            Style="{StaticResource MaterialDesignFloatingHintTextBox}" Margin="5 10" FontSize="17" Text="{Binding PosX}" VerticalAlignment="Center" >
-                            <materialDesign:HintAssist.Hint>
-                                <StackPanel Orientation="Horizontal">
-                                    <TextBlock Text="位置X" />
-                                </StackPanel>
-                            </materialDesign:HintAssist.Hint>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="22"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="22"/>
+                            <RowDefinition Height="Auto"/>
+                        </Grid.RowDefinitions>
+
+                        <!-- 第一行：进程路径 -->
+                        <TextBox Grid.Row="0"
+                                 Grid.Column="0"
+                                 Grid.ColumnSpan="3"
+                                 FontSize="15"
+                                 materialDesign:HintAssist.Hint="进程路径"
+                                 materialDesign:HintAssist.IsFloating="True"
+                                 Text="{Binding Path}"
+                                 VerticalAlignment="Center">
+                            <TextBox.InputBindings>
+                                <MouseBinding Command="{Binding SelectProcess}"
+                                              MouseAction="LeftClick"/>
+                            </TextBox.InputBindings>
                         </TextBox>
 
-                        <TextBox 
-                            IsEnabled="{Binding MoveWindow}"
-                            Style="{StaticResource MaterialDesignFloatingHintTextBox}" Grid.Row="0" Grid.Column="1" Margin="5 10" FontSize="17" Text="{Binding PosY}" VerticalAlignment="Center" >
-                            <materialDesign:HintAssist.Hint>
-                                <StackPanel Orientation="Horizontal" Margin="0 0 0 0">
-                                    <TextBlock Text="位置Y" />
-                                </StackPanel>
-                            </materialDesign:HintAssist.Hint>
-                        </TextBox>
+                        <!-- 第二行：进程名 + 延迟启动 -->
+                        <TextBox Grid.Row="2"
+                                 Grid.Column="0"
+                                 FontSize="15"
+                                 materialDesign:HintAssist.Hint="进程名(友好名称)"
+                                 materialDesign:HintAssist.IsFloating="True"
+                                 Text="{Binding Name}"
+                                 VerticalAlignment="Center"/>
+
+                        <TextBox Grid.Row="2"
+                                 Grid.Column="2"
+                                 FontSize="15"
+                                 materialDesign:HintAssist.Hint="延迟启动"
+                                 materialDesign:HintAssist.IsFloating="True"
+                                 Text="{Binding Delay}"
+                                 VerticalAlignment="Center"
+                                 materialDesign:TextFieldAssist.SuffixText="ms"/>
+
+                        <!-- 第三行：启动参数 -->
+                        <TextBox Grid.Row="4"
+                                 Grid.Column="0"
+                                 Grid.ColumnSpan="3"
+                                 FontSize="15"
+                                 materialDesign:HintAssist.Hint="启动参数"
+                                 materialDesign:HintAssist.IsFloating="True"
+                                 Text="{Binding Arguments}"
+                                 VerticalAlignment="Center"/>
                     </Grid>
-                    
-                </StackPanel>
-                
-                <StackPanel Orientation="Vertical" Grid.Row="0" Grid.Column="1" Background="White">
-                    <CheckBox
-                        IsChecked="{Binding Path=ResizeWindow, Mode=TwoWay}"
-                        Content="调整窗口大小" />
-                    <Grid >
+                </materialDesign:Card>
+
+                <!-- 窗口设置分组 -->
+                <TextBlock Text="窗口设置"
+                           FontSize="16"
+                           FontWeight="SemiBold"
+                           Margin="0,0,0,20"
+                           Foreground="{DynamicResource MaterialDesign.Brush.Primary}"/>
+
+                <materialDesign:Card Margin="0,0,0,25"
+                                     Padding="20,18,20,18"
+                                     materialDesign:ElevationAssist.Elevation="Dp2">
+                    <Grid>
                         <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="50*"/>
-                            <ColumnDefinition Width="50*"/>
+                            <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition Width="20"/>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="15"/>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="30"/>
+                            <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition Width="20"/>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="15"/>
+                            <ColumnDefinition Width="*"/>
                         </Grid.ColumnDefinitions>
-                        <TextBox 
-                            IsEnabled="{Binding ResizeWindow}"
-                            Style="{StaticResource MaterialDesignFloatingHintTextBox}" Grid.Row="0" Grid.Column="0" Margin="5 10" FontSize="17" Text="{Binding Width}" VerticalAlignment="Center" >
-                            <materialDesign:HintAssist.Hint>
-                                <StackPanel Orientation="Horizontal" Margin="0 0 0 0">
-                                    <TextBlock Text="宽" />
-                                </StackPanel>
-                            </materialDesign:HintAssist.Hint>
-                        </TextBox>
-                        <TextBox 
-                            IsEnabled="{Binding ResizeWindow}"
-                            Style="{StaticResource MaterialDesignFloatingHintTextBox}" Grid.Row="0" Grid.Column="1" Margin="5 10" FontSize="17" Text="{Binding Height}" VerticalAlignment="Center" >
-                            <materialDesign:HintAssist.Hint>
-                                <StackPanel Orientation="Horizontal" Margin="0 0 0 0">
-                                    <TextBlock Text="高" />
-                                </StackPanel>
-                            </materialDesign:HintAssist.Hint>
-                        </TextBox>
-                    </Grid>
 
+                        <!-- 窗口位置 -->
+                        <CheckBox Grid.Column="0"
+                                  IsChecked="{Binding Path=MoveWindow, Mode=TwoWay}"
+                                  Content="位置"
+                                  VerticalAlignment="Center"
+                                  FontWeight="Medium"
+                                  FontSize="14"/>
+
+                        <TextBox Grid.Column="2"
+                                 IsEnabled="{Binding MoveWindow}"
+                                 FontSize="14"
+                                 materialDesign:HintAssist.Hint="X"
+                                 materialDesign:HintAssist.IsFloating="True"
+                                 Text="{Binding PosX}"
+                                 VerticalAlignment="Center"/>
+
+                        <TextBox Grid.Column="4"
+                                 IsEnabled="{Binding MoveWindow}"
+                                 FontSize="14"
+                                 materialDesign:HintAssist.Hint="Y"
+                                 materialDesign:HintAssist.IsFloating="True"
+                                 Text="{Binding PosY}"
+                                 VerticalAlignment="Center"/>
+
+                        <!-- 窗口大小 -->
+                        <CheckBox Grid.Column="6"
+                                  IsChecked="{Binding Path=ResizeWindow, Mode=TwoWay}"
+                                  Content="大小"
+                                  VerticalAlignment="Center"
+                                  FontWeight="Medium"
+                                  FontSize="14"/>
+
+                        <TextBox Grid.Column="8"
+                                 IsEnabled="{Binding ResizeWindow}"
+                                 FontSize="14"
+                                 materialDesign:HintAssist.Hint="宽"
+                                 materialDesign:HintAssist.IsFloating="True"
+                                 Text="{Binding Width}"
+                                 VerticalAlignment="Center"/>
+
+                        <TextBox Grid.Column="10"
+                                 IsEnabled="{Binding ResizeWindow}"
+                                 FontSize="14"
+                                 materialDesign:HintAssist.Hint="高"
+                                 materialDesign:HintAssist.IsFloating="True"
+                                 Text="{Binding Height}"
+                                 VerticalAlignment="Center"/>
+                    </Grid>
+                </materialDesign:Card>
+
+                <!-- 运行选项分组 -->
+                <TextBlock Text="运行选项"
+                           FontSize="16"
+                           FontWeight="SemiBold"
+                           Margin="0,0,0,20"
+                           Foreground="{DynamicResource MaterialDesign.Brush.Primary}"/>
+
+                <materialDesign:Card Margin="0,0,0,30"
+                                     Padding="20,16,20,16"
+                                     materialDesign:ElevationAssist.Elevation="Dp2">
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+
+                        <CheckBox Grid.Column="0"
+                                  IsChecked="{Binding Path=KeepTop, Mode=TwoWay}"
+                                  Content="置顶窗口"
+                                  VerticalAlignment="Center"
+                                  FontSize="14"/>
+
+                        <CheckBox Grid.Column="1"
+                                  IsChecked="{Binding Path=MinimizedStartUp, Mode=TwoWay}"
+                                  Content="隐藏窗口"
+                                  VerticalAlignment="Center"
+                                  FontSize="14"/>
+
+                        <CheckBox Grid.Column="2"
+                                  IsChecked="{Binding Path=RunAs, Mode=TwoWay}"
+                                  Content="管理员运行"
+                                  VerticalAlignment="Center"
+                                  FontSize="14"/>
+
+                        <CheckBox Grid.Column="3"
+                                  IsChecked="{Binding Path=NoDaemon, Mode=TwoWay}"
+                                  Content="仅启动不守护"
+                                  VerticalAlignment="Center"
+                                  FontSize="14"/>
+                    </Grid>
+                </materialDesign:Card>
+
+                <StackPanel Orientation="Horizontal"
+                            HorizontalAlignment="Center"
+                            Margin="0,5,0,0">
+                    <Button Margin="12,0"
+                            Width="130"
+                            Height="38"
+                            Content="确认"
+                            Style="{StaticResource MaterialDesignRaisedButton}"
+                            Command="{Binding Confirm}"/>
+                    <Button Margin="12,0"
+                            Width="130"
+                            Height="38"
+                            Content="取消"
+                            Style="{StaticResource MaterialDesignOutlinedButton}"
+                            Command="{Binding Cancel}"/>
                 </StackPanel>
 
-
-               
-            </Grid>
-
-
-            <StackPanel Orientation="Horizontal" HorizontalAlignment="Left" VerticalAlignment="Center">
-                <CheckBox IsChecked="{Binding Path=KeepTop, Mode=TwoWay}" Margin="0 0 8 0" Content="置顶窗口" FontSize="15" />
-                <CheckBox IsChecked="{Binding Path=MinimizedStartUp, Mode=TwoWay}" Margin="0 0 8 0" Content="隐藏窗口" FontSize="15" />
-                <CheckBox IsChecked="{Binding Path=RunAs, Mode=TwoWay}" Margin="0 0 8 0" Content="管理员身份运行" FontSize="15" />
-                <CheckBox IsChecked="{Binding Path=NoDaemon, Mode=TwoWay}" Margin="0 0 8 0" Content="仅启动,无需守护" FontSize="15" />
             </StackPanel>
-
-            <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="0 30 0 0">
-                <Button Style="{StaticResource MaterialDesignRaisedButton}" Margin="15 0" Content="确认" Command="{Binding Confirm}" />
-                <Button Margin="15 0" Style="{StaticResource MaterialDesignRaisedButton}" Content="取消" Command="{Binding Cancel}" />
-            </StackPanel>
-
-        </StackPanel>
-    </materialDesign:Card>
+        </ScrollViewer>
+    </Border>
 </reactiveui:ReactiveWindow>

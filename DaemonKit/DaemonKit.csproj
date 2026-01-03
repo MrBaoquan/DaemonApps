@@ -4,9 +4,9 @@
     <OutputType>WinExe</OutputType>
     <TargetFramework>net9.0-windows7.0</TargetFramework>
     <PublishSingleFile Condition="'$(Configuration)' == 'Release'">true</PublishSingleFile>
-    <RuntimeIdentifier>win-x86</RuntimeIdentifier>
+    <RuntimeIdentifier>win-x64</RuntimeIdentifier>
     <EnableCompressionInSingleFile>True</EnableCompressionInSingleFile>
-    <PlatformTarget>x86</PlatformTarget>
+    <PlatformTarget>x64</PlatformTarget>
     <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
     <UseWPF>true</UseWPF>
     <IncludePackageReferencesDuringMarkupCompilation>true</IncludePackageReferencesDuringMarkupCompilation>
@@ -72,41 +72,41 @@
     <None Remove="Resources\Icons\show-panel.png" />
     <None Remove="Resources\logo.ico" />
   </ItemGroup>
-	    
+
   <ItemGroup>
     <PackageReference Include="FontAwesome.WPF" Version="4.7.0.9" />
-    <PackageReference Include="H.NotifyIcon" Version="2.3.0" />
-    <PackageReference Include="H.NotifyIcon.Wpf" Version="2.3.0" />
-    <PackageReference Include="Hardware.Info" Version="101.0.1.1" />
-    <PackageReference Include="MaterialDesignColors" Version="2.1.1" />
-    <PackageReference Include="MaterialDesignThemes" Version="4.7.1" />
+    <PackageReference Include="H.NotifyIcon" Version="2.4.1" />
+    <PackageReference Include="H.NotifyIcon.Wpf" Version="2.4.1" />
+    <PackageReference Include="Hardware.Info" Version="101.1.0.1" />
+    <PackageReference Include="MaterialDesignColors" Version="5.3.0" />
+    <PackageReference Include="MaterialDesignThemes" Version="5.3.0" />
     <PackageReference Include="MessagePack" Version="3.1.4" />
     <PackageReference Include="MessagePack.Annotations" Version="3.1.4" />
     <PackageReference Include="NLog" Version="6.0.6" />
 
-    <PackageReference Include="ReactiveMarbles.ObservableEvents.SourceGenerator" Version="1.1.4">
+    <PackageReference Include="ReactiveMarbles.ObservableEvents.SourceGenerator" Version="1.3.1">
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
     </PackageReference>
-    <PackageReference Include="ReactiveMarbles.PropertyChanged" Version="2.0.6" />
-    
-    <PackageReference Include="ReactiveUI" Version="19.5.41" />
-    <PackageReference Include="ReactiveUI.WPF" Version="19.5.41" />
-    <PackageReference Include="System.Reactive" Version="6.0.1" />
-    <PackageReference Include="System.Reactive.Linq" Version="6.0.1" />
+    <PackageReference Include="ReactiveMarbles.PropertyChanged" Version="2.0.27" />
+
+    <PackageReference Include="ReactiveUI" Version="22.3.1" />
+    <PackageReference Include="ReactiveUI.WPF" Version="22.3.1" />
+    <PackageReference Include="System.Reactive" Version="6.1.0" />
+    <PackageReference Include="System.Reactive.Linq" Version="6.1.0" />
     <PackageReference Include="TaskScheduler" Version="2.12.2" />
   </ItemGroup>
-	    
+
   <ItemGroup>
     <Folder Include="Applications\Tools\" />
     <Folder Include="ViewModels\" />
     <Folder Include="Converters\" />
   </ItemGroup>
-	    
+
   <ItemGroup>
     <ProjectReference Include="..\DNHper\DNHper.csproj" />
   </ItemGroup>
-	    
+
   <ItemGroup>
     <Resource Include="Resources\Icons\quit.png" />
     <Resource Include="Resources\Icons\settings.png" />
@@ -116,7 +116,7 @@
       <ExcludeFromSingleFile>true</ExcludeFromSingleFile>
     </Resource>
   </ItemGroup>
-	    
+
   <ItemGroup>
     <Compile Update="Properties\Resources.Designer.cs">
       <DesignTime>True</DesignTime>
@@ -124,18 +124,18 @@
       <DependentUpon>Resources.resx</DependentUpon>
     </Compile>
   </ItemGroup>
-	    
+
   <ItemGroup>
     <EmbeddedResource Update="Properties\Resources.resx">
       <Generator>ResXFileCodeGenerator</Generator>
       <LastGenOutput>Resources.Designer.cs</LastGenOutput>
     </EmbeddedResource>
   </ItemGroup>
-	    
+
   <ItemGroup>
     <None Update="Applications\demo.exe">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-	    <ExcludeFromSingleFile>true</ExcludeFromSingleFile>
+      <ExcludeFromSingleFile>true</ExcludeFromSingleFile>
     </None>
     <None Update="Applications\README.md">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>

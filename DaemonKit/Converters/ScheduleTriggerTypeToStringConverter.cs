@@ -22,6 +22,14 @@ namespace DaemonKit.Converters
                 {
                     return "间隔";
                 }
+                else if (type == Core.TriggerType.OnAppStart)
+                {
+                    return "程序启动后";
+                }
+                else if (type == Core.TriggerType.OnAppStartOnce)
+                {
+                    return "每天首次启动后";
+                }
             }
 
             return string.Empty;
@@ -36,9 +44,21 @@ namespace DaemonKit.Converters
         {
             if (value is string triggerTypeString)
             {
-                if (Enum.TryParse(triggerTypeString, out Core.TriggerType triggerType))
+                if (triggerTypeString == "每天")
                 {
-                    return triggerType;
+                    return Core.TriggerType.Daily;
+                }
+                else if (triggerTypeString == "间隔")
+                {
+                    return Core.TriggerType.Interval;
+                }
+                else if (triggerTypeString == "程序启动后")
+                {
+                    return Core.TriggerType.OnAppStart;
+                }
+                else if (triggerTypeString == "每天首次启动后")
+                {
+                    return Core.TriggerType.OnAppStartOnce;
                 }
             }
 

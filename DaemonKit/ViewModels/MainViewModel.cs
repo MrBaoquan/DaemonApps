@@ -85,36 +85,115 @@ namespace DaemonKit
 
         public MainViewModel()
         {
-            AddTreeNode = ReactiveCommand.Create(() => { });
-            EditTreeNode = ReactiveCommand.Create(() => { });
-            DeleteTreeNode = ReactiveCommand.Create(() => { });
-            EditSchedule = ReactiveCommand.Create(() => { });
-            ShowInExplorer = ReactiveCommand.Create(() => { });
-            ShowAppDirectory = ReactiveCommand.Create(() => { });
-            RunNodeTree = ReactiveCommand.Create(() => { });
-            KillNodeTree = ReactiveCommand.Create(() => { });
-            OpenSettings = ReactiveCommand.Create(() => { });
-            ToggleEnable = ReactiveCommand.Create<ProcessItem, ProcessItem>(_item => _item);
+            AddTreeNode = ReactiveCommand.Create(
+                () => { },
+                outputScheduler: RxApp.MainThreadScheduler
+            );
+            EditTreeNode = ReactiveCommand.Create(
+                () => { },
+                outputScheduler: RxApp.MainThreadScheduler
+            );
+            DeleteTreeNode = ReactiveCommand.Create(
+                () => { },
+                outputScheduler: RxApp.MainThreadScheduler
+            );
+            EditSchedule = ReactiveCommand.Create(
+                () => { },
+                outputScheduler: RxApp.MainThreadScheduler
+            );
+            ShowInExplorer = ReactiveCommand.Create(
+                () => { },
+                outputScheduler: RxApp.MainThreadScheduler
+            );
+            ShowAppDirectory = ReactiveCommand.Create(
+                () => { },
+                outputScheduler: RxApp.MainThreadScheduler
+            );
+            RunNodeTree = ReactiveCommand.Create(
+                () => { },
+                outputScheduler: RxApp.MainThreadScheduler
+            );
+            KillNodeTree = ReactiveCommand.Create(
+                () => { },
+                outputScheduler: RxApp.MainThreadScheduler
+            );
+            OpenSettings = ReactiveCommand.Create(
+                () => { },
+                outputScheduler: RxApp.MainThreadScheduler
+            );
+            ToggleEnable = ReactiveCommand.Create<ProcessItem, ProcessItem>(
+                _item => _item,
+                outputScheduler: RxApp.MainThreadScheduler
+            );
             RunProcess = ReactiveCommand.Create<ProcessCommandParameter, ProcessCommandParameter>(
-                _parameter => _parameter
+                _parameter => _parameter,
+                outputScheduler: RxApp.MainThreadScheduler
             );
-            SMBShare = ReactiveCommand.Create(() => { });
-            SMBUnshare = ReactiveCommand.Create(() => { });
-            OpenRemotePanel = ReactiveCommand.Create(() => { });
+            SMBShare = ReactiveCommand.Create(
+                () => { },
+                outputScheduler: RxApp.MainThreadScheduler
+            );
+            SMBUnshare = ReactiveCommand.Create(
+                () => { },
+                outputScheduler: RxApp.MainThreadScheduler
+            );
+            OpenRemotePanel = ReactiveCommand.Create(
+                () => { },
+                outputScheduler: RxApp.MainThreadScheduler
+            );
 
-            OpenScheduleWindow = ReactiveCommand.Create(() => { });
+            OpenScheduleWindow = ReactiveCommand.Create(
+                () => { },
+                outputScheduler: RxApp.MainThreadScheduler
+            );
 
-            this.EnableNameInput = ReactiveCommand.Create<ProcessItem, ProcessItem>(_item => _item);
+            PickColor = ReactiveCommand.Create(
+                () => { },
+                outputScheduler: RxApp.MainThreadScheduler
+            );
+            PickPosition = ReactiveCommand.Create(
+                () => { },
+                outputScheduler: RxApp.MainThreadScheduler
+            );
+            TakeScreenshot = ReactiveCommand.Create(
+                () => { },
+                outputScheduler: RxApp.MainThreadScheduler
+            );
+
+            this.EnableNameInput = ReactiveCommand.Create<ProcessItem, ProcessItem>(
+                _item => _item,
+                outputScheduler: RxApp.MainThreadScheduler
+            );
             this.ConfirmNameInput = ReactiveCommand.Create<ProcessItem, ProcessItem>(
-                _item => _item
+                _item => _item,
+                outputScheduler: RxApp.MainThreadScheduler
             );
 
-            this.ShowWindow = ReactiveCommand.Create(() => { });
-            this.HideWindow = ReactiveCommand.Create(() => { });
-            this.Quit = ReactiveCommand.Create(() => { });
+            this.ShowWindow = ReactiveCommand.Create(
+                () => { },
+                outputScheduler: RxApp.MainThreadScheduler
+            );
+            this.HideWindow = ReactiveCommand.Create(
+                () => { },
+                outputScheduler: RxApp.MainThreadScheduler
+            );
+            this.Quit = ReactiveCommand.Create(
+                () => { },
+                outputScheduler: RxApp.MainThreadScheduler
+            );
 
-            this.ShutdownSystem = ReactiveCommand.Create(() => { });
-            this.RestartSystem = ReactiveCommand.Create(() => { });
+            this.ShutdownSystem = ReactiveCommand.Create(
+                () => { },
+                outputScheduler: RxApp.MainThreadScheduler
+            );
+            this.RestartSystem = ReactiveCommand.Create(
+                () => { },
+                outputScheduler: RxApp.MainThreadScheduler
+            );
+            this.ToggleTouchScreen = ReactiveCommand.Create(
+                () => { },
+                outputScheduler: RxApp.MainThreadScheduler
+            );
 
             // 初始化音量控制
             InitializeVolumeControl();
@@ -151,11 +230,16 @@ namespace DaemonKit
 
         public ReactiveCommand<Unit, Unit> OpenScheduleWindow { get; protected set; }
 
+        public ReactiveCommand<Unit, Unit> PickColor { get; protected set; }
+        public ReactiveCommand<Unit, Unit> PickPosition { get; protected set; }
+        public ReactiveCommand<Unit, Unit> TakeScreenshot { get; protected set; }
+
         public ReactiveCommand<Unit, Unit> ShowWindow { get; protected set; }
         public ReactiveCommand<Unit, Unit> HideWindow { get; protected set; }
         public ReactiveCommand<Unit, Unit> Quit { get; protected set; }
 
         public ReactiveCommand<Unit, Unit> ShutdownSystem { get; protected set; }
         public ReactiveCommand<Unit, Unit> RestartSystem { get; protected set; }
+        public ReactiveCommand<Unit, Unit> ToggleTouchScreen { get; protected set; }
     }
 }

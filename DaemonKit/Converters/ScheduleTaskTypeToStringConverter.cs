@@ -30,6 +30,10 @@ namespace DaemonKit.Converters
                 {
                     return "重启 (电脑)";
                 }
+                else if (type == ScheduleTaskType.RestartApp)
+                {
+                    return "重启 (程序)";
+                }
             }
             return "启动";
         }
@@ -58,6 +62,10 @@ namespace DaemonKit.Converters
                 else if (str == "重启 (电脑)")
                 {
                     return ScheduleTaskType.Restart;
+                }
+                else if (str == "重启 (程序)")
+                {
+                    return ScheduleTaskType.RestartApp;
                 }
             }
             return ScheduleTaskType.Start;

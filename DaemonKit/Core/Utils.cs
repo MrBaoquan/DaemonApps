@@ -194,6 +194,8 @@ namespace DaemonKit
                 (uint)(KeyModifiers.Ctrl | KeyModifiers.Shift),
                 0x57
             );
+            // 注册 Alt+X 截图快捷键
+            WinAPI.RegisterHotKey(helper.Handle, 9000, (uint)KeyModifiers.Alt, 0x58);
         }
 
         public static void UnRegisterHotKey(System.Windows.Window window)
@@ -204,6 +206,7 @@ namespace DaemonKit
             WinAPI.UnregisterHotKey(helper.Handle, 102);
             WinAPI.UnregisterHotKey(helper.Handle, 103);
             WinAPI.UnregisterHotKey(helper.Handle, 104);
+            WinAPI.UnregisterHotKey(helper.Handle, 9000); // Alt+X
         }
 
         //static RegistryKey runKey = Registry.CurrentUser.OpenSubKey (@"SOFTWARE\Microsoft\Windows\CurrentVersion\Run", true);

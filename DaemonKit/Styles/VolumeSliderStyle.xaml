@@ -35,7 +35,7 @@
                                                 <Setter.Value>
                                                     <ControlTemplate TargetType="RepeatButton">
                                                         <Rectangle Width="3"
-                                                                   Fill="{DynamicResource PrimaryHueMidBrush}"
+                                                                   Fill="{DynamicResource MaterialDesign.Brush.Primary}"
                                                                    RadiusX="1.5"
                                                                    RadiusY="1.5"/>
                                                     </ControlTemplate>
@@ -68,7 +68,7 @@
                                             <Setter Property="Template">
                                                 <Setter.Value>
                                                     <ControlTemplate TargetType="Thumb">
-                                                        <Ellipse Fill="{DynamicResource PrimaryHueMidBrush}"
+                                                        <Ellipse Fill="{DynamicResource MaterialDesign.Brush.Primary}"
                                                                  Width="16"
                                                                  Height="16"
                                                                  Stroke="White"

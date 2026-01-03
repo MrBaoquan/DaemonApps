@@ -11,11 +11,10 @@
         <ResourceDictionary>
             <ResourceDictionary.MergedDictionaries>
                 <materialDesign:BundledTheme BaseTheme="Light"
-                        PrimaryColor="Indigo"
-                        SecondaryColor="Lime"/>
-                <ResourceDictionary Source="pack://application:,,,/MaterialDesignThemes.Wpf;component/Themes/MaterialDesignTheme.Defaults.xaml"/>
-                <ResourceDictionary Source="pack://application:,,,/MaterialDesignThemes.Wpf;component/Themes/MaterialDesignTheme.PopupBox.xaml"/>
-                <ResourceDictionary Source="pack://application:,,,/MaterialDesignThemes.Wpf;component/Themes/MaterialDesignTheme.DialogHost.xaml"/>
+                                             PrimaryColor="Indigo"
+                                             SecondaryColor="Lime"/>
+                <!-- MaterialDesign 5.x 必须添加此资源字典 -->
+                <ResourceDictionary Source="pack://application:,,,/MaterialDesignThemes.Wpf;component/Themes/MaterialDesign2.Defaults.xaml"/>
             </ResourceDictionary.MergedDictionaries>
 
             <!-- Override MaterialDesign default font with Microsoft YaHei (微软雅黑) -->

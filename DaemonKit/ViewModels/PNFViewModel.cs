@@ -11,63 +11,89 @@ using DaemonKit.Core;
 using Microsoft.Win32;
 using ReactiveUI;
 
-namespace DaemonKit {
-
-    public enum FormType {
+namespace DaemonKit
+{
+    public enum FormType
+    {
         Create,
         Edit
     }
-    public class PNFViewModel : ReactiveObject {
+
+    public class PNFViewModel : ReactiveObject
+    {
         const string DEFAULT_APP_NAME = "示例程序";
         private FormType formType = FormType.Create;
-        private OpenFileDialog openFileDialog = new OpenFileDialog ();
-        public PNFViewModel () {
-            this.Confirm = ReactiveCommand.Create<ProcessMetaData> (() => {
-                return new ProcessMetaData {
-                Name = this.Name,
-                Path = this.Path,
-                Arguments = this.Arguments,
-                RunAs = this.RunAs,
-                KeepTop = this.KeepTop,
-                MoveWindow = this.MoveWindow,
-                ResizeWindow = this.ResizeWindow,
-                NoDaemon = this.NoDaemon,
-                MinimizedStartUp = this.MinimizedStartUp,
-                Delay = this.Delay,
-                PosX = this.PosX,
-                PosY = this.PosY,
-                Width = this.Width,
-                Height = this.Height,
-                };
+        private OpenFileDialog openFileDialog = new OpenFileDialog();
+
+        public PNFViewModel()
+        {
+            this.Confirm = ReactiveCommand.Create<ProcessMetaData>(
+                () =>
+                {
+                    return new ProcessMetaData
+                    {
+                        Name = this.Name,
+                        Path = this.Path,
+                        Arguments = this.Arguments,
+                        RunAs = this.RunAs,
+                        KeepTop = this.KeepTop,
+                        MoveWindow = this.MoveWindow,
+                        ResizeWindow = this.ResizeWindow,
+                        NoDaemon = this.NoDaemon,
+                        MinimizedStartUp = this.MinimizedStartUp,
+                        Delay = this.Delay,
+                        PosX = this.PosX,
+                        PosY = this.PosY,
+                        Width = this.Width,
+                        Height = this.Height,
+                    };
+                },
+                outputScheduler: RxApp.MainThreadScheduler
+            );
+
+            this.Cancel = ReactiveCommand.Create(
+                () => { },
+                outputScheduler: RxApp.MainThreadScheduler
+            );
+
+            this.SelectProcess = ReactiveCommand.Create(
+                () => { },
+                outputScheduler: RxApp.MainThreadScheduler
+            );
+            this.SelectProcess.Subscribe(_ =>
+            {
+                openFileDialog.ShowDialog();
             });
 
-            this.Cancel = ReactiveCommand.Create (() => { });
-
-            this.SelectProcess = ReactiveCommand.Create (() => { });
-            this.SelectProcess.Subscribe (_ => {
-                openFileDialog.ShowDialog ();
-            });
-
-            openFileDialog.InitialDirectory = System.IO.Path.GetDirectoryName (Path);
+            openFileDialog.InitialDirectory = System.IO.Path.GetDirectoryName(Path);
             openFileDialog.Filter = "可执行文件(*.exe)|*.exe";
-            openFileDialog.FileOk += (o, args) => {
+            openFileDialog.FileOk += (o, args) =>
+            {
                 var _path = openFileDialog.FileName;
-                if (_path == AppPathes.ExecutorPath) {
-                    MessageBox.Show ("大胆! 你不能选择管家进程!");
+                if (_path == AppPathes.ExecutorPath)
+                {
+                    MessageBox.Show("大胆! 你不能选择管家进程!");
                     return;
                 }
-                Path = _path.Replace (AppPathes.AppDir + "\\", "");
-                DNHper.NLogger.Info (Path);
+                Path = _path.Replace(AppPathes.AppDir + "\\", "");
+                DNHper.NLogger.Info(Path);
                 if (Name == DEFAULT_APP_NAME || Name == string.Empty)
-                    Name = System.IO.Path.GetFileNameWithoutExtension (Path);
-                openFileDialog.InitialDirectory = System.IO.Path.GetDirectoryName (Path);
+                    Name = System.IO.Path.GetFileNameWithoutExtension(Path);
+                openFileDialog.InitialDirectory = System.IO.Path.GetDirectoryName(Path);
             };
         }
 
-        public bool IsCreateMode { get => formType == FormType.Create; }
-        public bool IsEditMode { get => formType == FormType.Edit; }
+        public bool IsCreateMode
+        {
+            get => formType == FormType.Create;
+        }
+        public bool IsEditMode
+        {
+            get => formType == FormType.Edit;
+        }
 
-        public void SyncCreateFormProperties () {
+        public void SyncCreateFormProperties()
+        {
             formType = FormType.Create;
             this.Title = "新建进程结点";
 
@@ -86,13 +112,14 @@ namespace DaemonKit {
             this.Height = 0;
 
             openFileDialog.InitialDirectory = AppPathes.AppDir;
-            if (!File.Exists (System.IO.Path.Combine (AppPathes.AppDir, "demo.exe"))) {
-                openFileDialog.ShowDialog ();
+            if (!File.Exists(System.IO.Path.Combine(AppPathes.AppDir, "demo.exe")))
+            {
+                openFileDialog.ShowDialog();
             }
         }
 
-        public void SyncEditFormProperties (ProcessMetaData InMeta) {
-
+        public void SyncEditFormProperties(ProcessMetaData InMeta)
+        {
             formType = FormType.Edit;
 
             this.Title = "进程结点编辑";
@@ -111,74 +138,89 @@ namespace DaemonKit {
             this.Width = InMeta.Width;
             this.Height = InMeta.Height;
 
-            openFileDialog.InitialDirectory = System.IO.Path.GetDirectoryName (Path);
+            openFileDialog.InitialDirectory = System.IO.Path.GetDirectoryName(Path);
         }
 
         // 窗口标题
         private string title = "进程节点编辑";
-        public string Title {
+        public string Title
+        {
             get { return title; }
-            set { this.RaiseAndSetIfChanged (ref title, value); }
+            set { this.RaiseAndSetIfChanged(ref title, value); }
         }
 
         private string name = string.Empty;
-        public string Name {
+        public string Name
+        {
             get { return name; }
-            set { this.RaiseAndSetIfChanged (ref name, value); }
+            set { this.RaiseAndSetIfChanged(ref name, value); }
         }
 
         // 进程路径
         private string path = string.Empty;
-        public string Path {
+        public string Path
+        {
             get { return path; }
-            set { this.RaiseAndSetIfChanged (ref path, value); }
+            set { this.RaiseAndSetIfChanged(ref path, value); }
         }
 
         public string arguments = string.Empty;
-        public string Arguments { get => arguments; set => this.RaiseAndSetIfChanged (ref arguments, value); }
+        public string Arguments
+        {
+            get => arguments;
+            set => this.RaiseAndSetIfChanged(ref arguments, value);
+        }
 
         public bool moveWindow = false;
-        public bool MoveWindow {
+        public bool MoveWindow
+        {
             get { return moveWindow; }
-            set { this.RaiseAndSetIfChanged (ref moveWindow, value); }
+            set { this.RaiseAndSetIfChanged(ref moveWindow, value); }
         }
 
         public bool resizeWindow = false;
-        public bool ResizeWindow {
+        public bool ResizeWindow
+        {
             get { return resizeWindow; }
-            set { this.RaiseAndSetIfChanged (ref resizeWindow, value); }
+            set { this.RaiseAndSetIfChanged(ref resizeWindow, value); }
         }
 
         private bool keepTop = true;
-        public bool KeepTop {
+        public bool KeepTop
+        {
             get { return keepTop; }
-            set {
-                this.RaiseAndSetIfChanged (ref keepTop, value);
-                if (value) {
+            set
+            {
+                this.RaiseAndSetIfChanged(ref keepTop, value);
+                if (value)
+                {
                     this.MinimizedStartUp = false;
                 }
             }
         }
         public bool runAs = false;
-        public bool RunAs {
+        public bool RunAs
+        {
             get { return runAs; }
-            set { this.RaiseAndSetIfChanged (ref runAs, value); }
+            set { this.RaiseAndSetIfChanged(ref runAs, value); }
         }
 
         private bool noDaemon = false;
-        public bool NoDaemon {
+        public bool NoDaemon
+        {
             get { return noDaemon; }
-            set {
-                this.RaiseAndSetIfChanged (ref noDaemon, value);
-            }
+            set { this.RaiseAndSetIfChanged(ref noDaemon, value); }
         }
 
         private bool minimizedStartUp = false;
-        public bool MinimizedStartUp {
+        public bool MinimizedStartUp
+        {
             get { return minimizedStartUp; }
-            set {
-                this.RaiseAndSetIfChanged (ref minimizedStartUp, value);
-                if (value) {
+            set
+            {
+                this.RaiseAndSetIfChanged(ref minimizedStartUp, value);
+                if (value)
+                {
                     this.KeepTop = false;
                     this.MoveWindow = false;
                     this.ResizeWindow = false;
@@ -187,32 +229,37 @@ namespace DaemonKit {
         }
 
         private int delay = 500;
-        public int Delay {
+        public int Delay
+        {
             get => delay;
-            set => this.RaiseAndSetIfChanged (ref delay, Math.Max (value, 0));
+            set => this.RaiseAndSetIfChanged(ref delay, Math.Max(value, 0));
         }
 
         private int posX = 0;
-        public int PosX {
+        public int PosX
+        {
             get => posX;
-            set => this.RaiseAndSetIfChanged (ref posX, value);
+            set => this.RaiseAndSetIfChanged(ref posX, value);
         }
         private int posY = 0;
-        public int PosY {
+        public int PosY
+        {
             get => posY;
-            set => this.RaiseAndSetIfChanged (ref posY, value);
+            set => this.RaiseAndSetIfChanged(ref posY, value);
         }
 
         private int width = 0;
-        public int Width {
+        public int Width
+        {
             get => width;
-            set => this.RaiseAndSetIfChanged (ref width, value);
+            set => this.RaiseAndSetIfChanged(ref width, value);
         }
 
         private int height = 0;
-        public int Height {
+        public int Height
+        {
             get => height;
-            set => this.RaiseAndSetIfChanged (ref height, value);
+            set => this.RaiseAndSetIfChanged(ref height, value);
         }
 
         public ReactiveCommand<Unit, Unit> SelectProcess { get; protected set; }

@@ -18,7 +18,8 @@ namespace DaemonKit
         Stop,
         Shutdown,
         Restart,
-        Backup
+        Backup,
+        RestartApp // 重启程序
     }
 
     public class ScheduleItem : ReactiveObject
@@ -54,13 +55,23 @@ namespace DaemonKit
         }
 
         // 时间
-        private DateTime _time;
+        private DateTime _time = DateTime.Now;
 
         [XmlAttribute]
         public DateTime Time
         {
             get => _time;
             set => this.RaiseAndSetIfChanged(ref _time, value);
+        }
+
+        // 延迟秒数（用于程序启动后触发器）
+        private int _delaySeconds = 60;
+
+        [XmlAttribute]
+        public int DelaySeconds
+        {
+            get => _delaySeconds;
+            set => this.RaiseAndSetIfChanged(ref _delaySeconds, value);
         }
 
         // 时间字符串
@@ -96,6 +107,12 @@ namespace DaemonKit
             {
                 Status = canDailyExecute() ? 0 : 1;
             }
+            else if (
+                Trigger == Core.TriggerType.OnAppStart || Trigger == Core.TriggerType.OnAppStartOnce
+            )
+            {
+                Status = 1; // 程序启动后的任务默认为待执行
+            }
             else
             {
                 Status = 1;
@@ -112,6 +129,12 @@ namespace DaemonKit
             if (Trigger == Core.TriggerType.Daily)
             {
                 return canDailyExecute();
+            }
+            else if (
+                Trigger == Core.TriggerType.OnAppStart || Trigger == Core.TriggerType.OnAppStartOnce
+            )
+            {
+                return true; // 由外部控制执行时机
             }
 
             return false;
@@ -139,10 +162,24 @@ namespace DaemonKit
 
         public ScheduleItem()
         {
-            this.WhenAnyValue(x => x.Time)
-                .Select(x => x.ToString("HH:mm:ss"))
+            // 根据触发器类型显示不同的字符串
+            this.WhenAnyValue(x => x.Trigger, x => x.Time, x => x.DelaySeconds)
+                .Select(x =>
+                {
+                    if (
+                        x.Item1 == Core.TriggerType.OnAppStart
+                        || x.Item1 == Core.TriggerType.OnAppStartOnce
+                    )
+                    {
+                        return $"{x.Item3} 秒";
+                    }
+                    return x.Item2.ToString("HH:mm:ss");
+                })
                 .ToProperty(this, x => x.TimeString, out _timeString);
-            this.DeleteCommand = ReactiveCommand.Create(() => { });
+            this.DeleteCommand = ReactiveCommand.Create(
+                () => { },
+                outputScheduler: RxApp.MainThreadScheduler
+            );
             CalculateStatus();
         }
 
@@ -181,11 +218,13 @@ namespace DaemonKit
             "启动 (进程)",
             "停止 (进程)",
             "关闭 (电脑)",
-            "重启 (电脑)"
+            "重启 (电脑)",
+            "重启 (程序)"
         };
         private List<string> childTaskTypes = new List<string> { "启动 (进程)", "停止 (进程)" };
 
-        public List<string> TaskTriggerTypes { get; } = new List<string> { "每天" };
+        public List<string> TaskTriggerTypes { get; } =
+            new List<string> { "每天", "程序启动后", "每天首次启动后" };
 
         private ObservableCollection<ScheduleItem> _scheduleItems =
             new ObservableCollection<ScheduleItem>();
@@ -220,24 +259,33 @@ namespace DaemonKit
 
         public ScheduleViewModel()
         {
-            AddScheduleCommand = ReactiveCommand.Create(() =>
-            {
-                var _newItem = new ScheduleItem();
-                ScheduleItems.Add(_newItem);
-                _newItem.DeleteCommand.Subscribe(_ =>
+            AddScheduleCommand = ReactiveCommand.Create(
+                () =>
                 {
-                    ScheduleItems.Remove(_newItem);
-                });
-            });
+                    var _newItem = new ScheduleItem();
+                    ScheduleItems.Add(_newItem);
+                    _newItem.DeleteCommand.Subscribe(_ =>
+                    {
+                        ScheduleItems.Remove(_newItem);
+                    });
+                },
+                outputScheduler: RxApp.MainThreadScheduler
+            );
 
-            SaveCommand = ReactiveCommand.Create(() => { });
+            SaveCommand = ReactiveCommand.Create(
+                () => { },
+                outputScheduler: RxApp.MainThreadScheduler
+            );
 
-            SortByTimeCommand = ReactiveCommand.Create(() =>
-            {
-                ScheduleItems = new ObservableCollection<ScheduleItem>(
-                    ScheduleItems.OrderBy(x => x.Time)
-                );
-            });
+            SortByTimeCommand = ReactiveCommand.Create(
+                () =>
+                {
+                    ScheduleItems = new ObservableCollection<ScheduleItem>(
+                        ScheduleItems.OrderBy(x => x.Time)
+                    );
+                },
+                outputScheduler: RxApp.MainThreadScheduler
+            );
         }
     }
 }

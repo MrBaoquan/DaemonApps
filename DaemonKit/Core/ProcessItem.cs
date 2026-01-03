@@ -17,7 +17,9 @@ namespace DaemonKit.Core
     public enum TriggerType
     {
         Daily,
-        Interval
+        Interval,
+        OnAppStart, // 程序启动后
+        OnAppStartOnce // 每天首次启动后
     }
 
     public class TaskTrigger
@@ -291,7 +293,6 @@ namespace DaemonKit.Core
             return _list;
         }
 
-
         // 执行节点任务
         public void RunNode()
         {
@@ -398,7 +399,6 @@ namespace DaemonKit.Core
         // 守护当前进程节点
         IDisposable? daemonHandler = null;
 
-        
         private int noResponse = 0;
 
         private int noHeartbeat = 0;
@@ -427,6 +427,7 @@ namespace DaemonKit.Core
         #region 进程守护
 
         private DateTime lastHeartbeat = DateTime.MinValue;
+
         public void NotifyHeartbeat()
         {
             lastHeartbeat = DateTime.Now;
@@ -435,11 +436,11 @@ namespace DaemonKit.Core
 
         public bool IsHeartbeatAlive()
         {
-            if (lastHeartbeat == DateTime.MinValue) return true;
+            if (lastHeartbeat == DateTime.MinValue)
+                return true;
             var _interval = DateTime.Now - lastHeartbeat;
             return _interval.Milliseconds < daemonInterval;
         }
-        
 
         private void daemonNode()
         {
@@ -491,7 +492,6 @@ namespace DaemonKit.Core
                             return;
                         }
                     }
-
 
                     // 如果需要窗口置顶, 则在守护间隔前3次尝试置顶
                     if (_daemonCount <= 3)
@@ -572,7 +572,12 @@ namespace DaemonKit.Core
             Status = -1;
             if (nodeProcess != null)
             {
-                ProcManager.KillProcess(NodePath); // 杀掉所有同名进程
+                // 使用异步方式调用安全关闭
+                _ = ProcManager.KillProcess(
+                    NodePath,
+                    MainWindow.AppSettings?.SafeKillProcess ?? false,
+                    MainWindow.AppSettings?.SafeKillTimeout ?? 5000
+                );
             }
 
             // if (nodeProcess != null)

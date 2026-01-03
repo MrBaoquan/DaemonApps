@@ -3,43 +3,69 @@
                     xmlns:System="clr-namespace:System;assembly=System.Runtime"
                     xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes">
 
-    <!-- 尺寸常量 -->
-    <System:Double x:Key="ProcessControlButtonSize">20</System:Double>
-    <System:Double x:Key="MiniButtonSize">20</System:Double>
-    <System:Double x:Key="PowerButtonSize">24</System:Double>
-    <System:Double x:Key="SmallIconSize">12</System:Double>
-    <System:Double x:Key="MediumIconSize">15</System:Double>
+        <!-- 尺寸常量 -->
+        <System:Double x:Key="ProcessControlButtonSize">20</System:Double>
+        <System:Double x:Key="MiniButtonSize">20</System:Double>
+        <System:Double x:Key="PowerButtonSize">24</System:Double>
+        <System:Double x:Key="SmallIconSize">12</System:Double>
+        <System:Double x:Key="MediumIconSize">15</System:Double>
 
-    <!-- 进程控制按钮样式 -->
-    <Style x:Key="ProcessControlButtonStyle"
-           TargetType="Button"
-           BasedOn="{StaticResource MaterialDesignIconButton}">
-        <Setter Property="Width"
-                Value="{StaticResource ProcessControlButtonSize}"/>
-        <Setter Property="Height"
-                Value="{StaticResource ProcessControlButtonSize}"/>
-    </Style>
+        <!-- 进程控制按钮样式 -->
+        <Style x:Key="ProcessControlButtonStyle"
+               TargetType="Button"
+               BasedOn="{StaticResource MaterialDesignFlatButton}">
+                <Setter Property="Width"
+                        Value="{StaticResource ProcessControlButtonSize}"/>
+                <Setter Property="Height"
+                        Value="{StaticResource ProcessControlButtonSize}"/>
+                <Setter Property="Padding"
+                        Value="0"/>
+                <Setter Property="Background"
+                        Value="Transparent"/>
+                <Setter Property="BorderBrush"
+                        Value="Transparent"/>
+                <Setter Property="BorderThickness"
+                        Value="0"/>
+                <Setter Property="Margin"
+                        Value="2"/>
+        </Style>
 
-    <!-- Mini按钮样式 -->
-    <Style x:Key="MiniActionButtonStyle"
-           TargetType="Button"
-           BasedOn="{StaticResource MaterialDesignFloatingActionMiniButton}">
-        <Setter Property="Width"
-                Value="{StaticResource MiniButtonSize}"/>
-        <Setter Property="Height"
-                Value="{StaticResource MiniButtonSize}"/>
-    </Style>
+        <!-- Mini按钮样式 -->
+        <Style x:Key="MiniActionButtonStyle"
+               TargetType="Button"
+               BasedOn="{StaticResource MaterialDesignFlatButton}">
+                <Setter Property="Width"
+                        Value="{StaticResource MiniButtonSize}"/>
+                <Setter Property="Height"
+                        Value="{StaticResource MiniButtonSize}"/>
+                <Setter Property="Padding"
+                        Value="0"/>
+                <Setter Property="Background"
+                        Value="Transparent"/>
+                <Setter Property="BorderBrush"
+                        Value="Transparent"/>
+                <Setter Property="BorderThickness"
+                        Value="0"/>
+        </Style>
 
-    <!-- 电源按钮样式 -->
-    <Style x:Key="PowerButtonStyle"
-           TargetType="Button"
-           BasedOn="{StaticResource MaterialDesignFlatButton}">
-        <Setter Property="Height"
-                Value="36"/>
-        <Setter Property="HorizontalContentAlignment"
-                Value="Left"/>
-        <Setter Property="Padding"
-                Value="8 4"/>
-    </Style>
+        <!-- 电源按钮样式 -->
+        <Style x:Key="PowerButtonStyle"
+               TargetType="Button"
+               BasedOn="{StaticResource MaterialDesignFlatButton}">
+                <Setter Property="Height"
+                        Value="36"/>
+                <Setter Property="HorizontalContentAlignment"
+                        Value="Left"/>
+                <Setter Property="Padding"
+                        Value="8 4"/>
+                <Setter Property="Background"
+                        Value="Transparent"/>
+                <Setter Property="BorderBrush"
+                        Value="Transparent"/>
+                <Setter Property="BorderThickness"
+                        Value="0"/>
+                <Setter Property="ClipToBounds"
+                        Value="True"/>
+        </Style>
 
 </ResourceDictionary>

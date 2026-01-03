@@ -1,0 +1,109 @@
+<reactiveui:ReactiveWindow xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                           xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                           xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+                           xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+                           xmlns:local="clr-namespace:DaemonKit"
+                           xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes"
+                           xmlns:reactiveui="http://reactiveui.net"
+                           x:Class="DaemonKit.CountdownConfirmDialog"
+                           x:TypeArguments="local:CountdownConfirmViewModel"
+                           mc:Ignorable="d"
+                           Title="{Binding Title}"
+                           Height="250"
+                           Width="450"
+                           WindowStartupLocation="CenterScreen"
+                           WindowStyle="None"
+                           ResizeMode="NoResize"
+                           Topmost="True"
+                           Background="Transparent"
+                           AllowsTransparency="True">
+    <Border Background="White"
+            CornerRadius="10"
+            BorderBrush="{DynamicResource PrimaryHueMidBrush}"
+            BorderThickness="2">
+        <Border.Effect>
+            <DropShadowEffect Color="Black"
+                    Opacity="0.3"
+                    ShadowDepth="5"
+                    BlurRadius="15"/>
+        </Border.Effect>
+        <Grid Margin="30">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="*"/>
+                <RowDefinition Height="Auto"/>
+            </Grid.RowDefinitions>
+
+            <!-- 标题 -->
+            <StackPanel Grid.Row="0"
+                    Orientation="Horizontal"
+                    Margin="0,0,0,20">
+                <materialDesign:PackIcon Kind="AlertCircleOutline"
+                                         Width="32"
+                                         Height="32"
+                                         Foreground="#FF9800"
+                                         VerticalAlignment="Center"
+                                         Margin="0,0,10,0"/>
+                <TextBlock Text="{Binding Title}"
+                           FontSize="20"
+                           FontWeight="Bold"
+                           VerticalAlignment="Center"
+                           Foreground="{DynamicResource PrimaryHueDarkBrush}"/>
+            </StackPanel>
+
+            <!-- 消息内容 -->
+            <StackPanel Grid.Row="1"
+                    VerticalAlignment="Center">
+                <TextBlock Text="{Binding Message}"
+                           FontSize="16"
+                           TextWrapping="Wrap"
+                           Margin="0,0,0,20"
+                           TextAlignment="Center"/>
+
+                <!-- 倒计时显示 -->
+                <Border Background="{DynamicResource PrimaryHueLightBrush}"
+                        CornerRadius="50"
+                        Width="100"
+                        Height="100"
+                        HorizontalAlignment="Center">
+                    <TextBlock Text="{Binding Countdown}"
+                               FontSize="48"
+                               FontWeight="Bold"
+                               Foreground="White"
+                               HorizontalAlignment="Center"
+                               VerticalAlignment="Center"/>
+                </Border>
+            </StackPanel>
+
+            <!-- 按钮 -->
+            <StackPanel Grid.Row="2"
+                        Orientation="Horizontal"
+                        HorizontalAlignment="Center"
+                        Margin="0,20,0,0">
+                <Button Content="取消"
+                        Width="120"
+                        Height="40"
+                        Margin="0,0,20,0"
+                        Command="{Binding Cancel}"/>
+                <Button Content="确认"
+                        Width="120"
+                        Height="40"
+                        Command="{Binding Confirm}">
+                    <Button.Style>
+                        <Style TargetType="Button">
+                            <Setter Property="Background"
+                                    Value="{DynamicResource PrimaryHueMidBrush}"/>
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding Countdown}"
+                                        Value="0">
+                                    <Setter Property="Background"
+                                            Value="#4CAF50"/>
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </Button.Style>
+                </Button>
+            </StackPanel>
+        </Grid>
+    </Border>
+</reactiveui:ReactiveWindow>
