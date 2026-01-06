@@ -17,6 +17,7 @@
     ResizeMode="NoResize"
     Topmost="True">
     <Window.Resources>
+        <BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter"/>
         <!-- 自定义滚动条样式 -->
         <Style x:Key="ScrollBarThumb"
                TargetType="{x:Type Thumb}">
@@ -145,21 +146,6 @@
                            VerticalAlignment="Center"
                            Margin="0,5">
                     <StackPanel VerticalAlignment="Center">
-                        <TextBlock Text="全局快捷键"
-                                   FontSize="14"/>
-                        <TextBlock Text="Ctrl+D/R/W | Ctrl+Shift+E/W/T"
-                                   FontSize="11"
-                                   Opacity="0.6"
-                                   Margin="0,2,0,0"/>
-                    </StackPanel>
-                    <ToggleButton HorizontalAlignment="Right"
-                                  IsChecked="{Binding Path=EnableGlobalHotKey, Mode=TwoWay}"/>
-                </DockPanel>
-
-                <DockPanel Height="40"
-                           VerticalAlignment="Center"
-                           Margin="0,5">
-                    <StackPanel VerticalAlignment="Center">
                         <TextBlock Text="开机启动"
                                    FontSize="14"/>
                         <TextBlock Text="系统启动时自动运行程序"
@@ -231,6 +217,57 @@
                                   IsChecked="{Binding Path=EnableCountdownConfirm, Mode=TwoWay}"/>
                 </DockPanel>
 
+                <DockPanel Height="40"
+                           VerticalAlignment="Center"
+                           Margin="0,5">
+                    <StackPanel VerticalAlignment="Center">
+                        <TextBlock Text="专注模式"
+                                   FontSize="14"/>
+                        <TextBlock Text="长时间无操作：杀桌面、启动进程树"
+                                   FontSize="11"
+                                   Opacity="0.6"
+                                   Margin="0,2,0,0"/>
+                    </StackPanel>
+                    <ToggleButton HorizontalAlignment="Right"
+                                  IsChecked="{Binding Path=EnableIdleAutoAction, Mode=TwoWay}"/>
+                </DockPanel>
+
+                <StackPanel Margin="0,8,0,0"
+                            IsEnabled="{Binding Path=EnableIdleAutoAction, Mode=TwoWay}"
+                            Visibility="{Binding Path=EnableIdleAutoAction, Converter={StaticResource BooleanToVisibilityConverter}}">
+                    <TextBox FontSize="14"
+                             materialDesign:HintAssist.Hint="无操作阈值"
+                             materialDesign:HintAssist.IsFloating="True"
+                             Text="{Binding IdleAutoActionThresholdMinutes}"
+                             materialDesign:TextFieldAssist.SuffixText="分钟"/>
+                </StackPanel>
+
+                <!-- 空闲自动省电模式 -->
+                <DockPanel Height="40"
+                           VerticalAlignment="Center"
+                           Margin="0,15,0,5">
+                    <StackPanel VerticalAlignment="Center">
+                        <TextBlock Text="空闲自动省电"
+                                   FontSize="14"/>
+                        <TextBlock Text="长时间无输入：自动进入/退出省电模式"
+                                   FontSize="11"
+                                   Opacity="0.6"
+                                   Margin="0,2,0,0"/>
+                    </StackPanel>
+                    <ToggleButton HorizontalAlignment="Right"
+                                  IsChecked="{Binding Path=EnableIdleAutoPowerSaving, Mode=TwoWay}"/>
+                </DockPanel>
+
+                <StackPanel Margin="0,8,0,0"
+                            IsEnabled="{Binding Path=EnableIdleAutoPowerSaving, Mode=TwoWay}"
+                            Visibility="{Binding Path=EnableIdleAutoPowerSaving, Converter={StaticResource BooleanToVisibilityConverter}}">
+                    <TextBox FontSize="14"
+                             materialDesign:HintAssist.Hint="空闲时长阈值"
+                             materialDesign:HintAssist.IsFloating="True"
+                             Text="{Binding IdleAutoPowerSavingThresholdMinutes}"
+                             materialDesign:TextFieldAssist.SuffixText="分钟"/>
+                </StackPanel>
+
                 <!-- 进阶设置分组 -->
                 <TextBlock Text="进阶设置"
                            FontSize="16"
@@ -301,7 +338,9 @@
                                   IsChecked="{Binding Path=SafeKillProcess, Mode=TwoWay}"/>
                 </DockPanel>
 
-                <StackPanel Margin="0,8,0,20">
+                <StackPanel Margin="0,8,0,20"
+                            IsEnabled="{Binding Path=SafeKillProcess, Mode=TwoWay}"
+                            Visibility="{Binding Path=SafeKillProcess, Converter={StaticResource BooleanToVisibilityConverter}}">
                     <TextBox FontSize="14"
                              materialDesign:HintAssist.Hint="安全关闭超时时间"
                              materialDesign:HintAssist.IsFloating="True"

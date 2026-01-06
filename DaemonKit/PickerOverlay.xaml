@@ -9,274 +9,319 @@
         Left="0"
         Top="0"
         Cursor="Cross"
+        Focusable="True"
         MouseMove="Window_MouseMove"
         MouseLeftButtonDown="Window_MouseLeftButtonDown"
         MouseLeftButtonUp="Window_MouseLeftButtonUp"
         KeyDown="Window_KeyDown"
+        PreviewKeyDown="Window_KeyDown"
         Loaded="Window_Loaded">
-    <Canvas x:Name="MainCanvas">
-        <!-- 背景截图 (用于颜色拾取模式) -->
-        <Image x:Name="BackgroundImage"
-               Stretch="None"/>
+        <Canvas x:Name="MainCanvas">
+                <!-- 背景截图 (用于颜色拾取模式) -->
+                <Image x:Name="BackgroundImage"
+                       Stretch="None"/>
 
-        <!-- 框选截图显示 (截图编辑模式) -->
-        <Image x:Name="SelectionScreenshotImage"
-               Stretch="Uniform"
-               Visibility="Collapsed"/>
+                <!-- 框选截图显示 (截图编辑模式) -->
+                <Image x:Name="SelectionScreenshotImage"
+                       Stretch="Uniform"
+                       Visibility="Collapsed"/>
 
 
-        <!-- 截图选区遮罩 -->
-        <Path x:Name="SelectionMask"
-              Fill="#80000000"
-              IsHitTestVisible="False"
-              Visibility="Collapsed"/>
+                <!-- 截图选区遮罩 -->
+                <Path x:Name="SelectionMask"
+                      Fill="#80000000"
+                      IsHitTestVisible="False"
+                      Visibility="Collapsed"/>
 
-        <!-- 截图选区边框 -->
-        <Rectangle x:Name="SelectionRect"
-                   Stroke="#00A0FF"
-                   StrokeThickness="2"
-                   StrokeDashArray="4 2"
-                   Fill="Transparent"
-                   IsHitTestVisible="False"
-                   Visibility="Collapsed"/>
-
-        <!-- 十字准星 -->
-        <Line x:Name="CrosshairH"
-              Stroke="Red"
-              StrokeThickness="1"
-              Y1="0"
-              Y2="0"/>
-        <Line x:Name="CrosshairV"
-              Stroke="Red"
-              StrokeThickness="1"
-              X1="0"
-              X2="0"/>
-
-        <!-- 信息显示框 (仅颜色/位置拾取模式显示) -->
-        <Border x:Name="InfoBox"
-                Background="#CC000000"
-                BorderBrush="Transparent"
-                BorderThickness="0"
-                CornerRadius="3"
-                Padding="8"
-                Visibility="Collapsed">
-            <StackPanel>
-                <TextBlock x:Name="ModeText"
-                           Foreground="#00A0FF"
-                           FontSize="11"
-                           FontWeight="Bold"
-                           Margin="0,0,0,4"/>
-                <TextBlock x:Name="PositionText"
-                           Foreground="White"
-                           FontSize="12"/>
-                <TextBlock x:Name="ColorText"
-                           Foreground="White"
-                           FontSize="12"
-                           Margin="0,4,0,0"/>
-                <TextBlock x:Name="HexText"
-                           Foreground="White"
-                           FontSize="12"
-                           Margin="0,4,0,0"/>
-                <Rectangle x:Name="ColorPreview"
-                           Width="60"
-                           Height="20"
-                           Margin="0,4,0,0"
-                           Stroke="White"
-                           StrokeThickness="1"/>
-                <TextBlock x:Name="SizeText"
-                           Foreground="#FFD700"
-                           FontSize="12"
-                           Margin="0,4,0,0"
+                <!-- 截图选区边框 -->
+                <Rectangle x:Name="SelectionRect"
+                           Stroke="#00A0FF"
+                           StrokeThickness="2"
+                           StrokeDashArray="4 2"
+                           Fill="Transparent"
+                           IsHitTestVisible="False"
                            Visibility="Collapsed"/>
-                <TextBlock x:Name="HintText"
-                           Foreground="Gray"
-                           FontSize="10"
-                           Margin="0,6,0,0"/>
-            </StackPanel>
-        </Border>
 
-        <!-- 工具栏 (截图模式框选完成后显示在底部) -->
-        <Border x:Name="ToolBar"
-                Panel.ZIndex="100"
-                Background="#CC000000"
-                BorderBrush="#00A0FF"
-                BorderThickness="1"
-                CornerRadius="5"
-                Padding="10,8"
-                Visibility="Collapsed"
-                MouseLeftButtonDown="ToolBar_MouseLeftButtonDown"
-                MouseMove="ToolBar_MouseMove"
-                MouseLeftButtonUp="ToolBar_MouseLeftButtonUp">
-            <StackPanel Orientation="Horizontal"
-                        VerticalAlignment="Center"
-                        HorizontalAlignment="Center">
-                <!-- 拖动手柄 -->
-                <Border x:Name="ToolBarDragHandle"
-                        Width="26"
-                        Height="26"
-                        Background="#333333"
-                        CornerRadius="4"
-                        Margin="0,0,10,0"
-                        Cursor="SizeAll">
-                    <TextBlock Text="⠿"
-                               Foreground="White"
-                               FontSize="14"
-                               HorizontalAlignment="Center"
-                               VerticalAlignment="Center"/>
+                <!-- 十字准星 -->
+                <Line x:Name="CrosshairH"
+                      Stroke="Red"
+                      StrokeThickness="1"
+                      Y1="0"
+                      Y2="0"/>
+                <Line x:Name="CrosshairV"
+                      Stroke="Red"
+                      StrokeThickness="1"
+                      X1="0"
+                      X2="0"/>
+
+                <!-- 信息显示框 (仅颜色/位置拾取模式显示) -->
+                <Border x:Name="InfoBox"
+                        Background="#CC000000"
+                        BorderBrush="Transparent"
+                        BorderThickness="0"
+                        CornerRadius="3"
+                        Padding="8"
+                        Visibility="Collapsed">
+                        <StackPanel>
+                                <TextBlock x:Name="ModeText"
+                                           Foreground="#00A0FF"
+                                           FontSize="11"
+                                           FontWeight="Bold"
+                                           Margin="0,0,0,4"/>
+                                <TextBlock x:Name="PositionText"
+                                           Foreground="White"
+                                           FontSize="12"/>
+                                <TextBlock x:Name="ColorText"
+                                           Foreground="White"
+                                           FontSize="12"
+                                           Margin="0,4,0,0"/>
+                                <TextBlock x:Name="HexText"
+                                           Foreground="White"
+                                           FontSize="12"
+                                           Margin="0,4,0,0"/>
+                                <Rectangle x:Name="ColorPreview"
+                                           Width="60"
+                                           Height="20"
+                                           Margin="0,4,0,0"
+                                           Stroke="White"
+                                           StrokeThickness="1"/>
+                                <TextBlock x:Name="SizeText"
+                                           Foreground="#FFD700"
+                                           FontSize="12"
+                                           Margin="0,4,0,0"
+                                           Visibility="Collapsed"/>
+                                <TextBlock x:Name="HintText"
+                                           Foreground="Gray"
+                                           FontSize="10"
+                                           Margin="0,6,0,0"/>
+                        </StackPanel>
                 </Border>
 
-                <!-- 绘制工具 -->
-                <TextBlock Text="工具:"
-                           Foreground="White"
-                           VerticalAlignment="Center"
-                           Margin="0,0,8,0"
-                           FontSize="11"/>
-                <Button x:Name="MoveToolBtn"
-                        Content="✥ 拖动"
-                        Background="#0066FF"
-                        Foreground="White"
-                        Padding="10,6"
-                        Margin="0,0,4,0"
-                        Click="MoveToolBtn_Click"
-                        FontSize="10"/>
-                <Button x:Name="PencilToolBtn"
-                        Content="✏ 铅笔"
-                        Background="#666666"
-                        Foreground="White"
-                        Padding="10,6"
-                        Margin="0,0,4,0"
-                        Click="PencilToolBtn_Click"
-                        FontSize="10"/>
-                <Button x:Name="LineToolBtn"
-                        Content="📏 直线"
-                        Background="#666666"
-                        Foreground="White"
-                        Padding="10,6"
-                        Margin="0,0,4,0"
-                        Click="LineToolBtn_Click"
-                        FontSize="10"/>
-                <Button x:Name="RectToolBtn"
-                        Content="◻ 矩形"
-                        Background="#666666"
-                        Foreground="White"
-                        Padding="10,6"
-                        Margin="0,0,4,0"
-                        Click="RectToolBtn_Click"
-                        FontSize="10"/>
-                <Button x:Name="ArrowToolBtn"
-                        Content="→ 箭头"
-                        Background="#666666"
-                        Foreground="White"
-                        Padding="10,6"
-                        Margin="0,0,4,0"
-                        Click="ArrowToolBtn_Click"
-                        FontSize="10"/>
-                <Button x:Name="TextToolBtn"
-                        Content="A 文本"
-                        Background="#666666"
-                        Foreground="White"
-                        Padding="10,6"
-                        Margin="0,0,12,0"
-                        Click="TextToolBtn_Click"
-                        FontSize="10"/>
+                <!-- 工具栏 (截图模式框选完成后显示在底部) -->
+                <Border x:Name="ToolBar"
+                        Panel.ZIndex="100"
+                        Background="#CC000000"
+                        BorderBrush="#00A0FF"
+                        BorderThickness="1"
+                        CornerRadius="5"
+                        Padding="10,8"
+                        Visibility="Collapsed"
+                        MouseLeftButtonDown="ToolBar_MouseLeftButtonDown"
+                        MouseMove="ToolBar_MouseMove"
+                        MouseLeftButtonUp="ToolBar_MouseLeftButtonUp">
+                        <StackPanel Orientation="Horizontal"
+                                    VerticalAlignment="Center"
+                                    HorizontalAlignment="Center">
+                                <!-- 拖动手柄 -->
+                                <Border x:Name="ToolBarDragHandle"
+                                        Width="26"
+                                        Height="26"
+                                        Background="#333333"
+                                        CornerRadius="4"
+                                        Margin="0,0,10,0"
+                                        Cursor="SizeAll">
+                                        <TextBlock Text="⠿"
+                                                   Foreground="White"
+                                                   FontSize="14"
+                                                   HorizontalAlignment="Center"
+                                                   VerticalAlignment="Center"/>
+                                </Border>
 
-                <!-- 分隔符 -->
-                <Separator Style="{StaticResource {x:Static ToolBar.SeparatorStyleKey}}"
-                           Margin="4,0"/>
+                                <!-- 绘制工具 -->
+                                <Button x:Name="MoveToolBtn"
+                                        Content="✥"
+                                        Background="#0066FF"
+                                        Foreground="White"
+                                        Width="28"
+                                        Height="28"
+                                        Padding="0"
+                                        Margin="0,0,4,0"
+                                        Click="MoveToolBtn_Click"
+                                        FontSize="14"
+                                        ToolTip="拖动工具"/>
+                                <Button x:Name="PencilToolBtn"
+                                        Content="✏"
+                                        Background="#666666"
+                                        Foreground="White"
+                                        Width="28"
+                                        Height="28"
+                                        Padding="0"
+                                        Margin="0,0,4,0"
+                                        Click="PencilToolBtn_Click"
+                                        FontSize="14"
+                                        ToolTip="铅笔工具"/>
+                                <Button x:Name="LineToolBtn"
+                                        Content="📏"
+                                        Background="#666666"
+                                        Foreground="White"
+                                        Width="28"
+                                        Height="28"
+                                        Padding="0"
+                                        Margin="0,0,4,0"
+                                        Click="LineToolBtn_Click"
+                                        FontSize="14"
+                                        ToolTip="直线工具"/>
+                                <Button x:Name="RectToolBtn"
+                                        Content="◻"
+                                        Background="#666666"
+                                        Foreground="White"
+                                        Width="28"
+                                        Height="28"
+                                        Padding="0"
+                                        Margin="0,0,4,0"
+                                        Click="RectToolBtn_Click"
+                                        FontSize="14"
+                                        ToolTip="矩形工具"/>
+                                <Button x:Name="ArrowToolBtn"
+                                        Content="→"
+                                        Background="#666666"
+                                        Foreground="White"
+                                        Width="28"
+                                        Height="28"
+                                        Padding="0"
+                                        Margin="0,0,4,0"
+                                        Click="ArrowToolBtn_Click"
+                                        FontSize="14"
+                                        ToolTip="箭头工具"/>
+                                <Button x:Name="TextToolBtn"
+                                        Content="A"
+                                        Background="#666666"
+                                        Foreground="White"
+                                        Width="28"
+                                        Height="28"
+                                        Padding="0"
+                                        Margin="0,0,12,0"
+                                        Click="TextToolBtn_Click"
+                                        FontSize="14"
+                                        ToolTip="文本工具"/>
 
-                <!-- 笔触设置 -->
-                <TextBlock Text="粗细:"
-                           Foreground="White"
-                           VerticalAlignment="Center"
-                           Margin="8,0,6,0"
-                           FontSize="11"/>
-                <Slider x:Name="BrushSizeSlider"
-                        Width="100"
-                        Height="28"
-                        Minimum="1"
-                        Maximum="10"
-                        Value="4"
-                        TickFrequency="1"
-                        IsSnapToTickEnabled="True"
-                        VerticalAlignment="Center"
-                        Margin="0,0,6,0"
-                        ValueChanged="BrushSizeSlider_ValueChanged"/>
-                <TextBlock x:Name="BrushSizeText"
-                           Text="4px"
-                           Foreground="White"
-                           VerticalAlignment="Center"
-                           Margin="0,0,10,0"
-                           FontSize="11"
-                           Width="30"/>
+                                <!-- 分隔符 -->
+                                <Separator Style="{StaticResource {x:Static ToolBar.SeparatorStyleKey}}"
+                                           Margin="4,0"/>
 
-                <!-- 颜色选择 -->
-                <TextBlock Text="颜色:"
-                           Foreground="White"
-                           VerticalAlignment="Center"
-                           Margin="0,0,6,0"
-                           FontSize="11"/>
-                <Button x:Name="ColorPickerBtn"
-                        Width="32"
-                        Height="28"
-                        Background="Red"
-                        Click="ColorPickerBtn_Click"
-                        Margin="0,0,12,0"/>
+                                <!-- 笔触设置 -->
+                                <Slider x:Name="BrushSizeSlider"
+                                        Width="100"
+                                        Height="28"
+                                        Minimum="1"
+                                        Maximum="10"
+                                        Value="4"
+                                        TickFrequency="1"
+                                        IsSnapToTickEnabled="True"
+                                        VerticalAlignment="Center"
+                                        Margin="0,0,6,0"
+                                        ValueChanged="BrushSizeSlider_ValueChanged"/>
+                                <TextBlock x:Name="BrushSizeText"
+                                           Text="4px"
+                                           Foreground="White"
+                                           VerticalAlignment="Center"
+                                           Margin="0,0,10,0"
+                                           FontSize="11"
+                                           Width="30"/>
 
-                <!-- 分隔符 -->
-                <Separator Style="{StaticResource {x:Static ToolBar.SeparatorStyleKey}}"
-                           Margin="4,0"/>
+                                <!-- 文字大小 -->
+                                <TextBlock x:Name="TextSizeLabel"
+                                           Text="字号:"
+                                           Foreground="White"
+                                           VerticalAlignment="Center"
+                                           Margin="0,0,6,0"
+                                           FontSize="11"
+                                           Visibility="Collapsed"/>
+                                <Slider x:Name="TextSizeSlider"
+                                        Width="100"
+                                        Height="28"
+                                        Minimum="10"
+                                        Maximum="48"
+                                        Value="14"
+                                        TickFrequency="2"
+                                        IsSnapToTickEnabled="True"
+                                        VerticalAlignment="Center"
+                                        Margin="0,0,6,0"
+                                        Visibility="Collapsed"
+                                        ValueChanged="TextSizeSlider_ValueChanged"/>
+                                <TextBlock x:Name="TextSizeText"
+                                           Text="14"
+                                           Foreground="White"
+                                           VerticalAlignment="Center"
+                                           Margin="0,0,10,0"
+                                           FontSize="11"
+                                           Width="30"
+                                           Visibility="Collapsed"/>
 
-                <!-- 撤销按钮 -->
-                <Button x:Name="UndoButton"
-                        Content="↶ 撤销"
-                        Background="#666666"
-                        Foreground="White"
-                        Padding="10,6"
-                        Margin="0,0,12,0"
-                        Click="UndoButton_Click"
-                        ToolTip="撤销上一步 (Ctrl+Z)"
-                        FontSize="10"/>
+                                <!-- 颜色选择 -->
+                                <Button x:Name="ColorPickerBtn"
+                                        Width="32"
+                                        Height="28"
+                                        Background="Red"
+                                        Click="ColorPickerBtn_Click"
+                                        Margin="0,0,12,0"/>
 
-                <!-- 分隔符 -->
-                <Separator Style="{StaticResource {x:Static ToolBar.SeparatorStyleKey}}"
-                           Margin="4,0"/>
+                                <!-- 分隔符 -->
+                                <Separator Style="{StaticResource {x:Static ToolBar.SeparatorStyleKey}}"
+                                           Margin="4,0"/>
 
-                <!-- 全屏截取 -->
-                <Button x:Name="FullScreenButton"
-                        Content="⛶ 全屏"
-                        Background="#666666"
-                        Foreground="White"
-                        Padding="12,6"
-                        Margin="0,0,8,0"
-                        Click="FullScreenButton_Click"
-                        FontSize="10"/>
+                                <!-- 撤销按钮 -->
+                                <Button x:Name="UndoButton"
+                                        Content="↶"
+                                        Background="#666666"
+                                        Foreground="White"
+                                        Width="28"
+                                        Height="28"
+                                        Padding="0"
+                                        Margin="0,0,12,0"
+                                        Click="UndoButton_Click"
+                                        ToolTip="撤销上一步 (Ctrl+Z)"
+                                        FontSize="14"/>
 
-                <!-- 操作按钮 -->
-                <Button x:Name="ConfirmButton"
-                        Content="✓ 保存"
-                        Background="#00A0FF"
-                        Foreground="White"
-                        Padding="12,6"
-                        Margin="8,0,4,0"
-                        Click="ConfirmButton_Click"
-                        FontSize="10"/>
-                <Button x:Name="CancelButton"
-                        Content="✕ 取消"
-                        Background="#666666"
-                        Foreground="White"
-                        Padding="12,6"
-                        Click="CancelButton_Click"
-                        FontSize="10"/>
-            </StackPanel>
-        </Border>
+                                <!-- 分隔符 -->
+                                <Separator Style="{StaticResource {x:Static ToolBar.SeparatorStyleKey}}"
+                                           Margin="4,0"/>
 
-        <!-- 绘制画布 (截图编辑模式) -->
-        <Canvas x:Name="DrawingCanvas"
-                Panel.ZIndex="50"
-                Background="Transparent"
-                Visibility="Collapsed"
-                MouseDown="DrawingCanvas_MouseDown"
-                MouseMove="DrawingCanvas_MouseMove"
-                MouseUp="DrawingCanvas_MouseUp"/>
-    </Canvas>
+                                <!-- 全屏截取 -->
+                                <Button x:Name="FullScreenButton"
+                                        Content="⛶"
+                                        Background="#666666"
+                                        Foreground="White"
+                                        Width="28"
+                                        Height="28"
+                                        Padding="0"
+                                        Margin="0,0,8,0"
+                                        Click="FullScreenButton_Click"
+                                        ToolTip="全屏截取"
+                                        FontSize="14"/>
+
+                                <!-- 操作按钮 -->
+                                <Button x:Name="ConfirmButton"
+                                        Content="✓"
+                                        Background="#00A0FF"
+                                        Foreground="White"
+                                        Width="28"
+                                        Height="28"
+                                        Padding="0"
+                                        Margin="8,0,4,0"
+                                        Click="ConfirmButton_Click"
+                                        ToolTip="保存截图"
+                                        FontSize="14"/>
+                                <Button x:Name="CancelButton"
+                                        Content="✕"
+                                        Background="#666666"
+                                        Foreground="White"
+                                        Width="28"
+                                        Height="28"
+                                        Padding="0"
+                                        Click="CancelButton_Click"
+                                        ToolTip="取消"
+                                        FontSize="14"/>
+                        </StackPanel>
+                </Border>
+
+                <!-- 绘制画布 (截图编辑模式) -->
+                <Canvas x:Name="DrawingCanvas"
+                        Panel.ZIndex="50"
+                        Background="Transparent"
+                        Visibility="Collapsed"
+                        MouseDown="DrawingCanvas_MouseDown"
+                        MouseMove="DrawingCanvas_MouseMove"
+                        MouseUp="DrawingCanvas_MouseUp"/>
+        </Canvas>
 </Window>

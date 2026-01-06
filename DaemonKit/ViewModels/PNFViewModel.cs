@@ -25,12 +25,19 @@ namespace DaemonKit
         private FormType formType = FormType.Create;
         private OpenFileDialog openFileDialog = new OpenFileDialog();
 
+        // 检测是否为脚本文件
+        private bool IsScriptFile(string path)
+        {
+            var ext = System.IO.Path.GetExtension(path).ToLowerInvariant();
+            return ext == ".bat" || ext == ".cmd" || ext == ".ps1" || ext == ".vbs";
+        }
+
         public PNFViewModel()
         {
             this.Confirm = ReactiveCommand.Create<ProcessMetaData>(
                 () =>
                 {
-                    return new ProcessMetaData
+                    var metaData = new ProcessMetaData
                     {
                         Name = this.Name,
                         Path = this.Path,
@@ -47,6 +54,9 @@ namespace DaemonKit
                         Width = this.Width,
                         Height = this.Height,
                     };
+                    // 自动检测脚本文件类型，执行应用子内部处理
+                    metaData.IsScript = IsScriptFile(this.Path);
+                    return metaData;
                 },
                 outputScheduler: RxApp.MainThreadScheduler
             );
@@ -66,7 +76,13 @@ namespace DaemonKit
             });
 
             openFileDialog.InitialDirectory = System.IO.Path.GetDirectoryName(Path);
-            openFileDialog.Filter = "可执行文件(*.exe)|*.exe";
+            // 支持可执行文件和脚本文件
+            openFileDialog.Filter =
+                "所有支持的文件(*.exe;*.bat;*.cmd;*.ps1;*.vbs)|*.exe;*.bat;*.cmd;*.ps1;*.vbs|"
+                + "可执行文件(*.exe)|*.exe|"
+                + "批处理脚本(*.bat;*.cmd)|*.bat;*.cmd|"
+                + "PowerShell脚本(*.ps1)|*.ps1|"
+                + "VBScript脚本(*.vbs)|*.vbs";
             openFileDialog.FileOk += (o, args) =>
             {
                 var _path = openFileDialog.FileName;

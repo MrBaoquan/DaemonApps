@@ -19,6 +19,13 @@ namespace DaemonKit
         public bool DisableExplorer { get; set; } = false;
         public bool ShortCut { get; set; } = true;
         public bool EnableGlobalHotKey { get; set; } = true;
+        public bool EnableToggleWindow { get; set; } = true;
+        public bool EnableStartTree { get; set; } = true;
+        public bool EnableStopTree { get; set; } = true;
+        public bool EnableDesktopOn { get; set; } = true;
+        public bool EnableDesktopOff { get; set; } = true;
+        public bool EnableScreenshot { get; set; } = true;
+        public bool EnableScheduleToggleHotKey { get; set; } = true;
         public int StartUpDelay { get; set; } = 0;
         public int DelayDaemon { get; set; } = 500;
         public int DaemonInterval { get; set; } = 5000;
@@ -28,6 +35,31 @@ namespace DaemonKit
         public int SafeKillTimeout { get; set; } = 5000;
         public bool DisableTouchScreen { get; set; } = false;
         public bool EnableCountdownConfirm { get; set; } = true; // 启用重启/关机倒计时确认
+        public bool EnableIdleAutoAction { get; set; } = false;
+        public int IdleAutoActionThresholdMinutes { get; set; } = 5;
+        public bool EnableIdleAutoPowerSaving { get; set; } = false; // 启用空闲自动省电
+        public int IdleAutoPowerSavingThresholdMinutes { get; set; } = 5; // 空闲省电阈值(分钟)
+
+        // 节能模式设置
+        public bool PowerSavingModeEnabled { get; set; } = false;
+        public byte PowerSavingNormalBrightness { get; set; } = 100;
+        public byte PowerSavingLowBrightness { get; set; } = 56;
+        public List<DisplayConfig> PowerSavingDisplayConfigs { get; set; } = new();
+
+        // LED 设备配置
+        public bool LedEnabled { get; set; } = false;
+        public string LedConnectionType { get; set; } = "Serial"; // "Serial" 或 "TCP"
+        public string LedSerialPort { get; set; } = "COM1";
+        public int LedBaudRate { get; set; } = 115200;
+        public string LedIpAddress { get; set; } = "192.168.1.100";
+        public int LedTcpPort { get; set; } = 18100;
+    }
+
+    public class DisplayConfig
+    {
+        public string DeviceName { get; set; } = string.Empty;
+        public bool OverrideEnabled { get; set; }
+        public byte TargetBrightness { get; set; }
     }
 
     public class SettingsViewModel : ReactiveObject
@@ -42,6 +74,13 @@ namespace DaemonKit
                         StartUp = StartUp,
                         ShortCut = ShortCut,
                         EnableGlobalHotKey = EnableGlobalHotKey,
+                        EnableToggleWindow = EnableToggleWindow,
+                        EnableStartTree = EnableStartTree,
+                        EnableStopTree = EnableStopTree,
+                        EnableDesktopOn = EnableDesktopOn,
+                        EnableDesktopOff = EnableDesktopOff,
+                        EnableScreenshot = EnableScreenshot,
+                        EnableScheduleToggleHotKey = EnableScheduleToggleHotKey,
                         MinimizeStartUp = MinimizeStartUp,
                         DisableExplorer = DisableExplorer,
                         StartUpDelay = StartUpDelay,
@@ -52,7 +91,21 @@ namespace DaemonKit
                         SafeKillProcess = SafeKillProcess,
                         SafeKillTimeout = SafeKillTimeout,
                         DisableTouchScreen = DisableTouchScreen,
-                        EnableCountdownConfirm = EnableCountdownConfirm
+                        EnableCountdownConfirm = EnableCountdownConfirm,
+                        EnableIdleAutoAction = EnableIdleAutoAction,
+                        IdleAutoActionThresholdMinutes = IdleAutoActionThresholdMinutes,
+                        EnableIdleAutoPowerSaving = EnableIdleAutoPowerSaving,
+                        IdleAutoPowerSavingThresholdMinutes = IdleAutoPowerSavingThresholdMinutes,
+                        PowerSavingModeEnabled = PowerSavingModeEnabled,
+                        PowerSavingNormalBrightness = PowerSavingNormalBrightness,
+                        PowerSavingLowBrightness = PowerSavingLowBrightness,
+                        PowerSavingDisplayConfigs = PowerSavingDisplayConfigs,
+                        LedEnabled = LedEnabled,
+                        LedConnectionType = LedConnectionType,
+                        LedSerialPort = LedSerialPort,
+                        LedBaudRate = LedBaudRate,
+                        LedIpAddress = LedIpAddress,
+                        LedTcpPort = LedTcpPort
                     };
                 },
                 outputScheduler: RxApp.MainThreadScheduler
@@ -65,6 +118,13 @@ namespace DaemonKit
             StartUp = settings.StartUp;
             ShortCut = settings.ShortCut;
             EnableGlobalHotKey = settings.EnableGlobalHotKey;
+            EnableToggleWindow = settings.EnableToggleWindow;
+            EnableStartTree = settings.EnableStartTree;
+            EnableStopTree = settings.EnableStopTree;
+            EnableDesktopOn = settings.EnableDesktopOn;
+            EnableDesktopOff = settings.EnableDesktopOff;
+            EnableScreenshot = settings.EnableScreenshot;
+            EnableScheduleToggleHotKey = settings.EnableScheduleToggleHotKey;
             MinimizeStartUp = settings.MinimizeStartUp;
             DisableExplorer = settings.DisableExplorer;
             StartUpDelay = settings.StartUpDelay;
@@ -76,6 +136,20 @@ namespace DaemonKit
             SafeKillTimeout = settings.SafeKillTimeout;
             DisableTouchScreen = settings.DisableTouchScreen;
             EnableCountdownConfirm = settings.EnableCountdownConfirm;
+            EnableIdleAutoAction = settings.EnableIdleAutoAction;
+            IdleAutoActionThresholdMinutes = settings.IdleAutoActionThresholdMinutes;
+            EnableIdleAutoPowerSaving = settings.EnableIdleAutoPowerSaving;
+            IdleAutoPowerSavingThresholdMinutes = settings.IdleAutoPowerSavingThresholdMinutes;
+            PowerSavingModeEnabled = settings.PowerSavingModeEnabled;
+            PowerSavingNormalBrightness = settings.PowerSavingNormalBrightness;
+            PowerSavingLowBrightness = settings.PowerSavingLowBrightness;
+            PowerSavingDisplayConfigs = settings.PowerSavingDisplayConfigs;
+            LedEnabled = settings.LedEnabled;
+            LedConnectionType = settings.LedConnectionType;
+            LedSerialPort = settings.LedSerialPort;
+            LedBaudRate = settings.LedBaudRate;
+            LedIpAddress = settings.LedIpAddress;
+            LedTcpPort = settings.LedTcpPort;
         }
 
         private bool startUP = true;
@@ -98,6 +172,55 @@ namespace DaemonKit
             set => this.RaiseAndSetIfChanged(ref enableGlobalHotKey, value);
         }
 
+        private bool enableToggleWindow = true;
+        public bool EnableToggleWindow
+        {
+            get => enableToggleWindow;
+            set => this.RaiseAndSetIfChanged(ref enableToggleWindow, value);
+        }
+
+        private bool enableStartTree = true;
+        public bool EnableStartTree
+        {
+            get => enableStartTree;
+            set => this.RaiseAndSetIfChanged(ref enableStartTree, value);
+        }
+
+        private bool enableStopTree = true;
+        public bool EnableStopTree
+        {
+            get => enableStopTree;
+            set => this.RaiseAndSetIfChanged(ref enableStopTree, value);
+        }
+
+        private bool enableDesktopOn = true;
+        public bool EnableDesktopOn
+        {
+            get => enableDesktopOn;
+            set => this.RaiseAndSetIfChanged(ref enableDesktopOn, value);
+        }
+
+        private bool enableDesktopOff = true;
+        public bool EnableDesktopOff
+        {
+            get => enableDesktopOff;
+            set => this.RaiseAndSetIfChanged(ref enableDesktopOff, value);
+        }
+
+        private bool enableScreenshot = true;
+        public bool EnableScreenshot
+        {
+            get => enableScreenshot;
+            set => this.RaiseAndSetIfChanged(ref enableScreenshot, value);
+        }
+
+        private bool enableScheduleToggleHotKey = true;
+        public bool EnableScheduleToggleHotKey
+        {
+            get => enableScheduleToggleHotKey;
+            set => this.RaiseAndSetIfChanged(ref enableScheduleToggleHotKey, value);
+        }
+
         private bool minimizeStartUp = false;
         public bool MinimizeStartUp
         {
@@ -117,6 +240,39 @@ namespace DaemonKit
         {
             get => disableTouchScreen;
             set => this.RaiseAndSetIfChanged(ref disableTouchScreen, value);
+        }
+
+        private bool enableIdleAutoAction = false;
+        public bool EnableIdleAutoAction
+        {
+            get => enableIdleAutoAction;
+            set => this.RaiseAndSetIfChanged(ref enableIdleAutoAction, value);
+        }
+
+        private int idleAutoActionThresholdMinutes = 5;
+        public int IdleAutoActionThresholdMinutes
+        {
+            get => idleAutoActionThresholdMinutes;
+            set =>
+                this.RaiseAndSetIfChanged(ref idleAutoActionThresholdMinutes, Math.Max(value, 1));
+        }
+
+        private bool enableIdleAutoPowerSaving = false;
+        public bool EnableIdleAutoPowerSaving
+        {
+            get => enableIdleAutoPowerSaving;
+            set => this.RaiseAndSetIfChanged(ref enableIdleAutoPowerSaving, value);
+        }
+
+        private int idleAutoPowerSavingThresholdMinutes = 5;
+        public int IdleAutoPowerSavingThresholdMinutes
+        {
+            get => idleAutoPowerSavingThresholdMinutes;
+            set =>
+                this.RaiseAndSetIfChanged(
+                    ref idleAutoPowerSavingThresholdMinutes,
+                    Math.Max(value, 1)
+                );
         }
 
         private int startUpDelay = 0;
@@ -173,6 +329,76 @@ namespace DaemonKit
         {
             get => enableCountdownConfirm;
             set => this.RaiseAndSetIfChanged(ref enableCountdownConfirm, value);
+        }
+
+        private bool powerSavingModeEnabled = false;
+        public bool PowerSavingModeEnabled
+        {
+            get => powerSavingModeEnabled;
+            set => this.RaiseAndSetIfChanged(ref powerSavingModeEnabled, value);
+        }
+
+        private byte powerSavingNormalBrightness = 100;
+        public byte PowerSavingNormalBrightness
+        {
+            get => powerSavingNormalBrightness;
+            set => this.RaiseAndSetIfChanged(ref powerSavingNormalBrightness, value);
+        }
+
+        private byte powerSavingLowBrightness = 56;
+        public byte PowerSavingLowBrightness
+        {
+            get => powerSavingLowBrightness;
+            set => this.RaiseAndSetIfChanged(ref powerSavingLowBrightness, value);
+        }
+
+        private List<DisplayConfig> powerSavingDisplayConfigs = new();
+        public List<DisplayConfig> PowerSavingDisplayConfigs
+        {
+            get => powerSavingDisplayConfigs;
+            set => this.RaiseAndSetIfChanged(ref powerSavingDisplayConfigs, value);
+        }
+
+        private bool ledEnabled = false;
+        public bool LedEnabled
+        {
+            get => ledEnabled;
+            set => this.RaiseAndSetIfChanged(ref ledEnabled, value);
+        }
+
+        private string ledConnectionType = "Serial";
+        public string LedConnectionType
+        {
+            get => ledConnectionType;
+            set => this.RaiseAndSetIfChanged(ref ledConnectionType, value);
+        }
+
+        private string ledSerialPort = "COM1";
+        public string LedSerialPort
+        {
+            get => ledSerialPort;
+            set => this.RaiseAndSetIfChanged(ref ledSerialPort, value);
+        }
+
+        private int ledBaudRate = 115200;
+        public int LedBaudRate
+        {
+            get => ledBaudRate;
+            set => this.RaiseAndSetIfChanged(ref ledBaudRate, Math.Max(value, 9600));
+        }
+
+        private string ledIpAddress = "192.168.1.100";
+        public string LedIpAddress
+        {
+            get => ledIpAddress;
+            set => this.RaiseAndSetIfChanged(ref ledIpAddress, value);
+        }
+
+        private int ledTcpPort = 18100;
+        public int LedTcpPort
+        {
+            get => ledTcpPort;
+            set => this.RaiseAndSetIfChanged(ref ledTcpPort, Math.Max(value, 1));
         }
 
         public ReactiveCommand<Unit, AppSettings> Confirm { get; protected set; }

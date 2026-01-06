@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.IO;
 using System.Linq;
 using System.Reactive;
 using System.Reactive.Linq;
@@ -187,29 +188,84 @@ namespace DaemonKit
         public ReactiveCommand<Unit, Unit> DeleteCommand { get; protected set; }
     }
 
+    /// <summary>
+    /// 新版本的计划任务视图模型（支持更灵活的任务配置）
+    /// </summary>
     public class ScheduleViewModel : ReactiveObject
     {
-        private ProcessItem editingProcessItem { get; set; } = null!;
-        public ProcessItem EditingProcessItem => editingProcessItem;
+        private GlobalScheduleConfig globalScheduleConfig { get; set; } = null!;
+        public GlobalScheduleConfig GlobalSchedule => globalScheduleConfig;
 
-        public string SetEditingProcessItem(ProcessItem item)
+        private ProcessItem rootProcessNode { get; set; } = null!;
+        public ProcessItem RootProcessNode => rootProcessNode;
+
+        public void SetGlobalConfig(GlobalScheduleConfig config, ProcessItem rootNode)
         {
-            editingProcessItem = item;
+            globalScheduleConfig = config;
+            rootProcessNode = rootNode;
 
-            TaskTypes = editingProcessItem.IsSuperRoot
-                ? new ObservableCollection<string>(rootTaskTypes)
-                : new ObservableCollection<string>(childTaskTypes);
-            ScheduleItems = new ObservableCollection<ScheduleItem>(
-                editingProcessItem.ScheduleItems
+            // 使用全局配置的任务列表
+            ScheduleTaskConfigs = new ObservableCollection<ScheduleTaskConfig>(
+                globalScheduleConfig.ScheduleTasks
             );
 
-            if (editingProcessItem.IsSuperRoot)
-            {
-                return $"{editingProcessItem.Name} - 计划任务";
-            }
-            return $"{editingProcessItem.Name} ({editingProcessItem.Path}) - 计划任务";
+            this.RaisePropertyChanged(nameof(GlobalSchedule));
+            this.RaisePropertyChanged(nameof(RootProcessNode));
         }
 
+        /// <summary>
+        /// 触发器类型选项
+        /// </summary>
+        public List<string> TriggerTypeOptions { get; } =
+            new List<string> { "每天指定时间", "每天首次启动后延迟X秒", "每次启动后延迟X秒", "启动后每隔X秒循环执行" };
+
+        /// <summary>
+        /// 任务操作类型选项
+        /// </summary>
+        private ObservableCollection<string> _taskActionTypes = new ObservableCollection<string>();
+        public ObservableCollection<string> TaskActionTypes
+        {
+            get => _taskActionTypes;
+            set => this.RaiseAndSetIfChanged(ref _taskActionTypes, value);
+        }
+
+        /// <summary>
+        /// 新的任务配置列表（推荐使用）
+        /// </summary>
+        private ObservableCollection<ScheduleTaskConfig> _scheduleTaskConfigs =
+            new ObservableCollection<ScheduleTaskConfig>();
+
+        public ObservableCollection<ScheduleTaskConfig> ScheduleTaskConfigs
+        {
+            get => _scheduleTaskConfigs;
+            set
+            {
+                this.RaiseAndSetIfChanged(ref _scheduleTaskConfigs, value);
+                _scheduleTaskConfigs
+                    .ToList()
+                    .ForEach(x =>
+                    {
+                        x.DeleteCommand?.Subscribe(_ =>
+                        {
+                            ScheduleTaskConfigs.Remove(x);
+                        });
+                    });
+            }
+        }
+
+        /// <summary>
+        /// 当前选中的任务配置
+        /// </summary>
+        private ScheduleTaskConfig? _selectedTaskConfig;
+        public ScheduleTaskConfig? SelectedTaskConfig
+        {
+            get => _selectedTaskConfig;
+            set => this.RaiseAndSetIfChanged(ref _selectedTaskConfig, value);
+        }
+
+        /// <summary>
+        /// 旧的任务项（保留以保证兼容性）
+        /// </summary>
         public ObservableCollection<string> TaskTypes { get; set; } =
             new ObservableCollection<string> { };
 
@@ -250,6 +306,12 @@ namespace DaemonKit
         [XmlIgnore]
         public ReactiveCommand<Unit, Unit> AddScheduleCommand { get; protected set; }
 
+        /// <summary>
+        /// 添加新的任务配置命令
+        /// </summary>
+        [XmlIgnore]
+        public ReactiveCommand<Unit, Unit> AddTaskConfigCommand { get; protected set; }
+
         // 按时间排序命令
         [XmlIgnore]
         public ReactiveCommand<Unit, Unit> SortByTimeCommand { get; protected set; }
@@ -272,6 +334,45 @@ namespace DaemonKit
                 outputScheduler: RxApp.MainThreadScheduler
             );
 
+            /// <summary>
+            /// 添加新的任务配置 - 使用对话框
+            /// </summary>
+            AddTaskConfigCommand = ReactiveCommand.Create(
+                () =>
+                {
+                    // 打开编辑对话框创建新任务
+                    var dialog = new ScheduleTaskEditDialog(null, rootProcessNode);
+
+                    // 需要获取主窗口来设置Owner
+                    var mainWindow = System.Windows.Application.Current.Windows
+                        .OfType<System.Windows.Window>()
+                        .FirstOrDefault(w => w is Schedule);
+
+                    if (mainWindow != null)
+                    {
+                        dialog.Owner = mainWindow;
+                    }
+
+                    if (dialog.ShowDialog() == true && dialog.Result != null)
+                    {
+                        var newConfig = dialog.Result;
+
+                        // 订阅删除命令
+                        newConfig.DeleteCommand?.Subscribe(_ =>
+                        {
+                            ScheduleTaskConfigs.Remove(newConfig);
+                            // 删除后立即保存
+                            SaveTaskConfigs();
+                        });
+
+                        ScheduleTaskConfigs.Add(newConfig);
+                        // 添加后立即保存
+                        SaveTaskConfigs();
+                    }
+                },
+                outputScheduler: RxApp.MainThreadScheduler
+            );
+
             SaveCommand = ReactiveCommand.Create(
                 () => { },
                 outputScheduler: RxApp.MainThreadScheduler
@@ -286,6 +387,38 @@ namespace DaemonKit
                 },
                 outputScheduler: RxApp.MainThreadScheduler
             );
+        }
+
+        /// <summary>
+        /// 保存任务配置到全局配置
+        /// </summary>
+        public void SaveTaskConfigs()
+        {
+            if (globalScheduleConfig != null && ScheduleTaskConfigs != null)
+            {
+                globalScheduleConfig.ScheduleTasks = ScheduleTaskConfigs.ToList();
+
+                try
+                {
+                    USerialization.SerializeXML(globalScheduleConfig, AppPathes.GlobalSchedulePath);
+
+                    // 简单同步备份
+                    if (!Directory.Exists(AppPathes.ConfigDir_BackUp))
+                    {
+                        Directory.CreateDirectory(AppPathes.ConfigDir_BackUp);
+                    }
+                    File.Copy(
+                        AppPathes.GlobalSchedulePath,
+                        AppPathes.GlobalSchedulePath_Backup,
+                        true
+                    );
+                    NLogger.Info("计划任务配置已保存");
+                }
+                catch (Exception ex)
+                {
+                    NLogger.Error($"保存计划任务配置失败: {ex.Message}");
+                }
+            }
         }
     }
 }

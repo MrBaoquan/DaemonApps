@@ -23,7 +23,6 @@ namespace DaemonKit
         public ReactiveCommand<MachineInfo, MachineInfo> TryShutdownCommand { get; protected set; }
         public ReactiveCommand<MachineInfo, MachineInfo> TryRestartCommand { get; protected set; }
         public ReactiveCommand<MachineInfo, MachineInfo> TryBootCommand { get; protected set; }
-        public ReactiveCommand<MachineInfo, MachineInfo> OpenSMBShareCommand { get; protected set; }
         public ReactiveCommand<MachineInfo, MachineInfo> TryRestartNodeTree { get; protected set; }
 
         public DaemonTableViewModel()
@@ -57,14 +56,6 @@ namespace DaemonKit
                 _machine =>
                 {
                     _machine.Name = "开机中...";
-                    return _machine;
-                },
-                outputScheduler: RxApp.MainThreadScheduler
-            );
-
-            OpenSMBShareCommand = ReactiveCommand.Create<MachineInfo, MachineInfo>(
-                _machine =>
-                {
                     return _machine;
                 },
                 outputScheduler: RxApp.MainThreadScheduler

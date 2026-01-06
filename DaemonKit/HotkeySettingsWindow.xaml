@@ -1,0 +1,74 @@
+<Window x:Class="DaemonKit.HotkeySettingsWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes"
+        Title="全局快捷键设置"
+        WindowStartupLocation="CenterOwner"
+        SizeToContent="WidthAndHeight"
+        ResizeMode="NoResize"
+        WindowStyle="ToolWindow"
+        Background="{DynamicResource MaterialDesignPaper}"
+        MinWidth="420"
+        MinHeight="320">
+        <Border Padding="16"
+                Background="{DynamicResource MaterialDesignPaper}">
+                <StackPanel>
+                        <TextBlock Text="全局快捷键"
+                                   FontSize="16"
+                                   FontWeight="Bold"
+                                   Margin="0 0 0 8"/>
+                        <CheckBox Content="启用全局快捷键"
+                                  IsChecked="{Binding EnableGlobalHotKey}"
+                                  Margin="0 0 0 12"/>
+
+                        <StackPanel Margin="0 0 0 12">
+                                <TextBlock Text="快捷键列表"
+                                           FontSize="13"
+                                           FontWeight="SemiBold"
+                                           Margin="0 0 0 6"/>
+                                <UniformGrid Columns="1"
+                                             Rows="7"
+                                             Margin="0 0 0 4">
+                                        <CheckBox Content="Ctrl + D ：显示/隐藏窗口"
+                                                  IsChecked="{Binding EnableToggleWindow}"
+                                                  Margin="0 2"/>
+                                        <CheckBox Content="Ctrl + R ：启动进程树"
+                                                  IsChecked="{Binding EnableStartTree}"
+                                                  Margin="0 2"/>
+                                        <CheckBox Content="Ctrl + W ：终止进程树"
+                                                  IsChecked="{Binding EnableStopTree}"
+                                                  Margin="0 2"/>
+                                        <CheckBox Content="Ctrl + Shift + E ：启用桌面进程"
+                                                  IsChecked="{Binding EnableDesktopOn}"
+                                                  Margin="0 2"/>
+                                        <CheckBox Content="Ctrl + Shift + W ：关闭桌面进程"
+                                                  IsChecked="{Binding EnableDesktopOff}"
+                                                  Margin="0 2"/>
+                                        <CheckBox Content="Alt + X ：屏幕截图"
+                                                  IsChecked="{Binding EnableScreenshot}"
+                                                  Margin="0 2"/>
+                                        <CheckBox Content="Alt + S ：启用/禁用计划任务"
+                                                  IsChecked="{Binding EnableScheduleToggle}"
+                                                  Margin="0 2"/>
+                                </UniformGrid>
+                        </StackPanel>
+
+                        <TextBlock Text="启用后快捷键全局生效；如与其他软件冲突，可单独关闭对应快捷键。"
+                                   TextWrapping="Wrap"
+                                   Margin="0 0 0 16"/>
+
+                        <StackPanel Orientation="Horizontal"
+                                    HorizontalAlignment="Right">
+                                <Button Content="取消"
+                                        Width="88"
+                                        Margin="0 0 8 0"
+                                        IsCancel="True"
+                                        Click="Cancel_Click"/>
+                                <Button Content="保存"
+                                        Width="88"
+                                        IsDefault="True"
+                                        Click="Save_Click"/>
+                        </StackPanel>
+                </StackPanel>
+        </Border>
+</Window>

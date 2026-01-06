@@ -60,6 +60,9 @@ namespace DaemonKit.Core
         public bool NoDaemon = false;
 
         [XmlAttribute]
+        public bool IsScript = false;
+
+        [XmlAttribute]
         public bool MoveWindow = false;
 
         [XmlAttribute]
@@ -121,6 +124,35 @@ namespace DaemonKit.Core
         public bool IsLeaf
         {
             get => Children.Count <= 0;
+        }
+
+        private string _nodeId = string.Empty;
+
+        /// <summary>
+        /// 节点唯一标识（用于区分同名节点），若未设置则自动生成
+        /// </summary>
+        [XmlAttribute]
+        public string NodeId
+        {
+            get
+            {
+                if (string.IsNullOrWhiteSpace(_nodeId))
+                {
+                    _nodeId = Guid.NewGuid().ToString("N");
+                }
+                return _nodeId;
+            }
+            set => _nodeId = value;
+        }
+
+        [XmlIgnore]
+        public string ShortNodeId
+        {
+            get
+            {
+                var id = NodeId;
+                return id.Length > 8 ? id.Substring(0, 8) : id;
+            }
         }
 
         [XmlIgnore]
@@ -212,6 +244,21 @@ namespace DaemonKit.Core
 
         [XmlElement("ScheduleItem")]
         public List<ScheduleItem> ScheduleItems { get; set; } = new List<ScheduleItem>();
+
+        /// <summary>新的计划任务配置列表</summary>
+        [XmlElement("ScheduleTaskConfig")]
+        public List<ScheduleTaskConfig> ScheduleTaskConfigs { get; set; } =
+            new List<ScheduleTaskConfig>();
+
+        /// <summary>全局计划任务启用标志</summary>
+        private bool _scheduleTasksEnabled = true;
+
+        [XmlAttribute]
+        public bool ScheduleTasksEnabled
+        {
+            get => _scheduleTasksEnabled;
+            set => this.RaiseAndSetIfChanged(ref _scheduleTasksEnabled, value);
+        }
 
         [XmlIgnore]
         public string ProcessName => System.IO.Path.GetFileName(metaData.Path);
@@ -307,6 +354,21 @@ namespace DaemonKit.Core
             {
                 try
                 {
+                    // 若已在运行则先关闭，再重启
+                    if (nodeProcess != null || nodeProcessId.HasValue)
+                    {
+                        NLogger.Warn("进程{0} 已在运行，先关闭再重启", ProcessName);
+                        KillNode();
+                    }
+
+                    // 重置守护状态
+                    noResponse = 0;
+                    noHeartbeat = 0;
+                    noWindowHandle = 0;
+                    noInputIdle = 0;
+                    noCpuProgress = 0;
+                    lastCpuTime = TimeSpan.Zero;
+
                     ProcManager.DaemonProcess(
                         NodePath,
                         metaData,
@@ -315,6 +377,7 @@ namespace DaemonKit.Core
                             NLogger.Warn($"进程{ProcessName}就绪, PID: {_process.Id}");
                             // 程序打开完成，窗口准备就绪
                             nodeProcess = _process;
+                            nodeProcessId = _process.Id;
                             // 预先置顶窗口
                             preKeepTop();
                         }
@@ -395,13 +458,19 @@ namespace DaemonKit.Core
         private int delayDaemon = 500;
         private int daemonInterval = 5000;
         private int maxError = 1;
+        private bool enableCpuStallDetection = false;
+
+        // 守护计数
+        private int noResponse = 0;
+        private int noHeartbeat = 0;
+        private int noWindowHandle = 0;
+        private int noInputIdle = 0;
+        private int noCpuProgress = 0;
+
+        private TimeSpan lastCpuTime = TimeSpan.Zero;
 
         // 守护当前进程节点
         IDisposable? daemonHandler = null;
-
-        private int noResponse = 0;
-
-        private int noHeartbeat = 0;
 
         IDisposable? preKeepTopHandler = null;
 
@@ -426,6 +495,18 @@ namespace DaemonKit.Core
 
         #region 进程守护
 
+        /// <summary>
+        /// 检测文件扩展名是否为脚本类型
+        /// </summary>
+        private bool IsScriptFile(string path)
+        {
+            if (string.IsNullOrEmpty(path))
+                return false;
+
+            var ext = System.IO.Path.GetExtension(path).ToLowerInvariant();
+            return ext == ".bat" || ext == ".cmd" || ext == ".ps1" || ext == ".vbs";
+        }
+
         private DateTime lastHeartbeat = DateTime.MinValue;
 
         public void NotifyHeartbeat()
@@ -447,9 +528,23 @@ namespace DaemonKit.Core
             if (metaData.NoDaemon)
                 return;
 
-            NLogger.Info("开始守护进程:{0}", NodePath);
+            // 检测是否为脚本类型（手动标记或自动识别）
+            bool isScript = metaData.IsScript || IsScriptFile(NodePath);
+            if (isScript)
+            {
+                NLogger.Info("开始守护脚本进程:{0} (脚本模式)", NodePath);
+            }
+            else
+            {
+                NLogger.Info("开始守护进程:{0}", NodePath);
+            }
+
             noResponse = 0;
             noHeartbeat = 0;
+            noWindowHandle = 0;
+            noInputIdle = 0;
+            noCpuProgress = 0;
+            lastCpuTime = TimeSpan.Zero;
 
             // 进程启动后, 根据守护间隔进行守护
             daemonHandler = Observable
@@ -460,12 +555,35 @@ namespace DaemonKit.Core
                 {
                     if (nodeProcess == null)
                         return;
+
+                    // 脚本模式：仅检测进程退出，跳过窗口相关检测
+                    if (isScript)
+                    {
+                        try
+                        {
+                            if (nodeProcess.HasExited)
+                            {
+                                NLogger.Info("脚本进程已退出: {0}", NodePath);
+                                RestartProcessChain("脚本进程退出");
+                                return;
+                            }
+                        }
+                        catch (Exception ex)
+                        {
+                            NLogger.Warn("检测脚本进程状态异常: {0}, 错误: {1}", NodePath, ex.Message);
+                            RestartProcessChain("脚本进程已不存在");
+                            return;
+                        }
+
+                        // 脚本模式下跳过其他检测（窗口、响应、输入空闲等）
+                        return;
+                    }
+
+                    // 普通程序模式：完整守护逻辑
                     if (!ProcManager.IsProcessExists(NodePath))
                     {
                         // if (nodeProcess.HasExited) { //TODO: 这种方式感觉不稳定     有待后续测试
-                        NLogger.Warn("进程:{0} 已退出，正在尝试重新启动进程链...", NodePath);
-                        RootNode.KillNode();
-                        RootNode.RunNode();
+                        RestartProcessChain("进程退出");
                         return;
                     }
                     else if (!nodeProcess.Responding)
@@ -474,9 +592,7 @@ namespace DaemonKit.Core
                         NLogger.Warn("进程:{0} 未响应，容忍度: {1}/{2}", NodePath, noResponse, maxError);
                         if (noResponse >= maxError)
                         {
-                            NLogger.Warn("进程:{0} 未响应，正在尝试重新启动进程链...", NodePath);
-                            RootNode.KillNode();
-                            RootNode.RunNode();
+                            RestartProcessChain("未响应 (Responding=false)");
                             return;
                         }
                     }
@@ -486,10 +602,89 @@ namespace DaemonKit.Core
                         NLogger.Warn($"进程 {NodePath} 无心跳, 容忍度: {noHeartbeat} / {maxError}");
                         if (noHeartbeat >= maxError)
                         {
-                            NLogger.Warn("进程:{0} 长时间无心跳，正在尝试重新启动进程链...", NodePath);
-                            RootNode.KillNode();
-                            RootNode.RunNode();
+                            RestartProcessChain("心跳超时");
                             return;
+                        }
+                    }
+
+                    // 主窗口句柄缺失
+                    if (nodeProcess.MainWindowHandle == IntPtr.Zero)
+                    {
+                        ++noWindowHandle;
+                        NLogger.Warn(
+                            "进程:{0} 主窗口句柄缺失，容忍度: {1}/{2}",
+                            NodePath,
+                            noWindowHandle,
+                            maxError
+                        );
+                        if (noWindowHandle >= maxError)
+                        {
+                            RestartProcessChain("主窗口句柄消失");
+                            return;
+                        }
+                    }
+                    else
+                    {
+                        noWindowHandle = 0;
+
+                        // 检测输入空闲超时（卡死窗口）
+                        try
+                        {
+                            if (!nodeProcess.WaitForInputIdle(100))
+                            {
+                                ++noInputIdle;
+                                NLogger.Warn(
+                                    "进程:{0} WaitForInputIdle 超时，容忍度: {1}/{2}",
+                                    NodePath,
+                                    noInputIdle,
+                                    maxError
+                                );
+                                if (noInputIdle >= maxError)
+                                {
+                                    RestartProcessChain("窗口卡死 (WaitForInputIdle 超时)");
+                                    return;
+                                }
+                            }
+                            else
+                            {
+                                noInputIdle = 0;
+                            }
+                        }
+                        catch (InvalidOperationException)
+                        {
+                            // 无消息循环的进程会抛出异常，忽略
+                        }
+                    }
+
+                    if (enableCpuStallDetection)
+                    {
+                        try
+                        {
+                            var cpuTime = nodeProcess.TotalProcessorTime;
+                            if (lastCpuTime != TimeSpan.Zero && cpuTime == lastCpuTime)
+                            {
+                                ++noCpuProgress;
+                                NLogger.Warn(
+                                    "进程:{0} CPU 未前进，容忍度: {1}/{2}",
+                                    NodePath,
+                                    noCpuProgress,
+                                    maxError
+                                );
+                                if (noCpuProgress >= maxError)
+                                {
+                                    RestartProcessChain("资源停滞 (CPU 时间无增长)");
+                                    return;
+                                }
+                            }
+                            else
+                            {
+                                noCpuProgress = 0;
+                                lastCpuTime = cpuTime;
+                            }
+                        }
+                        catch (Exception ex)
+                        {
+                            NLogger.Debug($"获取 CPU 时间失败: {ex.Message}");
                         }
                     }
 
@@ -505,8 +700,52 @@ namespace DaemonKit.Core
                     }
                 });
         }
+
+        /// <summary>
+        /// 优先尝试温和退出，再执行进程链重启
+        /// </summary>
+        /// <param name="reason">触发原因</param>
+        private void RestartProcessChain(string reason)
+        {
+            NLogger.Warn("进程:{0} 守护重启，原因: {1}", NodePath, reason);
+
+            TryGracefulStop();
+
+            RootNode.KillNode();
+            RootNode.RunNode();
+        }
+
+        /// <summary>
+        /// 温和退出：发送 WM_CLOSE（CloseMainWindow），等待短暂时间，再交给 KillNode
+        /// </summary>
+        private void TryGracefulStop()
+        {
+            try
+            {
+                if (nodeProcess == null || nodeProcess.HasExited)
+                    return;
+
+                if (nodeProcess.CloseMainWindow())
+                {
+                    if (nodeProcess.WaitForExit(2000))
+                    {
+                        NLogger.Info("进程:{0} 已通过 WM_CLOSE 退出", NodePath);
+                        return;
+                    }
+                    else
+                    {
+                        NLogger.Warn("进程:{0} WM_CLOSE 未在 2s 内退出，准备强制结束", NodePath);
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                NLogger.Warn("温和退出进程:{0} 失败: {1}", NodePath, ex.Message);
+            }
+        }
         #endregion
         protected Process? nodeProcess { get; set; } = null;
+        protected int? nodeProcessId { get; set; } = null;
 
         public void KeepTop()
         {
@@ -570,9 +809,17 @@ namespace DaemonKit.Core
             }
 
             Status = -1;
-            if (nodeProcess != null)
+            if (nodeProcessId.HasValue)
             {
-                // 使用异步方式调用安全关闭
+                _ = ProcManager.KillProcess(
+                    NodePath,
+                    nodeProcessId.Value,
+                    MainWindow.AppSettings?.SafeKillProcess ?? false,
+                    MainWindow.AppSettings?.SafeKillTimeout ?? 5000
+                );
+            }
+            else if (nodeProcess != null)
+            {
                 _ = ProcManager.KillProcess(
                     NodePath,
                     MainWindow.AppSettings?.SafeKillProcess ?? false,
@@ -583,6 +830,7 @@ namespace DaemonKit.Core
             // if (nodeProcess != null)
             //     nodeProcess.Kill ();
             nodeProcess = null;
+            nodeProcessId = null;
             Children
                 .ToList()
                 .ForEach(_child =>

@@ -62,6 +62,26 @@
                                        Source="/Resources/Icons/show-panel.png"/>
                             </MenuItem.Icon>
                         </MenuItem>
+                        <Separator/>
+                        <MenuItem Header="屏幕截图"
+                                  Command="{Binding TakeScreenshot}">
+                            <MenuItem.Icon>
+                                <materialDesign:PackIcon Kind="Camera"/>
+                            </MenuItem.Icon>
+                        </MenuItem>
+                        <MenuItem Header="拾取屏幕颜色"
+                                  Command="{Binding PickColor}">
+                            <MenuItem.Icon>
+                                <materialDesign:PackIcon Kind="Eyedropper"/>
+                            </MenuItem.Icon>
+                        </MenuItem>
+                        <MenuItem Header="打开截图文件夹"
+                                  Click="OpenScreenshotFolder_Click">
+                            <MenuItem.Icon>
+                                <materialDesign:PackIcon Kind="FolderImage"/>
+                            </MenuItem.Icon>
+                        </MenuItem>
+                        <Separator/>
                         <MenuItem Header="设置"
                                   Command="{Binding OpenSettings}">
                             <MenuItem.Icon>
@@ -95,30 +115,19 @@
                           BorderThickness="0"
                           Padding="8,0">
                         <MenuItem Header="_文件">
-                            <MenuItem Header="_打开"
-                                      InputGestureText="Ctrl+D"
-                                      Icon="{materialDesign:PackIcon Kind=OpenInNew}">
-                                <MenuItem Header="进程目录"
-                                          InputGestureText="Ctrl+1"
-                                          Icon="{materialDesign:PackIcon Kind=FolderOpenOutline}"
-                                          Command="{Binding RunProcess}"
-                                          CommandParameter="{Binding OpenAppRoot_args}"/>
-                                <MenuItem Header="资源管理器"
-                                          InputGestureText="Ctrl+2"
-                                          Icon="{materialDesign:PackIcon Kind=FolderSearchOutline}"
-                                          Command="{Binding RunProcess}"
-                                          CommandParameter="{Binding OpenFileExplorer_args}"/>
-                                <MenuItem Header="命令行(CMD)"
-                                          InputGestureText="Ctrl+T"
-                                          Icon="{materialDesign:PackIcon Kind=ApplicationBracketsOutline}"
-                                          Command="{Binding RunProcess}"
-                                          CommandParameter="{Binding OpenCMD_args}"/>
-                                <MenuItem Header="命令行(PowerShell)"
-                                          InputGestureText="Ctrl+P"
-                                          Icon="{materialDesign:PackIcon Kind=ApplicationBracketsOutline}"
-                                          Command="{Binding RunProcess}"
-                                          CommandParameter="{Binding OpenPowerShell_args}"/>
-                            </MenuItem>
+                            <MenuItem Header="进程目录"
+                                      InputGestureText="Ctrl+1"
+                                      Icon="{materialDesign:PackIcon Kind=FolderOpenOutline}"
+                                      Command="{Binding RunProcess}"
+                                      CommandParameter="{Binding OpenAppRoot_args}"/>
+                            <MenuItem Header="资源管理器"
+                                      InputGestureText="Ctrl+2"
+                                      Icon="{materialDesign:PackIcon Kind=FolderSearchOutline}"
+                                      Command="{Binding RunProcess}"
+                                      CommandParameter="{Binding OpenFileExplorer_args}"/>
+                            <MenuItem Header="截图文件夹"
+                                      Icon="{materialDesign:PackIcon Kind=FolderImage}"
+                                      Click="OpenScreenshotFolder_Click"/>
                             <Separator/>
                             <MenuItem Icon="{materialDesign:PackIcon Kind=Settings}"
                                       Header="设置"
@@ -129,6 +138,18 @@
                                       Command="{Binding Quit}"/>
                         </MenuItem>
                         <MenuItem Header="_功能">
+                            <MenuItem Icon="{materialDesign:PackIcon Kind=Camera}"
+                                      Header="屏幕截图"
+                                      InputGestureText="Alt+X"
+                                      Command="{Binding TakeScreenshot}"/>
+                            <MenuItem Icon="{materialDesign:PackIcon Kind=Eyedropper}"
+                                      Header="拾取屏幕颜色"
+                                      InputGestureText="Alt+C"
+                                      Command="{Binding PickColor}"/>
+                            <MenuItem Icon="{materialDesign:PackIcon Kind=Leaf}"
+                                      Header="节能模式"
+                                      Command="{Binding OpenPowerSavingPanel}"/>
+                            <Separator/>
                             <MenuItem Icon="{materialDesign:PackIcon Kind=RemoteDesktop}"
                                       Header="联调面板"
                                       Command="{Binding OpenRemotePanel}"/>
@@ -136,23 +157,9 @@
                                       Header="计划任务"
                                       Command="{Binding OpenScheduleWindow}"/>
                             <Separator/>
-                            <MenuItem Icon="{materialDesign:PackIcon Kind=Eyedropper}"
-                                      Header="拾取屏幕颜色"
-                                      Command="{Binding PickColor}"/>
-                            <MenuItem Icon="{materialDesign:PackIcon Kind=Crosshairs}"
-                                      Header="拾取鼠标位置"
-                                      Command="{Binding PickPosition}"/>
-                            <MenuItem Icon="{materialDesign:PackIcon Kind=Camera}"
-                                      Header="屏幕截图"
-                                      Command="{Binding TakeScreenshot}"/>
-                            <Separator/>
-                            <MenuItem Header="_文件夹共享"
-                                      Icon="{materialDesign:PackIcon Kind=ShareVariant}">\n
-                                <MenuItem Header="打开共享"
-                                          Command="{Binding SMBShare}"/>
-                                <MenuItem Header="关闭共享"
-                                          Command="{Binding SMBUnshare}"/>
-                            </MenuItem>
+                            <MenuItem Icon="{materialDesign:PackIcon Kind=KeyboardSettings}"
+                                      Header="快捷键设置"
+                                      Click="OpenHotkeySettings_Click"/>
                         </MenuItem>
                         <MenuItem Header="_帮助">
                             <MenuItem Header="快捷键说明"
@@ -342,7 +349,76 @@
                     <StatusBar x:Name="statusbar"
                                Background="Transparent"
                                VerticalAlignment="Center">
-                        <StatusBarItem HorizontalAlignment="Right">
+                        <StatusBarItem Margin="4,0,0,0"
+                                       ToolTipService.ShowOnDisabled="True">
+                            <StatusBarItem.Style>
+                                <Style TargetType="StatusBarItem">
+                                    <Setter Property="ToolTip"
+                                            Value="计划任务已启用"/>
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding GlobalSchedule.ScheduleTasksEnabled}"
+                                                     Value="False">
+                                            <Setter Property="ToolTip"
+                                                    Value="计划任务已禁用"/>
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </StatusBarItem.Style>
+                            <materialDesign:PackIcon Width="16"
+                                                     Height="16"
+                                                     VerticalAlignment="Center">
+                                <materialDesign:PackIcon.Style>
+                                    <Style TargetType="materialDesign:PackIcon">
+                                        <Setter Property="Kind"
+                                                Value="ClockCheckOutline"/>
+                                        <Setter Property="Foreground"
+                                                Value="#4CAF50"/>
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding GlobalSchedule.ScheduleTasksEnabled}"
+                                                         Value="False">
+                                                <Setter Property="Kind"
+                                                        Value="ClockAlertOutline"/>
+                                                <Setter Property="Foreground"
+                                                        Value="#9E9E9E"/>
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </materialDesign:PackIcon.Style>
+                            </materialDesign:PackIcon>
+                        </StatusBarItem>
+                        <StatusBarItem HorizontalAlignment="Left"
+                                       Margin="4,0,0,0"
+                                       ToolTipService.ShowOnDisabled="True">
+                            <!-- 省电模式指示器 -->
+                            <materialDesign:PackIcon Width="14"
+                                                     Height="14"
+                                                     VerticalAlignment="Center">
+                                <materialDesign:PackIcon.Style>
+                                    <Style TargetType="materialDesign:PackIcon">
+                                        <Setter Property="Kind"
+                                                Value="Brightness7"/>
+                                        <Setter Property="Foreground"
+                                                Value="#4CAF50"/>
+                                        <Setter Property="ToolTip"
+                                                Value="正常模式"/>
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding PowerSaving.IsPowerSavingMode}"
+                                                         Value="True">
+                                                <Setter Property="Kind"
+                                                        Value="Brightness4"/>
+                                                <Setter Property="Foreground"
+                                                        Value="#FF9800"/>
+                                                <Setter Property="ToolTip"
+                                                        Value="省电模式"/>
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </materialDesign:PackIcon.Style>
+                            </materialDesign:PackIcon>
+                        </StatusBarItem>
+                        <StatusBarItem DockPanel.Dock="Right"
+                                       HorizontalAlignment="Right"
+                                       Margin="0,0,12,0">
                             <StackPanel Orientation="Horizontal">
                                 <materialDesign:PackIcon Kind="Alarm"
                                                          Width="14"
@@ -353,7 +429,7 @@
                                            Foreground="#616161"
                                            FontWeight="Normal"
                                            FontSize="12"
-                                           Margin="6,0,16,0"
+                                           Margin="6,0,0,0"
                                            VerticalAlignment="Center"
                                            Text="{Binding CurrentTime, StringFormat='yyyy-MM-dd HH:mm:ss', FallbackValue='2023-02-01 00:00:00'}"/>
                             </StackPanel>
@@ -388,160 +464,212 @@
                                       DataContext="{Binding}"
                                       ItemContainerStyle="{StaticResource ProcessTreeViewItemStyle}"
                                       Background="Transparent"
+                                      ScrollViewer.HorizontalScrollBarVisibility="Disabled"
                                       VirtualizingPanel.IsVirtualizing="True"
                                       VirtualizingPanel.VirtualizationMode="Recycling">
                                 <TreeView.ItemTemplate>
                                     <HierarchicalDataTemplate DataType="{x:Type core:ProcessItem}"
                                                               ItemsSource="{Binding Children}">
-                                        <StackPanel>
+                                        <Grid HorizontalAlignment="Stretch">
                                             <!-- 主要节点内容 -->
                                             <Border x:Name="NodeBorder"
                                                     CornerRadius="6"
                                                     Margin="0,2"
-                                                    Padding="10,8">
-                                                <Border.Style>
-                                                    <Style TargetType="Border">
-                                                        <Style.Triggers>
-                                                            <Trigger Property="IsMouseOver"
-                                                                     Value="True">
-                                                                <Setter Property="Background">
-                                                                    <Setter.Value>
-                                                                        <SolidColorBrush Color="#E3F2FD"/>
-                                                                    </Setter.Value>
-                                                                </Setter>
-                                                            </Trigger>
-                                                            <DataTrigger Binding="{Binding RelativeSource={RelativeSource FindAncestor, AncestorType={x:Type TreeViewItem}}, Path=IsSelected}"
-                                                                         Value="True">
-                                                                <Setter Property="Background">
-                                                                    <Setter.Value>
-                                                                        <SolidColorBrush Color="#BBDEFB"/>
-                                                                    </Setter.Value>
-                                                                </Setter>
-                                                            </DataTrigger>
-                                                        </Style.Triggers>
-                                                    </Style>
-                                                </Border.Style>
-                                                <Grid MinHeight="26"
-                                                      HorizontalAlignment="Stretch"
-                                                      Background="Transparent">
-                                                    <Grid.ColumnDefinitions>
-                                                        <ColumnDefinition Width="*"/>
-                                                        <ColumnDefinition Width="Auto"/>
-                                                    </Grid.ColumnDefinitions>
+                                                    Padding="4,4"
+                                                    Background="Transparent">
 
-                                                    <StackPanel Grid.Column="0"
-                                                                Orientation="Horizontal">
-                                                        <TextBlock VerticalAlignment="Center"
-                                                                   Style="{StaticResource MaterialDesignSubtitle2TextBlock}"
-                                                                   FontWeight="Bold"
-                                                                   Text="{Binding Name}"/>
-                                                        <StackPanel HorizontalAlignment="Left"
-                                                                    Orientation="Horizontal"
-                                                                    Visibility="{Binding NameInputVisibility}">
-                                                            <TextBox Text="{Binding NameField}"
-                                                                     VerticalAlignment="Bottom"
-                                                                     FontSize="11"
-                                                                     MinWidth="100"
-                                                                     MaxWidth="400"/>
-                                                            <Button Style="{StaticResource MiniActionButtonStyle}"
-                                                                    Margin="0 0 5 0"
-                                                                    Command="{Binding RelativeSource={RelativeSource FindAncestor, AncestorType={x:Type Window}, AncestorLevel=1}, Path=DataContext.ConfirmNameInput}"
-                                                                    CommandParameter="{Binding RelativeSource={RelativeSource Self},Path=DataContext}">
-                                                                <materialDesign:PackIcon Kind="CheckBold"/>
-                                                            </Button>
-                                                            <Button Style="{StaticResource MiniActionButtonStyle}"
-                                                                    Command="{Binding DisableNameInput}">
-                                                                <materialDesign:PackIcon Kind="CloseThick"/>
-                                                            </Button>
-                                                        </StackPanel>
-                                                    </StackPanel>
+                                                <!-- 使用Grid分两行布局 -->
+                                                <Grid HorizontalAlignment="Stretch">
+                                                    <Grid.RowDefinitions>
+                                                        <RowDefinition Height="Auto"/>
+                                                        <RowDefinition Height="Auto"/>
+                                                    </Grid.RowDefinitions>
 
-                                                    <StackPanel Grid.Column="1"
-                                                                HorizontalAlignment="Right"
-                                                                Orientation="Horizontal">
-                                                        <ToggleButton Height="15"
-                                                                      Margin="0 0 20 0"
-                                                                      Cursor="Hand"
-                                                                      Command="{Binding RelativeSource={RelativeSource FindAncestor, AncestorType={x:Type Window}, AncestorLevel=1}, Path=DataContext.ToggleEnable}"
-                                                                      CommandParameter="{Binding RelativeSource={RelativeSource Self},Path=DataContext}"
-                                                                      ToolTip="[启用|忽略]该进程"
-                                                                      IsChecked="{Binding Enable}"/>
-                                                        <Button Command="{Binding RunNodeCommand}"
-                                                                ToolTip="启动该进程"
-                                                                Style="{StaticResource ProcessControlButtonStyle}"
-                                                                Visibility="{Binding BtnRunVisibility}">
-                                                            <fa:ImageAwesome Icon="Play"
-                                                                             Width="{StaticResource SmallIconSize}"
-                                                                             Height="{StaticResource SmallIconSize}"
-                                                                             Foreground="ForestGreen"/>
-                                                        </Button>
-                                                        <Button Style="{StaticResource ProcessControlButtonStyle}"
-                                                                IsEnabled="False"
-                                                                Visibility="{Binding BtnLoadingVisibility}">
-                                                            <fa:ImageAwesome Icon="Spinner"
-                                                                             Width="{StaticResource MediumIconSize}"
-                                                                             Height="{StaticResource MediumIconSize}"
-                                                                             Spin="True"
-                                                                             SpinDuration="1"/>
-                                                        </Button>
-                                                        <Button ToolTip="结束该进程"
-                                                                Command="{Binding KillNodeCommand}"
-                                                                Style="{StaticResource ProcessControlButtonStyle}"
-                                                                IsEnabled="True"
-                                                                Visibility="{Binding BtnStopVisibility}">
-                                                            <fa:ImageAwesome Icon="Stop"
-                                                                             Width="{StaticResource SmallIconSize}"
-                                                                             Height="{StaticResource SmallIconSize}"
-                                                                             Foreground="Red"/>
-                                                        </Button>
-                                                    </StackPanel>
+                                                    <!-- 第一行：自定义名称 + 按钮（仅此区域高亮） -->
+                                                    <Border Grid.Row="0"
+                                                            CornerRadius="4"
+                                                            Padding="6 2">
+                                                        <Border.Style>
+                                                            <Style TargetType="Border">
+                                                                <Setter Property="Background"
+                                                                        Value="Transparent"/>
+                                                                <Style.Triggers>
+                                                                    <DataTrigger Binding="{Binding RelativeSource={RelativeSource FindAncestor, AncestorType={x:Type TreeViewItem}}, Path=IsMouseOver}"
+                                                                                 Value="True">
+                                                                        <Setter Property="Background"
+                                                                                Value="#E3F2FD"/>
+                                                                    </DataTrigger>
+                                                                    <DataTrigger Binding="{Binding RelativeSource={RelativeSource FindAncestor, AncestorType={x:Type TreeViewItem}}, Path=IsSelected}"
+                                                                                 Value="True">
+                                                                        <Setter Property="Background"
+                                                                                Value="#BBDEFB"/>
+                                                                    </DataTrigger>
+                                                                </Style.Triggers>
+                                                            </Style>
+                                                        </Border.Style>
+
+                                                        <Grid MinHeight="26"
+                                                              Background="Transparent">
+                                                            <Grid.ColumnDefinitions>
+                                                                <ColumnDefinition Width="*"/>
+                                                                <ColumnDefinition Width="Auto"/>
+                                                            </Grid.ColumnDefinitions>
+
+                                                            <Grid Grid.Column="0">
+                                                                <Grid.ColumnDefinitions>
+                                                                    <ColumnDefinition Width="*"/>
+                                                                    <ColumnDefinition Width="Auto"/>
+                                                                </Grid.ColumnDefinitions>
+
+                                                                <TextBlock Grid.Column="0"
+                                                                           VerticalAlignment="Center"
+                                                                           Style="{StaticResource MaterialDesignSubtitle2TextBlock}"
+                                                                           FontWeight="Bold"
+                                                                           Text="{Binding Name}"
+                                                                           TextTrimming="CharacterEllipsis"
+                                                                           ToolTip="{Binding Name}"/>
+                                                                <StackPanel Grid.Column="1"
+                                                                            HorizontalAlignment="Left"
+                                                                            Orientation="Horizontal"
+                                                                            Visibility="{Binding NameInputVisibility}">
+                                                                    <TextBox Text="{Binding NameField}"
+                                                                             VerticalAlignment="Bottom"
+                                                                             FontSize="11"
+                                                                             MinWidth="100"
+                                                                             MaxWidth="400"/>
+                                                                    <Button Style="{StaticResource MiniActionButtonStyle}"
+                                                                            Margin="0 0 5 0"
+                                                                            Command="{Binding RelativeSource={RelativeSource FindAncestor, AncestorType={x:Type Window}, AncestorLevel=1}, Path=DataContext.ConfirmNameInput}"
+                                                                            CommandParameter="{Binding RelativeSource={RelativeSource Self},Path=DataContext}">
+                                                                        <materialDesign:PackIcon Kind="CheckBold"/>
+                                                                    </Button>
+                                                                    <Button Style="{StaticResource MiniActionButtonStyle}"
+                                                                            Command="{Binding DisableNameInput}">
+                                                                        <materialDesign:PackIcon Kind="CloseThick"/>
+                                                                    </Button>
+                                                                </StackPanel>
+                                                            </Grid>
+
+                                                            <StackPanel Grid.Column="1"
+                                                                        HorizontalAlignment="Right"
+                                                                        Orientation="Horizontal">
+                                                                <ToggleButton Height="15"
+                                                                              Margin="0 0 20 0"
+                                                                              Cursor="Hand"
+                                                                              Command="{Binding RelativeSource={RelativeSource FindAncestor, AncestorType={x:Type Window}, AncestorLevel=1}, Path=DataContext.ToggleEnable}"
+                                                                              CommandParameter="{Binding RelativeSource={RelativeSource Self},Path=DataContext}"
+                                                                              ToolTip="[启用|忽略]该进程"
+                                                                              IsChecked="{Binding Enable}"/>
+                                                                <Button Command="{Binding RunNodeCommand}"
+                                                                        ToolTip="启动该进程"
+                                                                        Style="{StaticResource ProcessControlButtonStyle}"
+                                                                        Visibility="{Binding BtnRunVisibility}">
+                                                                    <fa:ImageAwesome Icon="Play"
+                                                                                     Width="{StaticResource SmallIconSize}"
+                                                                                     Height="{StaticResource SmallIconSize}"
+                                                                                     Foreground="ForestGreen"/>
+                                                                </Button>
+                                                                <Button Style="{StaticResource ProcessControlButtonStyle}"
+                                                                        IsEnabled="False"
+                                                                        Visibility="{Binding BtnLoadingVisibility}">
+                                                                    <fa:ImageAwesome Icon="Spinner"
+                                                                                     Width="{StaticResource MediumIconSize}"
+                                                                                     Height="{StaticResource MediumIconSize}"
+                                                                                     Spin="True"
+                                                                                     SpinDuration="1"/>
+                                                                </Button>
+                                                                <Button ToolTip="结束该进程"
+                                                                        Command="{Binding KillNodeCommand}"
+                                                                        Style="{StaticResource ProcessControlButtonStyle}"
+                                                                        IsEnabled="True"
+                                                                        Visibility="{Binding BtnStopVisibility}">
+                                                                    <fa:ImageAwesome Icon="Stop"
+                                                                                     Width="{StaticResource SmallIconSize}"
+                                                                                     Height="{StaticResource SmallIconSize}"
+                                                                                     Foreground="Red"/>
+                                                                </Button>
+                                                            </StackPanel>
+                                                        </Grid>
+                                                    </Border>
+
+                                                    <!-- 第二行：详细信息 -->
+                                                    <ContentControl Grid.Row="1"
+                                                                    Content="{Binding}">
+                                                        <ContentControl.Style>
+                                                            <Style TargetType="ContentControl">
+                                                                <Setter Property="Visibility"
+                                                                        Value="Collapsed"/>
+                                                                <Style.Triggers>
+                                                                    <DataTrigger Binding="{Binding IsSuperRoot}"
+                                                                                 Value="False">
+                                                                        <Setter Property="Visibility"
+                                                                                Value="Visible"/>
+                                                                        <Setter Property="ContentTemplate">
+                                                                            <Setter.Value>
+                                                                                <DataTemplate>
+                                                                                    <Grid Margin="0,2,0,0">
+                                                                                        <Grid.ColumnDefinitions>
+                                                                                            <ColumnDefinition Width="*"/>
+                                                                                            <ColumnDefinition Width="Auto"/>
+                                                                                        </Grid.ColumnDefinitions>
+
+                                                                                        <!-- 左侧：进程名和延时（可截断保证延时显示） -->
+                                                                                        <Grid Grid.Column="0">
+                                                                                            <Grid.ColumnDefinitions>
+                                                                                                <ColumnDefinition Width="Auto"/>
+                                                                                                <ColumnDefinition Width="*"/>
+                                                                                                <ColumnDefinition Width="Auto"/>
+                                                                                                <ColumnDefinition Width="Auto"/>
+                                                                                                <ColumnDefinition Width="Auto"/>
+                                                                                            </Grid.ColumnDefinitions>
+
+                                                                                            <TextBlock Grid.Column="0"
+                                                                                                       Style="{StaticResource MaterialDesignCaptionTextBlock}"
+                                                                                                       Foreground="#666666"
+                                                                                                       Text="进程名: "/>
+                                                                                            <TextBlock Grid.Column="1"
+                                                                                                       Style="{StaticResource MaterialDesignCaptionTextBlock}"
+                                                                                                       Foreground="#666666"
+                                                                                                       FontWeight="Medium"
+                                                                                                       Text="{Binding Path}"
+                                                                                                       TextTrimming="CharacterEllipsis"
+                                                                                                       ToolTip="{Binding Path}"/>
+                                                                                            <TextBlock Grid.Column="2"
+                                                                                                       Style="{StaticResource MaterialDesignCaptionTextBlock}"
+                                                                                                       Foreground="#666666"
+                                                                                                       Margin="16,0,0,0"
+                                                                                                       Text="延时: "/>
+                                                                                            <TextBlock Grid.Column="3"
+                                                                                                       Style="{StaticResource MaterialDesignCaptionTextBlock}"
+                                                                                                       Foreground="#666666"
+                                                                                                       FontWeight="Medium"
+                                                                                                       Text="{Binding Delay}"/>
+                                                                                            <TextBlock Grid.Column="4"
+                                                                                                       Style="{StaticResource MaterialDesignCaptionTextBlock}"
+                                                                                                       Foreground="#666666"
+                                                                                                       Text="ms"/>
+                                                                                        </Grid>
+
+                                                                                        <!-- 右侧：ID（始终显示） -->
+                                                                                        <TextBlock Grid.Column="1"
+                                                                                                   Style="{StaticResource MaterialDesignCaptionTextBlock}"
+                                                                                                   Margin="16,0,0,0"
+                                                                                                   VerticalAlignment="Center"
+                                                                                                   Foreground="#d1d5db"
+                                                                                                   FontFamily="Consolas"
+                                                                                                   Text="{Binding ShortNodeId}"/>
+                                                                                    </Grid>
+                                                                                </DataTemplate>
+                                                                            </Setter.Value>
+                                                                        </Setter>
+                                                                    </DataTrigger>
+                                                                </Style.Triggers>
+                                                            </Style>
+                                                        </ContentControl.Style>
+                                                    </ContentControl>
                                                 </Grid>
                                             </Border>
-
-                                            <!-- 详细信息区域 (AdditionalTemplate内容) -->
-                                            <ContentControl Content="{Binding}"
-                                                            Margin="8,0,0,2">
-                                                <ContentControl.Style>
-                                                    <Style TargetType="ContentControl">
-                                                        <Setter Property="Visibility"
-                                                                Value="Collapsed"/>
-                                                        <Style.Triggers>
-                                                            <DataTrigger Binding="{Binding IsSuperRoot}"
-                                                                         Value="False">
-                                                                <Setter Property="Visibility"
-                                                                        Value="Visible"/>
-                                                                <Setter Property="ContentTemplate">
-                                                                    <Setter.Value>
-                                                                        <DataTemplate>
-                                                                            <StackPanel Orientation="Horizontal">
-                                                                                <TextBlock Style="{StaticResource MaterialDesignCaptionTextBlock}"
-                                                                                           Foreground="#666666"
-                                                                                           Text="进程名: "/>
-                                                                                <TextBlock Style="{StaticResource MaterialDesignCaptionTextBlock}"
-                                                                                           Foreground="#666666"
-                                                                                           FontWeight="Medium"
-                                                                                           Text="{Binding Path}"/>
-                                                                                <TextBlock Style="{StaticResource MaterialDesignCaptionTextBlock}"
-                                                                                           Foreground="#666666"
-                                                                                           Margin="16,0,0,0"
-                                                                                           Text="延时: "/>
-                                                                                <TextBlock Style="{StaticResource MaterialDesignCaptionTextBlock}"
-                                                                                           Foreground="#666666"
-                                                                                           FontWeight="Medium"
-                                                                                           Text="{Binding Delay}"/>
-                                                                                <TextBlock Style="{StaticResource MaterialDesignCaptionTextBlock}"
-                                                                                           Foreground="#666666"
-                                                                                           Text="ms"/>
-                                                                            </StackPanel>
-                                                                        </DataTemplate>
-                                                                    </Setter.Value>
-                                                                </Setter>
-                                                            </DataTrigger>
-                                                        </Style.Triggers>
-                                                    </Style>
-                                                </ContentControl.Style>
-                                            </ContentControl>
-                                        </StackPanel>
+                                        </Grid>
                                     </HierarchicalDataTemplate>
                                 </TreeView.ItemTemplate>
                             </TreeView>
@@ -551,8 +679,8 @@
                     <Grid Grid.Column="1"
                           ShowGridLines="False">
                         <Grid.RowDefinitions>
-                            <RowDefinition Height="60*"/>
-                            <RowDefinition Height="40*"/>
+                            <RowDefinition Height="45*"/>
+                            <RowDefinition Height="55*"/>
                         </Grid.RowDefinitions>
 
                         <materialDesign:Card Grid.Row="0"

@@ -3,107 +3,201 @@
                            xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
                            xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
                            xmlns:local="clr-namespace:DaemonKit"
-                           xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes"
                            xmlns:reactiveui="http://reactiveui.net"
                            x:Class="DaemonKit.CountdownConfirmDialog"
                            x:TypeArguments="local:CountdownConfirmViewModel"
                            mc:Ignorable="d"
                            Title="{Binding Title}"
-                           Height="250"
-                           Width="450"
+                           Height="360"
+                           Width="340"
                            WindowStartupLocation="CenterScreen"
                            WindowStyle="None"
                            ResizeMode="NoResize"
                            Topmost="True"
                            Background="Transparent"
-                           AllowsTransparency="True">
-    <Border Background="White"
-            CornerRadius="10"
-            BorderBrush="{DynamicResource PrimaryHueMidBrush}"
-            BorderThickness="2">
+                           AllowsTransparency="True"
+                           FontFamily="Microsoft YaHei UI">
+    <Border Background="#FFFFFF"
+            CornerRadius="20"
+            BorderBrush="#E5E7EB"
+            BorderThickness="1">
         <Border.Effect>
-            <DropShadowEffect Color="Black"
-                    Opacity="0.3"
-                    ShadowDepth="5"
-                    BlurRadius="15"/>
+            <DropShadowEffect Color="#000000"
+                              Opacity="0.08"
+                              ShadowDepth="8"
+                              BlurRadius="20"/>
         </Border.Effect>
-        <Grid Margin="30">
+        <Grid Margin="28,22,28,24">
             <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
                 <RowDefinition Height="Auto"/>
                 <RowDefinition Height="*"/>
                 <RowDefinition Height="Auto"/>
             </Grid.RowDefinitions>
-
             <!-- 标题 -->
-            <StackPanel Grid.Row="0"
-                    Orientation="Horizontal"
-                    Margin="0,0,0,20">
-                <materialDesign:PackIcon Kind="AlertCircleOutline"
-                                         Width="32"
-                                         Height="32"
-                                         Foreground="#FF9800"
-                                         VerticalAlignment="Center"
-                                         Margin="0,0,10,0"/>
-                <TextBlock Text="{Binding Title}"
-                           FontSize="20"
-                           FontWeight="Bold"
-                           VerticalAlignment="Center"
-                           Foreground="{DynamicResource PrimaryHueDarkBrush}"/>
-            </StackPanel>
+            <TextBlock Grid.Row="0"
+                       Text="{Binding Title}"
+                       FontSize="20"
+                       FontWeight="600"
+                       Foreground="#1F2937"
+                       Margin="0,0,0,8"
+                       TextAlignment="Center"/>
 
-            <!-- 消息内容 -->
-            <StackPanel Grid.Row="1"
-                    VerticalAlignment="Center">
-                <TextBlock Text="{Binding Message}"
-                           FontSize="16"
-                           TextWrapping="Wrap"
-                           Margin="0,0,0,20"
-                           TextAlignment="Center"/>
+            <!-- 消息 -->
+            <TextBlock Grid.Row="1"
+                       Text="{Binding Message}"
+                       FontSize="14"
+                       TextWrapping="Wrap"
+                       Foreground="#6B7280"
+                       Margin="0,0,0,28"
+                       LineHeight="22"
+                       TextAlignment="Center"/>
 
-                <!-- 倒计时显示 -->
-                <Border Background="{DynamicResource PrimaryHueLightBrush}"
-                        CornerRadius="50"
-                        Width="100"
-                        Height="100"
-                        HorizontalAlignment="Center">
-                    <TextBlock Text="{Binding Countdown}"
+            <!-- 倒计时圆形容器 -->
+            <Grid Grid.Row="2"
+                  HorizontalAlignment="Center"
+                  Margin="0,0,0,16"
+                  Width="120"
+                  Height="120">
+                <!-- 外圆背景 -->
+                <Ellipse Fill="#F3F4F6"
+                         StrokeThickness="0"/>
+
+                <!-- 内部圆环（深蓝色） -->
+                <Canvas HorizontalAlignment="Center"
+                        VerticalAlignment="Center"
+                        Width="120"
+                        Height="120">
+                    <!-- 进度圆弧背景 -->
+                    <Ellipse Canvas.Left="0"
+                             Canvas.Top="0"
+                             Width="120"
+                             Height="120"
+                             Stroke="#E5E7EB"
+                             StrokeThickness="6"
+                             Fill="Transparent"/>
+                </Canvas>
+
+                <!-- 倒计时数字 -->
+                <StackPanel HorizontalAlignment="Center"
+                            VerticalAlignment="Center">
+                    <TextBlock x:Name="CountdownTextBlock"
+                               Text="10"
                                FontSize="48"
-                               FontWeight="Bold"
-                               Foreground="White"
+                               FontWeight="600"
+                               Foreground="#3B82F6"
                                HorizontalAlignment="Center"
-                               VerticalAlignment="Center"/>
-                </Border>
-            </StackPanel>
+                               VerticalAlignment="Center"
+                               FontFamily="Segoe UI"
+                               Margin="0,-4,0,0"/>
+                    <TextBlock Text="秒"
+                               FontSize="12"
+                               Foreground="#9CA3AF"
+                               HorizontalAlignment="Center"
+                               Margin="0,-2,0,0"
+                               FontWeight="500"/>
+                </StackPanel>
+            </Grid>
 
-            <!-- 按钮 -->
-            <StackPanel Grid.Row="2"
-                        Orientation="Horizontal"
-                        HorizontalAlignment="Center"
-                        Margin="0,20,0,0">
-                <Button Content="取消"
-                        Width="120"
-                        Height="40"
-                        Margin="0,0,20,0"
-                        Command="{Binding Cancel}"/>
-                <Button Content="确认"
-                        Width="120"
-                        Height="40"
-                        Command="{Binding Confirm}">
-                    <Button.Style>
-                        <Style TargetType="Button">
-                            <Setter Property="Background"
-                                    Value="{DynamicResource PrimaryHueMidBrush}"/>
-                            <Style.Triggers>
-                                <DataTrigger Binding="{Binding Countdown}"
-                                        Value="0">
+            <!-- 按钮组 -->
+            <Grid Grid.Row="4"
+                  Height="44"
+                  VerticalAlignment="Bottom"
+                  Margin="0,6,0,0">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="12"/>
+                    <ColumnDefinition Width="*"/>
+                </Grid.ColumnDefinitions>
+
+                <!-- 取消按钮 -->
+                <Button Grid.Column="0"
+                        Content="取消"
+                        Click="CancelButton_Click"
+                        Foreground="#4B5563"
+                        FontSize="14"
+                        FontWeight="600"
+                        Cursor="Hand"
+                        Background="#F8FAFC"
+                        BorderBrush="#E5E7EB"
+                        BorderThickness="1">
+                    <Button.Template>
+                        <ControlTemplate TargetType="Button">
+                            <Border Background="{TemplateBinding Background}"
+                                    BorderBrush="{TemplateBinding BorderBrush}"
+                                    BorderThickness="{TemplateBinding BorderThickness}"
+                                    CornerRadius="10"
+                                    Padding="12,8">
+                                <Border.Effect>
+                                    <DropShadowEffect x:Name="NormalShadow"
+                                                      Color="#000000"
+                                                      Opacity="0"
+                                                      ShadowDepth="2"
+                                                      BlurRadius="4"/>
+                                </Border.Effect>
+                                <ContentPresenter HorizontalAlignment="Center"
+                                                  VerticalAlignment="Center"/>
+                            </Border>
+                            <ControlTemplate.Triggers>
+                                <Trigger Property="IsMouseOver"
+                                         Value="True">
                                     <Setter Property="Background"
-                                            Value="#4CAF50"/>
-                                </DataTrigger>
-                            </Style.Triggers>
-                        </Style>
-                    </Button.Style>
+                                            Value="#F3F4F6"/>
+                                    <Setter Property="BorderBrush"
+                                            Value="#D1D5DB"/>
+                                </Trigger>
+                                <Trigger Property="IsPressed"
+                                         Value="True">
+                                    <Setter Property="Background"
+                                            Value="#E5E7EB"/>
+                                    <Setter Property="BorderBrush"
+                                            Value="#CBD5E1"/>
+                                </Trigger>
+                            </ControlTemplate.Triggers>
+                        </ControlTemplate>
+                    </Button.Template>
                 </Button>
-            </StackPanel>
+
+                <!-- 确认按钮 -->
+                <Button Grid.Column="2"
+                        Content="确认"
+                        Click="ConfirmButton_Click"
+                        Foreground="#FFFFFF"
+                        FontSize="14"
+                        FontWeight="600"
+                        Cursor="Hand"
+                        Background="#3B82F6">
+                    <Button.Template>
+                        <ControlTemplate TargetType="Button">
+                            <Border Background="{TemplateBinding Background}"
+                                    CornerRadius="10"
+                                    Padding="12,8">
+                                <Border.Effect>
+                                    <DropShadowEffect Color="#3B82F6"
+                                                      Opacity="0.3"
+                                                      ShadowDepth="2"
+                                                      BlurRadius="6"/>
+                                </Border.Effect>
+                                <ContentPresenter HorizontalAlignment="Center"
+                                                  VerticalAlignment="Center"/>
+                            </Border>
+                            <ControlTemplate.Triggers>
+                                <Trigger Property="IsMouseOver"
+                                         Value="True">
+                                    <Setter Property="Background"
+                                            Value="#2563EB"/>
+                                </Trigger>
+                                <Trigger Property="IsPressed"
+                                         Value="True">
+                                    <Setter Property="Background"
+                                            Value="#1D4ED8"/>
+                                </Trigger>
+                            </ControlTemplate.Triggers>
+                        </ControlTemplate>
+                    </Button.Template>
+                </Button>
+            </Grid>
         </Grid>
     </Border>
 </reactiveui:ReactiveWindow>

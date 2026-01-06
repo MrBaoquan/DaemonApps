@@ -37,29 +37,55 @@ namespace DaemonKit
             base.OnClosing(e);
         }
 
-        private void TitleBar_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+        private void EditButton_Click(object sender, RoutedEventArgs e)
         {
-            if (e.ClickCount == 2)
+            // 获取点击按钮对应的任务配置
+            var button = sender as Button;
+            if (button?.DataContext is Core.ScheduleTaskConfig config)
             {
-                WindowState =
-                    WindowState == WindowState.Maximized
-                        ? WindowState.Normal
-                        : WindowState.Maximized;
-            }
-            else
-            {
-                DragMove();
-            }
-        }
+                // 创建副本以避免直接修改原对象
+                var configCopy = new Core.ScheduleTaskConfig
+                {
+                    Name = config.Name,
+                    Trigger = config.Trigger,
+                    Action = config.Action,
+                    DailyTime = config.DailyTime,
+                    DelaySeconds = config.DelaySeconds,
+                    Description = config.Description,
+                    Enabled = config.Enabled,
+                    TargetNodeId = config.TargetNodeId,
+                    TargetNodeName = config.TargetNodeName,
+                    ClickX = config.ClickX,
+                    ClickY = config.ClickY,
+                    MaxExecuteCount = config.MaxExecuteCount
+                };
 
-        private void MinimizeButton_Click(object sender, RoutedEventArgs e)
-        {
-            WindowState = WindowState.Minimized;
-        }
+                // 打开编辑对话框
+                var dialog = new ScheduleTaskEditDialog(configCopy, ViewModel.RootProcessNode)
+                {
+                    Owner = this
+                };
 
-        private void CloseButton_Click(object sender, RoutedEventArgs e)
-        {
-            this.Hide();
+                if (dialog.ShowDialog() == true)
+                {
+                    // 用户点击确定，应用更改
+                    config.Name = configCopy.Name;
+                    config.Trigger = configCopy.Trigger;
+                    config.Action = configCopy.Action;
+                    config.DailyTime = configCopy.DailyTime;
+                    config.DelaySeconds = configCopy.DelaySeconds;
+                    config.Description = configCopy.Description;
+                    config.Enabled = configCopy.Enabled;
+                    config.TargetNodeId = configCopy.TargetNodeId;
+                    config.TargetNodeName = configCopy.TargetNodeName;
+                    config.ClickX = configCopy.ClickX;
+                    config.ClickY = configCopy.ClickY;
+                    config.MaxExecuteCount = configCopy.MaxExecuteCount;
+
+                    // 编辑后立即保存
+                    ViewModel?.SaveTaskConfigs();
+                }
+            }
         }
     }
 }

@@ -1,0 +1,189 @@
+<Window x:Class="DaemonKit.ScheduleTaskEditDialog"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:local="clr-namespace:DaemonKit"
+        xmlns:core="clr-namespace:DaemonKit.Core"
+        xmlns:converters="clr-namespace:DaemonKit.Converters"
+        xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes"
+        mc:Ignorable="d"
+        Title="编辑计划任务"
+        Height="620"
+        Width="500"
+        Background="White"
+        WindowStartupLocation="CenterOwner"
+        ResizeMode="NoResize">
+
+    <Window.Resources>
+        <converters:ScheduleTriggerTypeToStringConverter x:Key="ScheduleTriggerTypeToStringConverter"/>
+        <converters:ScheduleTaskActionToStringConverter x:Key="ScheduleTaskActionToStringConverter"/>
+    </Window.Resources>
+
+    <Grid Margin="8">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="60"/>
+        </Grid.RowDefinitions>
+
+        <!-- 主内容区 -->
+        <ScrollViewer Grid.Row="0"
+                      VerticalScrollBarVisibility="Auto"
+                      Padding="24,24">
+            <StackPanel>
+                <!-- 触发方式 -->
+                <ComboBox x:Name="TriggerComboBox"
+                          materialDesign:HintAssist.Hint="触发方式"
+                          Style="{StaticResource MaterialDesignOutlinedComboBox}"
+                          FontSize="13"
+                          Margin="0,16,0,16"
+                          SelectionChanged="TriggerComboBox_SelectionChanged">
+                    <ComboBox.ItemTemplate>
+                        <DataTemplate>
+                            <TextBlock Text="{Binding Converter={StaticResource ScheduleTriggerTypeToStringConverter}}"/>
+                        </DataTemplate>
+                    </ComboBox.ItemTemplate>
+                    <core:ScheduleTriggerType>Daily</core:ScheduleTriggerType>
+                    <core:ScheduleTriggerType>EveryStartupAfterDelay</core:ScheduleTriggerType>
+                    <core:ScheduleTriggerType>OncePerDayAfterStart</core:ScheduleTriggerType>
+                    <core:ScheduleTriggerType>IntervalAfterStartup</core:ScheduleTriggerType>
+                </ComboBox>
+
+                <!-- 每天定时 - 显示时间选择器 -->
+                <materialDesign:TimePicker x:Name="DailyTimePicker"
+                                           materialDesign:HintAssist.Hint="执行时间"
+                                           Style="{StaticResource MaterialDesignOutlinedTimePicker}"
+                                           FontSize="13"
+                                           Margin="0,0,0,16"
+                                           Visibility="Collapsed"
+                                           Is24Hours="True"/>
+
+                <!-- 其他类型 - 显示延迟秒数输入 -->
+                <TextBox x:Name="DelaySecondsTextBox"
+                         materialDesign:HintAssist.Hint="参数(秒)"
+                         Style="{StaticResource MaterialDesignOutlinedTextBox}"
+                         FontSize="13"
+                         Margin="0,0,0,16"
+                         Visibility="Collapsed"/>
+
+                <!-- 执行次数上限（仅循环触发） -->
+                <TextBox x:Name="MaxExecuteCountTextBox"
+                         materialDesign:HintAssist.Hint="最大执行次数 (0 表示不限)"
+                         Style="{StaticResource MaterialDesignOutlinedTextBox}"
+                         FontSize="13"
+                         Margin="0,0,0,16"
+                         Visibility="Collapsed"/>
+
+                <!-- 执行操作 -->
+                <ComboBox x:Name="ActionComboBox"
+                          materialDesign:HintAssist.Hint="执行操作"
+                          Style="{StaticResource MaterialDesignOutlinedComboBox}"
+                          FontSize="13"
+                          Margin="0,0,0,16"
+                          SelectionChanged="ActionComboBox_SelectionChanged">
+                    <ComboBox.ItemTemplate>
+                        <DataTemplate>
+                            <TextBlock Text="{Binding Converter={StaticResource ScheduleTaskActionToStringConverter}}"/>
+                        </DataTemplate>
+                    </ComboBox.ItemTemplate>
+                    <core:ScheduleTaskAction>StartProcess</core:ScheduleTaskAction>
+                    <core:ScheduleTaskAction>StopProcess</core:ScheduleTaskAction>
+                    <core:ScheduleTaskAction>RestartProcess</core:ScheduleTaskAction>
+                    <core:ScheduleTaskAction>ShutdownSystem</core:ScheduleTaskAction>
+                    <core:ScheduleTaskAction>RestartSystem</core:ScheduleTaskAction>
+                    <core:ScheduleTaskAction>TakeScreenshot</core:ScheduleTaskAction>
+                    <core:ScheduleTaskAction>ClickMouse</core:ScheduleTaskAction>
+                </ComboBox>
+
+                <!-- 鼠标点击参数 -->
+                <StackPanel x:Name="ClickParamsPanel"
+                            Orientation="Horizontal"
+                            Margin="0,0,0,16"
+                            Visibility="Collapsed"
+                            HorizontalAlignment="Left">
+                    <TextBox x:Name="ClickXTextBox"
+                             Width="100"
+                             materialDesign:HintAssist.Hint="X 坐标"
+                             Style="{StaticResource MaterialDesignOutlinedTextBox}"
+                             FontSize="13"/>
+                    <TextBox x:Name="ClickYTextBox"
+                             Width="100"
+                             Margin="12,0,0,0"
+                             materialDesign:HintAssist.Hint="Y 坐标"
+                             Style="{StaticResource MaterialDesignOutlinedTextBox}"
+                             FontSize="13"/>
+                </StackPanel>
+
+                <!-- 目标节点（仅节点级操作显示） -->
+                <StackPanel x:Name="TargetNodePanel"
+                            Orientation="Vertical"
+                            Margin="0,0,0,16"
+                            Visibility="Collapsed">
+                    <TextBlock Text="目标节点"
+                               FontSize="12"
+                               Foreground="#37474F"
+                               Margin="0,0,0,4"/>
+                    <ComboBox x:Name="TargetNodeComboBox"
+                              Style="{StaticResource MaterialDesignOutlinedComboBox}"
+                              FontSize="13"
+                              IsSynchronizedWithCurrentItem="False"
+                              DisplayMemberPath="DisplayName"
+                              SelectedValuePath="Item.Name"/>
+                </StackPanel>
+
+                <!-- 启用/禁用 -->
+                <Grid Margin="0,0,0,16">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Text="启用任务"
+                               FontSize="13"
+                               Foreground="#37474F"
+                               VerticalAlignment="Center"/>
+                    <ToggleButton x:Name="EnabledToggle"
+                                  Grid.Column="1"
+                                  Style="{StaticResource MaterialDesignSwitchToggleButton}"
+                                  VerticalAlignment="Center"
+                                  IsChecked="True"/>
+                </Grid>
+            </StackPanel>
+        </ScrollViewer>
+
+        <!-- 底部按钮栏 -->
+        <Border Grid.Row="1"
+                Background="White"
+                BorderThickness="0,1,0,0"
+                BorderBrush="#E8E8E8"
+                Padding="24,0">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="10"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+
+                <!-- 取消按钮 -->
+                <Button Grid.Column="1"
+                        Content="取消"
+                        Style="{StaticResource MaterialDesignOutlinedButton}"
+                        Click="CancelButton_Click"
+                        Height="36"
+                        Width="90"
+                        FontSize="13"/>
+
+                <!-- 确定按钮 -->
+                <Button Grid.Column="3"
+                        Content="确定"
+                        Style="{StaticResource MaterialDesignRaisedButton}"
+                        Click="OkButton_Click"
+                        Height="36"
+                        Width="90"
+                        FontSize="13"
+                        Background="#667EEA"
+                        Foreground="White"/>
+            </Grid>
+        </Border>
+    </Grid>
+</Window>

@@ -34,6 +34,10 @@ namespace DaemonKit
             Text
         }
 
+        // 单例实例
+        private static PickerOverlay? _instance = null;
+        private static readonly object _lock = new object();
+
         public PickerMode Mode { get; set; }
         public string Result { get; private set; } = string.Empty;
 
@@ -54,13 +58,17 @@ namespace DaemonKit
         private int _lastScreenshotY = 0;
         private int _lastScreenshotWidth = 0;
         private int _lastScreenshotHeight = 0;
-        private Bitmap? _editingBitmap;
+        private Bitmap? _captureBitmap; // 背景截图层
+        private Bitmap? _strokeBitmap; // 笔触绘制层（全屏幕大小，透明，绝对坐标）
+        private Graphics? _strokeGraphics;
+        private Bitmap? _editingBitmap; // 合成显示层
         private Graphics? _editingGraphics;
         private Bitmap? _previewBitmap; // 用于实时预览的临时位图
         private const int MaxUndoSteps = 20; // 最大撤销步数
         private Stack<Bitmap> _undoHistory = new Stack<Bitmap>(); // 撤销历史
         private System.Drawing.Color _currentBrushColor = System.Drawing.Color.Red;
         private int _currentBrushSize = 4;
+        private int _currentTextSize = 14;
         private DrawingTool _currentTool = DrawingTool.Move;
         private TextBox? _activeTextBox = null; // 当前活动的文本框
 
@@ -79,7 +87,12 @@ namespace DaemonKit
 
         // 放大镜相关
         private Border? _magnifierBorder;
+        private Grid? _magnifierGrid;
         private System.Windows.Controls.Image? _magnifierImage;
+        private TextBlock? _magnifierPosText;
+        private TextBlock? _magnifierColorText;
+        private TextBlock? _magnifierHexText;
+        private System.Windows.Shapes.Rectangle? _magnifierColorPreview;
         private const int MagnifierSize = 150;
         private const int MagnifierZoom = 5;
 
@@ -115,6 +128,38 @@ namespace DaemonKit
 
             _updateTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(16) };
             _updateTimer.Tick += UpdateTimer_Tick;
+
+            // 窗口关闭时清空单例
+            this.Closed += (s, e) =>
+            {
+                lock (_lock)
+                {
+                    if (_instance == this)
+                    {
+                        _instance = null;
+                    }
+                }
+            };
+        }
+
+        /// <summary>
+        /// 获取或创建单例实例
+        /// </summary>
+        public static PickerOverlay GetInstance()
+        {
+            lock (_lock)
+            {
+                if (_instance == null || !_instance.IsLoaded)
+                {
+                    _instance = new PickerOverlay();
+                }
+                else
+                {
+                    // 如果实例已存在，激活窗口
+                    _instance.Activate();
+                }
+                return _instance;
+            }
         }
 
         private void Window_Loaded(object sender, RoutedEventArgs e)
@@ -128,6 +173,10 @@ namespace DaemonKit
             this.Top = _screenTop;
             this.Width = desktopInfo.TotalWidth;
             this.Height = desktopInfo.TotalHeight;
+
+            this.Focusable = true;
+            this.Focus();
+            Keyboard.Focus(this);
 
             // 预先截取整个桌面
             _screenBitmap = ColorPicker.CaptureScreen(
@@ -161,15 +210,65 @@ namespace DaemonKit
                 Stretch = System.Windows.Media.Stretch.None
             };
 
+            _magnifierPosText = new TextBlock
+            {
+                Foreground = System.Windows.Media.Brushes.White,
+                FontSize = 12,
+                Margin = new Thickness(0, 0, 0, 2)
+            };
+
+            _magnifierColorText = new TextBlock
+            {
+                Foreground = System.Windows.Media.Brushes.White,
+                FontSize = 12,
+                Margin = new Thickness(0, 0, 0, 2)
+            };
+
+            _magnifierHexText = new TextBlock
+            {
+                Foreground = System.Windows.Media.Brushes.White,
+                FontSize = 12
+            };
+
+            _magnifierColorPreview = new System.Windows.Shapes.Rectangle
+            {
+                Width = 40,
+                Height = 16,
+                Stroke = System.Windows.Media.Brushes.White,
+                StrokeThickness = 1,
+                Margin = new Thickness(0, 2, 0, 0)
+            };
+
+            var infoStack = new StackPanel { Orientation = Orientation.Vertical };
+            infoStack.Children.Add(_magnifierPosText);
+            infoStack.Children.Add(_magnifierColorText);
+            infoStack.Children.Add(_magnifierHexText);
+            infoStack.Children.Add(_magnifierColorPreview);
+
+            var infoPanel = new Border
+            {
+                Background = new SolidColorBrush(System.Windows.Media.Color.FromArgb(180, 0, 0, 0)),
+                Padding = new Thickness(6),
+                Child = infoStack
+            };
+
+            _magnifierGrid = new Grid { Width = MagnifierSize };
+            _magnifierGrid.RowDefinitions.Add(
+                new RowDefinition { Height = new GridLength(MagnifierSize) }
+            );
+            _magnifierGrid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+            _magnifierGrid.Children.Add(_magnifierImage);
+            Grid.SetRow(_magnifierImage, 0);
+            _magnifierGrid.Children.Add(infoPanel);
+            Grid.SetRow(infoPanel, 1);
+
             _magnifierBorder = new Border
             {
-                Width = MagnifierSize,
-                Height = MagnifierSize,
                 Background = System.Windows.Media.Brushes.Black,
                 BorderBrush = System.Windows.Media.Brushes.White,
                 BorderThickness = new Thickness(2),
-                CornerRadius = new CornerRadius(0),
-                Child = _magnifierImage,
+                CornerRadius = new CornerRadius(4),
+                Child = _magnifierGrid,
                 Visibility = Visibility.Visible
             };
 
@@ -190,7 +289,7 @@ namespace DaemonKit
                     SizeText.Visibility = Visibility.Collapsed;
                     CrosshairH.Visibility = Visibility.Visible;
                     CrosshairV.Visibility = Visibility.Visible;
-                    InfoBox.Visibility = Visibility.Visible;
+                    InfoBox.Visibility = Visibility.Collapsed;
                     ToolBar.Visibility = Visibility.Collapsed;
                     break;
                 case PickerMode.Position:
@@ -202,7 +301,7 @@ namespace DaemonKit
                     SizeText.Visibility = Visibility.Collapsed;
                     CrosshairH.Visibility = Visibility.Visible;
                     CrosshairV.Visibility = Visibility.Visible;
-                    InfoBox.Visibility = Visibility.Visible;
+                    InfoBox.Visibility = Visibility.Collapsed;
                     ToolBar.Visibility = Visibility.Collapsed;
                     break;
                 case PickerMode.Screenshot:
@@ -310,26 +409,10 @@ namespace DaemonKit
 
             PositionText.Text = $"位置: ({(int)screenPos.X}, {(int)screenPos.Y})";
 
-            if (Mode == PickerMode.Color && _screenBitmap != null)
-            {
-                // 从预先截取的位图获取颜色，避免十字准星干扰
-                int bitmapX = (int)windowPos.X;
-                int bitmapY = (int)windowPos.Y;
-
-                var color = ColorPicker.GetColorFromBitmap(_screenBitmap, bitmapX, bitmapY);
-                var hex = ColorPicker.ColorToHex(color);
-
-                ColorText.Text = $"RGB: ({color.R}, {color.G}, {color.B})";
-                HexText.Text = $"十六进制: {hex}";
-                ColorPreview.Fill = new SolidColorBrush(
-                    System.Windows.Media.Color.FromRgb(color.R, color.G, color.B)
-                );
-            }
-
-            UpdateMagnifier(windowPos);
+            UpdateMagnifier(windowPos, screenPos);
         }
 
-        private void UpdateMagnifier(System.Windows.Point windowPos)
+        private void UpdateMagnifier(System.Windows.Point windowPos, System.Windows.Point screenPos)
         {
             if (_magnifierBorder == null || _magnifierImage == null || _screenBitmap == null)
                 return;
@@ -342,6 +425,8 @@ namespace DaemonKit
             int sourceY = Math.Max(0, centerY - captureSize / 2);
             int sourceWidth = Math.Min(captureSize, _screenBitmap.Width - sourceX);
             int sourceHeight = Math.Min(captureSize, _screenBitmap.Height - sourceY);
+
+            System.Drawing.Color sampledColor = System.Drawing.Color.Empty;
 
             if (sourceWidth > 0 && sourceHeight > 0)
             {
@@ -371,17 +456,48 @@ namespace DaemonKit
                 }
 
                 _magnifierImage.Source = ColorPicker.BitmapToBitmapSource(magnifiedBitmap);
+                // 采样中心像素颜色
+                sampledColor = ColorPicker.GetColorFromBitmap(
+                    _screenBitmap,
+                    sourceX + sourceWidth / 2,
+                    sourceY + sourceHeight / 2
+                );
                 magnifiedBitmap.Dispose();
             }
 
+            if (_magnifierPosText != null)
+                _magnifierPosText.Text = $"位置: {(int)screenPos.X}, {(int)screenPos.Y}";
+            if (_magnifierColorText != null && sampledColor != System.Drawing.Color.Empty)
+                _magnifierColorText.Text =
+                    $"RGB: {sampledColor.R}, {sampledColor.G}, {sampledColor.B}";
+            if (_magnifierHexText != null && sampledColor != System.Drawing.Color.Empty)
+                _magnifierHexText.Text = $"HEX: {ColorPicker.ColorToHex(sampledColor)}";
+            if (_magnifierColorPreview != null && sampledColor != System.Drawing.Color.Empty)
+            {
+                _magnifierColorPreview.Fill = new SolidColorBrush(
+                    System.Windows.Media.Color.FromRgb(
+                        sampledColor.R,
+                        sampledColor.G,
+                        sampledColor.B
+                    )
+                );
+            }
+
             // 定位放大镜，避免遮挡鼠标
+            double containerWidth =
+                _magnifierBorder.ActualWidth > 0 ? _magnifierBorder.ActualWidth : MagnifierSize;
+            double containerHeight =
+                _magnifierBorder.ActualHeight > 0
+                    ? _magnifierBorder.ActualHeight
+                    : MagnifierSize + 60;
+
             double magnifierX = windowPos.X + 30;
             double magnifierY = windowPos.Y + 30;
 
-            if (magnifierX + MagnifierSize > ActualWidth)
-                magnifierX = windowPos.X - MagnifierSize - 30;
-            if (magnifierY + MagnifierSize > ActualHeight)
-                magnifierY = windowPos.Y - MagnifierSize - 30;
+            if (magnifierX + containerWidth > ActualWidth)
+                magnifierX = windowPos.X - containerWidth - 30;
+            if (magnifierY + containerHeight > ActualHeight)
+                magnifierY = windowPos.Y - containerHeight - 30;
 
             Canvas.SetLeft(_magnifierBorder, magnifierX);
             Canvas.SetTop(_magnifierBorder, magnifierY);
@@ -563,9 +679,10 @@ namespace DaemonKit
                 int cropX = _lastScreenshotX - _screenLeft;
                 int cropY = _lastScreenshotY - _screenTop;
 
-                // 重新裁剪当前区域
-                var newBitmap = new Bitmap(_lastScreenshotWidth, _lastScreenshotHeight);
-                using (Graphics g = Graphics.FromImage(newBitmap))
+                // 只更新背景层，保留笔触层
+                _captureBitmap?.Dispose();
+                _captureBitmap = new Bitmap(_lastScreenshotWidth, _lastScreenshotHeight);
+                using (Graphics g = Graphics.FromImage(_captureBitmap))
                 {
                     g.DrawImage(
                         _screenBitmap,
@@ -585,12 +702,8 @@ namespace DaemonKit
                     );
                 }
 
-                _editingGraphics?.Dispose();
-                _editingBitmap?.Dispose();
-                _editingBitmap = newBitmap;
-                _editingGraphics = Graphics.FromImage(_editingBitmap);
-                _editingGraphics.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
-
+                // 重新合成
+                CompositeLayersToEditing();
                 SelectionScreenshotImage.Source = ColorPicker.BitmapToBitmapSource(_editingBitmap);
                 _previewBitmap?.Dispose();
                 _previewBitmap = null;
@@ -666,12 +779,13 @@ namespace DaemonKit
             _lastScreenshotWidth = (int)selWidth;
             _lastScreenshotHeight = (int)selHeight;
 
-            // 清理绘制状态，重新捕获
+            // 清理文本框和预览位图，但保留笔触层（已绘制内容）
             DrawingCanvas.Children.Clear();
-            _undoHistory.Clear();
+            _captureBitmap?.Dispose();
             _editingGraphics?.Dispose();
             _editingBitmap?.Dispose();
             _previewBitmap?.Dispose();
+            _captureBitmap = null;
             _editingBitmap = null;
             _editingGraphics = null;
             _previewBitmap = null;
@@ -695,19 +809,28 @@ namespace DaemonKit
                 this.UpdateLayout();
                 this.InvalidateVisual();
 
-                // 使用Dispatcher延迟捕获，确保WPF渲染完成
-                Dispatcher.BeginInvoke(
-                    new Action(() =>
-                    {
-                        CaptureAndShowScreenshot();
+                // 延迟捕获，确保WPF渲染完成
+                // await System.Threading.Tasks.Task.Yield();
 
-                        // 捕获后恢复dashed border的显示（绘制阶段使用）
-                        SelectionRect.Stroke = System.Windows.Media.Brushes.CornflowerBlue;
-                        SelectionRect.StrokeThickness = 2;
-                        SelectionRect.Visibility = Visibility.Visible;
-                    }),
-                    System.Windows.Threading.DispatcherPriority.Render
+                CaptureAndShowScreenshot();
+
+                // 捕获后恢复dashed border的显示（绘制阶段使用）
+                SelectionRect.Stroke = System.Windows.Media.Brushes.CornflowerBlue;
+                SelectionRect.StrokeThickness = 2;
+                SelectionRect.Visibility = Visibility.Visible;
+
+                // 重新显示遮罩，仅保留选区透明以实现区域外暗化
+                var (x, y, w, h) = GetSelectionRect();
+                var geometry = new CombinedGeometry(
+                    GeometryCombineMode.Exclude,
+                    new RectangleGeometry(new Rect(0, 0, ActualWidth, ActualHeight)),
+                    new RectangleGeometry(new Rect(x, y, w, h))
                 );
+                SelectionMask.Data = geometry;
+                SelectionMask.Fill = new SolidColorBrush(
+                    System.Windows.Media.Color.FromArgb(160, 0, 0, 0)
+                );
+                SelectionMask.Visibility = Visibility.Visible;
             }
             catch (Exception ex)
             {
@@ -724,8 +847,10 @@ namespace DaemonKit
                 int cropX = _lastScreenshotX - _screenLeft;
                 int cropY = _lastScreenshotY - _screenTop;
 
-                _editingBitmap = new Bitmap(_lastScreenshotWidth, _lastScreenshotHeight);
-                using (Graphics g = Graphics.FromImage(_editingBitmap))
+                // 初始化背景截图层
+                _captureBitmap?.Dispose();
+                _captureBitmap = new Bitmap(_lastScreenshotWidth, _lastScreenshotHeight);
+                using (Graphics g = Graphics.FromImage(_captureBitmap))
                 {
                     g.DrawImage(
                         _screenBitmap,
@@ -745,8 +870,45 @@ namespace DaemonKit
                     );
                 }
 
+                // 初始化透明笔触层（全屏幕大小，使用绝对坐标）
+                if (_strokeBitmap == null)
+                {
+                    _strokeBitmap = new Bitmap(_screenBitmap.Width, _screenBitmap.Height);
+                    _strokeGraphics = Graphics.FromImage(_strokeBitmap);
+                    _strokeGraphics.SmoothingMode = System
+                        .Drawing
+                        .Drawing2D
+                        .SmoothingMode
+                        .AntiAlias;
+                    _strokeGraphics.TextRenderingHint = System
+                        .Drawing
+                        .Text
+                        .TextRenderingHint
+                        .AntiAliasGridFit;
+                    _strokeGraphics.CompositingMode = System
+                        .Drawing
+                        .Drawing2D
+                        .CompositingMode
+                        .SourceOver;
+                    _strokeGraphics.CompositingQuality = System
+                        .Drawing
+                        .Drawing2D
+                        .CompositingQuality
+                        .HighQuality;
+                    _strokeGraphics.PixelOffsetMode = System
+                        .Drawing
+                        .Drawing2D
+                        .PixelOffsetMode
+                        .HighQuality;
+                    _strokeGraphics.Clear(System.Drawing.Color.Transparent);
+                }
+
+                // 合成显示层
+                _editingBitmap?.Dispose();
+                _editingGraphics?.Dispose();
+                _editingBitmap = new Bitmap(_lastScreenshotWidth, _lastScreenshotHeight);
                 _editingGraphics = Graphics.FromImage(_editingBitmap);
-                _editingGraphics.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
+                CompositeLayersToEditing();
 
                 var (selX, selY, selWidth, selHeight) = GetSelectionRect();
 
@@ -767,7 +929,7 @@ namespace DaemonKit
 
                 // 初始化撤销历史
                 _undoHistory.Clear();
-                _undoHistory.Push((Bitmap)_editingBitmap.Clone());
+                _undoHistory.Push((Bitmap)_strokeBitmap.Clone());
 
                 // 显示工具栏在框选区域附近，确保不出屏幕
                 ToolBar.Visibility = Visibility.Visible;
@@ -786,6 +948,32 @@ namespace DaemonKit
             catch (Exception ex)
             {
                 DNHper.NLogger.Error($"CaptureAndShowScreenshot 失败: {ex.Message}");
+            }
+        }
+
+        private void CompositeLayersToEditing()
+        {
+            if (_captureBitmap == null || _strokeBitmap == null || _editingBitmap == null)
+                return;
+
+            using (Graphics g = Graphics.FromImage(_editingBitmap))
+            {
+                g.Clear(System.Drawing.Color.Transparent);
+                g.DrawImage(_captureBitmap, 0, 0);
+                // 从全屏幕笔触层裁剪当前选区对应区域
+                int cropX = _lastScreenshotX - _screenLeft;
+                int cropY = _lastScreenshotY - _screenTop;
+                g.DrawImage(
+                    _strokeBitmap,
+                    new System.Drawing.Rectangle(0, 0, _lastScreenshotWidth, _lastScreenshotHeight),
+                    new System.Drawing.Rectangle(
+                        cropX,
+                        cropY,
+                        _lastScreenshotWidth,
+                        _lastScreenshotHeight
+                    ),
+                    GraphicsUnit.Pixel
+                );
             }
         }
 
@@ -1111,7 +1299,7 @@ namespace DaemonKit
                 try
                 {
                     Clipboard.SetDataObject(text, true);
-                    DNHper.NLogger.Info($"已复制到剪贴板: {text}");
+                    DNHper.NLogger.Debug($"已复制到剪贴板: {text}");
                     return;
                 }
                 catch (System.Runtime.InteropServices.COMException ex)
@@ -1137,7 +1325,7 @@ namespace DaemonKit
                 {
                     var bitmapSource = ColorPicker.BitmapToBitmapSource(bitmap);
                     Clipboard.SetImage(bitmapSource);
-                    DNHper.NLogger.Info($"编辑后的截图已复制到剪贴板 ({bitmap.Width}x{bitmap.Height})");
+                    DNHper.NLogger.Debug($"编辑后的截图已复制到剪贴板 ({bitmap.Width}x{bitmap.Height})");
                     return;
                 }
                 catch (System.Runtime.InteropServices.COMException ex)
@@ -1159,6 +1347,8 @@ namespace DaemonKit
             if (e.Key == Key.Escape)
             {
                 // ESC 按键：直接退出截屏模式（关闭窗口）
+                Mouse.OverrideCursor = null;
+                Cursor = Cursors.Arrow;
                 _updateTimer.Stop();
                 _isSelecting = false;
                 DialogResult = false;
@@ -1220,17 +1410,20 @@ namespace DaemonKit
 
                 if (_currentTool == DrawingTool.Pencil)
                 {
-                    // 铅笔工具：直接绘制到编辑位图
-                    _editingGraphics.DrawLine(
+                    // 铅笔工具：转换为屏幕绝对坐标后绘制到笔触层
+                    int offsetX = _lastScreenshotX - _screenLeft;
+                    int offsetY = _lastScreenshotY - _screenTop;
+                    _strokeGraphics.DrawLine(
                         new System.Drawing.Pen(_currentBrushColor, _currentBrushSize),
-                        (float)_lastDrawPoint.X,
-                        (float)_lastDrawPoint.Y,
-                        (float)currentPoint.X,
-                        (float)currentPoint.Y
+                        (float)(_lastDrawPoint.X + offsetX),
+                        (float)(_lastDrawPoint.Y + offsetY),
+                        (float)(currentPoint.X + offsetX),
+                        (float)(currentPoint.Y + offsetY)
                     );
                     _lastDrawPoint = currentPoint;
 
                     // 更新显示
+                    CompositeLayersToEditing();
                     SelectionScreenshotImage.Source = ColorPicker.BitmapToBitmapSource(
                         _editingBitmap
                     );
@@ -1240,17 +1433,38 @@ namespace DaemonKit
                     // 其他工具：显示实时预览
                     if (_previewBitmap == null)
                     {
-                        _previewBitmap = (Bitmap)_editingBitmap.Clone();
-                    }
-                    else
-                    {
-                        // 重置预览位图为当前编辑位图
-                        _previewBitmap.Dispose();
-                        _previewBitmap = (Bitmap)_editingBitmap.Clone();
+                        _previewBitmap = new Bitmap(_lastScreenshotWidth, _lastScreenshotHeight);
                     }
 
+                    // 从背景 + 已绘制笔触 + 当前预览合成
                     using (Graphics g = Graphics.FromImage(_previewBitmap))
                     {
+                        g.Clear(System.Drawing.Color.Transparent);
+                        if (_captureBitmap != null)
+                            g.DrawImage(_captureBitmap, 0, 0);
+                        // 从全屏笔触层裁剪当前选区对应区域
+                        if (_strokeBitmap != null)
+                        {
+                            int cropX = _lastScreenshotX - _screenLeft;
+                            int cropY = _lastScreenshotY - _screenTop;
+                            g.DrawImage(
+                                _strokeBitmap,
+                                new System.Drawing.Rectangle(
+                                    0,
+                                    0,
+                                    _lastScreenshotWidth,
+                                    _lastScreenshotHeight
+                                ),
+                                new System.Drawing.Rectangle(
+                                    cropX,
+                                    cropY,
+                                    _lastScreenshotWidth,
+                                    _lastScreenshotHeight
+                                ),
+                                GraphicsUnit.Pixel
+                            );
+                        }
+
                         g.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
 
                         if (_currentTool == DrawingTool.Line)
@@ -1306,25 +1520,29 @@ namespace DaemonKit
             {
                 System.Windows.Point endPoint = e.GetPosition(DrawingCanvas);
 
-                // 对于非铅笔工具，将最终图形绘制到编辑位图
+                // 转换为屏幕绝对坐标
+                int offsetX = _lastScreenshotX - _screenLeft;
+                int offsetY = _lastScreenshotY - _screenTop;
+
+                // 对于非铅笔工具，将最终图形绘制到笔触层
                 if (_currentTool == DrawingTool.Line)
                 {
-                    _editingGraphics.DrawLine(
+                    _strokeGraphics.DrawLine(
                         new System.Drawing.Pen(_currentBrushColor, _currentBrushSize),
-                        (float)_drawStartPoint.X,
-                        (float)_drawStartPoint.Y,
-                        (float)endPoint.X,
-                        (float)endPoint.Y
+                        (float)(_drawStartPoint.X + offsetX),
+                        (float)(_drawStartPoint.Y + offsetY),
+                        (float)(endPoint.X + offsetX),
+                        (float)(endPoint.Y + offsetY)
                     );
                 }
                 else if (_currentTool == DrawingTool.Rectangle)
                 {
-                    int x = (int)Math.Min(_drawStartPoint.X, endPoint.X);
-                    int y = (int)Math.Min(_drawStartPoint.Y, endPoint.Y);
+                    int x = (int)Math.Min(_drawStartPoint.X, endPoint.X) + offsetX;
+                    int y = (int)Math.Min(_drawStartPoint.Y, endPoint.Y) + offsetY;
                     int width = (int)Math.Abs(endPoint.X - _drawStartPoint.X);
                     int height = (int)Math.Abs(endPoint.Y - _drawStartPoint.Y);
 
-                    _editingGraphics.DrawRectangle(
+                    _strokeGraphics.DrawRectangle(
                         new System.Drawing.Pen(_currentBrushColor, _currentBrushSize),
                         x,
                         y,
@@ -1335,11 +1553,11 @@ namespace DaemonKit
                 else if (_currentTool == DrawingTool.Arrow)
                 {
                     DrawArrowOnGraphics(
-                        _editingGraphics,
-                        (float)_drawStartPoint.X,
-                        (float)_drawStartPoint.Y,
-                        (float)endPoint.X,
-                        (float)endPoint.Y
+                        _strokeGraphics,
+                        (float)(_drawStartPoint.X + offsetX),
+                        (float)(_drawStartPoint.Y + offsetY),
+                        (float)(endPoint.X + offsetX),
+                        (float)(endPoint.Y + offsetY)
                     );
                 }
 
@@ -1350,17 +1568,19 @@ namespace DaemonKit
                     _previewBitmap = null;
                 }
 
-                // 保存到撤销历史
-                if (_undoHistory.Count > MaxUndoSteps) // 限制历史记录数量
+                // 更新显示
+                CompositeLayersToEditing();
+                SelectionScreenshotImage.Source = ColorPicker.BitmapToBitmapSource(_editingBitmap);
+
+                // 保存撤销历史（保存笔触层）
+                if (_undoHistory.Count >= MaxUndoSteps)
                 {
                     var oldest = _undoHistory.Last();
                     oldest?.Dispose();
-                    _undoHistory = new Stack<Bitmap>(_undoHistory.Take(MaxUndoSteps).Reverse());
+                    _undoHistory = new Stack<Bitmap>(_undoHistory.Take(MaxUndoSteps - 1).Reverse());
                 }
-                _undoHistory.Push((Bitmap)_editingBitmap.Clone());
+                _undoHistory.Push((Bitmap)_strokeBitmap.Clone());
 
-                // 更新显示为最终结果
-                SelectionScreenshotImage.Source = ColorPicker.BitmapToBitmapSource(_editingBitmap);
                 _isDrawing = false;
             }
         }
@@ -1441,40 +1661,73 @@ namespace DaemonKit
             }
         }
 
+        private void TextSizeSlider_ValueChanged(
+            object sender,
+            RoutedPropertyChangedEventArgs<double> e
+        )
+        {
+            _currentTextSize = (int)TextSizeSlider.Value;
+            if (TextSizeText != null)
+            {
+                TextSizeText.Text = $"{_currentTextSize}";
+            }
+            if (_activeTextBox != null)
+            {
+                _activeTextBox.FontSize = _currentTextSize;
+            }
+        }
+
         private void PencilToolBtn_Click(object sender, RoutedEventArgs e)
         {
             _currentTool = DrawingTool.Pencil;
             UpdateToolButtonStyles();
+            ShowTextSizeControls(false);
         }
 
         private void MoveToolBtn_Click(object sender, RoutedEventArgs e)
         {
             _currentTool = DrawingTool.Move;
             UpdateToolButtonStyles();
+            ShowTextSizeControls(false);
         }
 
         private void LineToolBtn_Click(object sender, RoutedEventArgs e)
         {
             _currentTool = DrawingTool.Line;
             UpdateToolButtonStyles();
+            ShowTextSizeControls(false);
         }
 
         private void RectToolBtn_Click(object sender, RoutedEventArgs e)
         {
             _currentTool = DrawingTool.Rectangle;
             UpdateToolButtonStyles();
+            ShowTextSizeControls(false);
         }
 
         private void ArrowToolBtn_Click(object sender, RoutedEventArgs e)
         {
             _currentTool = DrawingTool.Arrow;
             UpdateToolButtonStyles();
+            ShowTextSizeControls(false);
         }
 
         private void TextToolBtn_Click(object sender, RoutedEventArgs e)
         {
             _currentTool = DrawingTool.Text;
             UpdateToolButtonStyles();
+            ShowTextSizeControls(true);
+        }
+
+        private void ShowTextSizeControls(bool show)
+        {
+            var visibility = show ? Visibility.Visible : Visibility.Collapsed;
+            if (TextSizeLabel != null)
+                TextSizeLabel.Visibility = visibility;
+            if (TextSizeSlider != null)
+                TextSizeSlider.Visibility = visibility;
+            if (TextSizeText != null)
+                TextSizeText.Visibility = visibility;
         }
 
         private void UndoButton_Click(object sender, RoutedEventArgs e)
@@ -1527,36 +1780,54 @@ namespace DaemonKit
         {
             CommitActiveTextBox();
 
+            // 创建容器用于边界拖动（无标题栏）
+            var container = new Border
+            {
+                Background = System.Windows.Media.Brushes.White,
+                BorderBrush = new SolidColorBrush(System.Windows.Media.Color.FromRgb(0, 160, 255)),
+                BorderThickness = new Thickness(2),
+                CornerRadius = new CornerRadius(3),
+                Padding = new Thickness(4)
+            };
+            container.MouseLeftButtonDown += Container_MouseLeftButtonDown;
+            container.MouseMove += Container_MouseMoveForCursor;
+            container.MouseLeftButtonUp += Container_MouseLeftButtonUp;
+
             _activeTextBox = new TextBox
             {
                 MinWidth = 100,
                 MinHeight = 30,
-                Background = System.Windows.Media.Brushes.White,
+                Background = System.Windows.Media.Brushes.Transparent,
                 Foreground = new SolidColorBrush(
-                    System.Windows.Media.Color.FromRgb(
+                    System.Windows.Media.Color.FromArgb(
+                        255,
                         _currentBrushColor.R,
                         _currentBrushColor.G,
                         _currentBrushColor.B
                     )
                 ),
-                FontSize = 14,
-                BorderBrush = new SolidColorBrush(System.Windows.Media.Color.FromRgb(0, 160, 255)),
-                BorderThickness = new Thickness(2),
-                Padding = new Thickness(4),
+                FontFamily = new System.Windows.Media.FontFamily("Microsoft YaHei"),
+                FontSize = _currentTextSize,
+                BorderThickness = new Thickness(0),
+                Padding = new Thickness(0),
                 AcceptsReturn = true,
                 TextWrapping = TextWrapping.Wrap,
                 Cursor = Cursors.IBeam
             };
 
-            Canvas.SetLeft(_activeTextBox, position.X);
-            Canvas.SetTop(_activeTextBox, position.Y);
-            DrawingCanvas.Children.Add(_activeTextBox);
+            // 完全禁用拼写检查和语法检查，移除所有下划线
+            _activeTextBox.SpellCheck.IsEnabled = false;
+            System.Windows.Controls.SpellCheck.SetIsEnabled(_activeTextBox, false);
+
+            container.Child = _activeTextBox;
+
+            Canvas.SetLeft(container, position.X);
+            Canvas.SetTop(container, position.Y);
+            DrawingCanvas.Children.Add(container);
             _activeTextBox.Focus();
 
             _activeTextBox.KeyDown += TextBox_KeyDown;
             _activeTextBox.LostFocus += TextBox_LostFocus;
-
-            _activeTextBox.MouseLeftButtonDown += TextBox_MouseLeftButtonDown;
         }
 
         private void TextBox_KeyDown(object sender, KeyEventArgs e)
@@ -1568,61 +1839,46 @@ namespace DaemonKit
             }
         }
 
-        private void TextBox_LostFocus(object sender, RoutedEventArgs e)
+        private async void TextBox_LostFocus(object sender, RoutedEventArgs e)
         {
-            Dispatcher.BeginInvoke(
-                new Action(() =>
-                {
-                    if (_activeTextBox != null && !_activeTextBox.IsKeyboardFocusWithin)
-                    {
-                        CommitActiveTextBox();
-                    }
-                }),
-                System.Windows.Threading.DispatcherPriority.Background
-            );
+            // 延迟执行，确保焦点状态已稳定
+            await System.Threading.Tasks.Task.Delay(0);
+
+            if (_activeTextBox != null && !_activeTextBox.IsKeyboardFocusWithin)
+            {
+                CommitActiveTextBox();
+            }
         }
 
         private System.Windows.Point _textBoxDragStart;
         private bool _isTextBoxDragging = false;
+        private UIElement? _draggingContainer = null;
 
-        private void TextBox_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+        private void Container_MouseMove(object sender, MouseEventArgs e)
         {
-            if (sender is TextBox textBox)
-            {
-                _isTextBoxDragging = true;
-                _textBoxDragStart = e.GetPosition(DrawingCanvas);
-                textBox.CaptureMouse();
-                textBox.MouseMove += TextBox_MouseMove;
-                textBox.MouseLeftButtonUp += TextBox_MouseLeftButtonUp;
-                e.Handled = true;
-            }
-        }
-
-        private void TextBox_MouseMove(object sender, MouseEventArgs e)
-        {
-            if (_isTextBoxDragging && sender is TextBox textBox)
+            if (_isTextBoxDragging && _draggingContainer != null)
             {
                 var currentPos = e.GetPosition(DrawingCanvas);
                 var offset = currentPos - _textBoxDragStart;
 
-                var left = Canvas.GetLeft(textBox) + offset.X;
-                var top = Canvas.GetTop(textBox) + offset.Y;
+                var left = Canvas.GetLeft(_draggingContainer) + offset.X;
+                var top = Canvas.GetTop(_draggingContainer) + offset.Y;
 
-                Canvas.SetLeft(textBox, left);
-                Canvas.SetTop(textBox, top);
+                Canvas.SetLeft(_draggingContainer, left);
+                Canvas.SetTop(_draggingContainer, top);
 
                 _textBoxDragStart = currentPos;
             }
         }
 
-        private void TextBox_MouseLeftButtonUp(object sender, MouseButtonEventArgs e)
+        private void Container_MouseLeftButtonUp(object sender, MouseButtonEventArgs e)
         {
-            if (sender is TextBox textBox)
+            if (_draggingContainer != null)
             {
                 _isTextBoxDragging = false;
-                textBox.ReleaseMouseCapture();
-                textBox.MouseMove -= TextBox_MouseMove;
-                textBox.MouseLeftButtonUp -= TextBox_MouseLeftButtonUp;
+                _draggingContainer.ReleaseMouseCapture();
+                _draggingContainer.MouseMove -= Container_MouseMove; // 移除拖动事件
+                _draggingContainer = null;
             }
         }
 
@@ -1630,36 +1886,129 @@ namespace DaemonKit
         {
             if (_activeTextBox != null && !string.IsNullOrWhiteSpace(_activeTextBox.Text))
             {
-                var left = Canvas.GetLeft(_activeTextBox);
-                var top = Canvas.GetTop(_activeTextBox);
-
-                using (var font = new System.Drawing.Font("Microsoft YaHei", 12))
-                using (var brush = new System.Drawing.SolidBrush(_currentBrushColor))
+                // 获取容器的位置（而不是TextBox的位置）
+                UIElement container = _activeTextBox;
+                if (_activeTextBox.Parent is Border border)
                 {
-                    _editingGraphics.DrawString(
+                    container = border;
+                }
+
+                var left = Canvas.GetLeft(container);
+                var top = Canvas.GetTop(container);
+
+                // 容器的Padding需要加到坐标上
+                if (container is Border b)
+                {
+                    left += b.Padding.Left;
+                    top += b.Padding.Top;
+                }
+
+                // 转换为屏幕绝对坐标
+                int offsetX = _lastScreenshotX - _screenLeft;
+                int offsetY = _lastScreenshotY - _screenTop;
+
+                // 绘制到笔触层，使用用户设置的文字大小
+                // 使用StringFormat确保与WPF TextBox显示完全一致
+                using (
+                    var font = new System.Drawing.Font(
+                        "Microsoft YaHei",
+                        (float)_currentTextSize,
+                        System.Drawing.GraphicsUnit.Pixel
+                    )
+                )
+                using (var brush = new System.Drawing.SolidBrush(_currentBrushColor))
+                using (
+                    var format = new System.Drawing.StringFormat(
+                        System.Drawing.StringFormat.GenericTypographic
+                    )
+                )
+                {
+                    format.FormatFlags = System.Drawing.StringFormatFlags.MeasureTrailingSpaces;
+                    _strokeGraphics.DrawString(
                         _activeTextBox.Text,
                         font,
                         brush,
-                        (float)left,
-                        (float)top
+                        (float)(left + offsetX),
+                        (float)(top + offsetY),
+                        format
                     );
                 }
 
+                // 合成并显示
+                CompositeLayersToEditing();
                 SelectionScreenshotImage.Source = ColorPicker.BitmapToBitmapSource(_editingBitmap);
 
-                if (_undoHistory.Count > MaxUndoSteps)
+                // 保存撤销历史
+                if (_undoHistory.Count >= MaxUndoSteps)
                 {
                     var oldest = _undoHistory.Last();
                     oldest?.Dispose();
-                    _undoHistory = new Stack<Bitmap>(_undoHistory.Take(MaxUndoSteps).Reverse());
+                    _undoHistory = new Stack<Bitmap>(_undoHistory.Take(MaxUndoSteps - 1).Reverse());
                 }
-                _undoHistory.Push((Bitmap)_editingBitmap.Clone());
+                _undoHistory.Push((Bitmap)_strokeBitmap.Clone());
             }
 
             if (_activeTextBox != null)
             {
-                DrawingCanvas.Children.Remove(_activeTextBox);
+                // 移除容器（如果有）或TextBox本身
+                UIElement elementToRemove = _activeTextBox;
+                if (_activeTextBox.Parent is Border border)
+                {
+                    elementToRemove = border;
+                }
+                DrawingCanvas.Children.Remove(elementToRemove);
                 _activeTextBox = null;
+            }
+        }
+
+        private void Container_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+        {
+            if (sender is Border container)
+            {
+                // 避免在文本编辑区域启动拖动
+                if (e.OriginalSource is TextBox)
+                    return;
+
+                var pos = e.GetPosition(container);
+                double margin = 20; // 接近边界20像素即可拖动
+                bool nearEdge =
+                    pos.X <= margin
+                    || pos.Y <= margin
+                    || pos.X >= container.ActualWidth - margin
+                    || pos.Y >= container.ActualHeight - margin;
+
+                if (nearEdge)
+                {
+                    _isTextBoxDragging = true;
+                    _draggingContainer = container;
+                    _textBoxDragStart = e.GetPosition(DrawingCanvas);
+                    container.CaptureMouse();
+                    container.MouseMove += Container_MouseMove; // 添加拖动事件
+                    e.Handled = true;
+                }
+            }
+        }
+
+        private void Container_MouseMoveForCursor(object sender, MouseEventArgs e)
+        {
+            if (sender is Border container && !_isTextBoxDragging)
+            {
+                // 避免在文本编辑区域改变光标
+                if (e.OriginalSource is TextBox)
+                {
+                    container.Cursor = Cursors.Arrow;
+                    return;
+                }
+
+                var pos = e.GetPosition(container);
+                double margin = 20;
+                bool nearEdge =
+                    pos.X <= margin
+                    || pos.Y <= margin
+                    || pos.X >= container.ActualWidth - margin
+                    || pos.Y >= container.ActualHeight - margin;
+
+                container.Cursor = nearEdge ? Cursors.SizeAll : Cursors.Arrow;
             }
         }
 
@@ -1667,18 +2016,26 @@ namespace DaemonKit
         {
             if (_undoHistory.Count > 1)
             {
-                var current = _undoHistory.Pop();
-                current?.Dispose();
+                _undoHistory.Pop()?.Dispose();
+                var previousStroke = _undoHistory.Peek();
+                if (previousStroke != null)
+                {
+                    _strokeBitmap?.Dispose();
+                    _strokeGraphics?.Dispose();
+                    _strokeBitmap = (Bitmap)previousStroke.Clone();
+                    _strokeGraphics = Graphics.FromImage(_strokeBitmap);
+                    _strokeGraphics.SmoothingMode = System
+                        .Drawing
+                        .Drawing2D
+                        .SmoothingMode
+                        .AntiAlias;
 
-                var previous = _undoHistory.Peek();
-                _editingBitmap?.Dispose();
-                _editingBitmap = (Bitmap)previous.Clone();
-                _editingGraphics?.Dispose();
-                _editingGraphics = Graphics.FromImage(_editingBitmap);
-                _editingGraphics.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
-
-                SelectionScreenshotImage.Source = ColorPicker.BitmapToBitmapSource(_editingBitmap);
-                DNHper.NLogger.Info("已撤销上一步操作");
+                    CompositeLayersToEditing();
+                    SelectionScreenshotImage.Source = ColorPicker.BitmapToBitmapSource(
+                        _editingBitmap
+                    );
+                    DNHper.NLogger.Info("已撤销上一步操作");
+                }
             }
         }
 
@@ -1718,6 +2075,8 @@ namespace DaemonKit
             base.OnClosed(e);
             _updateTimer?.Stop();
             _screenBitmap?.Dispose();
+            Mouse.OverrideCursor = null;
+            Cursor = Cursors.Arrow;
         }
     }
 }

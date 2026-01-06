@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Linq;
+using System.Reactive.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using System.Windows;
@@ -32,44 +33,35 @@ namespace DaemonKit
             {
                 DataContext = ViewModel;
 
-                ViewModel.Confirm.Subscribe(_ =>
-                {
-                    // 延迟设置 DialogResult，确保窗口已完全作为对话框显示
-                    Dispatcher.BeginInvoke(
-                        new Action(() =>
+                ViewModel.Confirm
+                    .ObserveOn(RxApp.MainThreadScheduler)
+                    .Subscribe(_ =>
+                    {
+                        try
                         {
-                            try
-                            {
-                                this.DialogResult = true;
-                            }
-                            catch
-                            {
-                                // 如果设置失败，直接关闭窗口
-                            }
-                            this.Close();
-                        }),
-                        System.Windows.Threading.DispatcherPriority.ApplicationIdle
-                    );
-                });
+                            this.DialogResult = true;
+                        }
+                        catch
+                        {
+                            // 如果设置失败，直接关闭窗口
+                        }
+                        this.Close();
+                    });
 
-                ViewModel.Cancel.Subscribe(_ =>
-                {
-                    Dispatcher.BeginInvoke(
-                        new Action(() =>
+                ViewModel.Cancel
+                    .ObserveOn(RxApp.MainThreadScheduler)
+                    .Subscribe(_ =>
+                    {
+                        try
                         {
-                            try
-                            {
-                                this.DialogResult = false;
-                            }
-                            catch
-                            {
-                                // 如果设置失败，直接关闭窗口
-                            }
-                            this.Close();
-                        }),
-                        System.Windows.Threading.DispatcherPriority.ApplicationIdle
-                    );
-                });
+                            this.DialogResult = false;
+                        }
+                        catch
+                        {
+                            // 如果设置失败，直接关闭窗口
+                        }
+                        this.Close();
+                    });
             });
         }
     }

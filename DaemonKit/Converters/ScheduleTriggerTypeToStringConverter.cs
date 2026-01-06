@@ -1,68 +1,52 @@
 using System;
+using System.Globalization;
 using System.Windows.Data;
+using DaemonKit.Core;
 
 namespace DaemonKit.Converters
 {
+    /// <summary>
+    /// 将新的ScheduleTriggerType转换为UI显示的字符串
+    /// </summary>
     public class ScheduleTriggerTypeToStringConverter : IValueConverter
     {
-        public object Convert(
-            object value,
-            Type targetType,
-            object parameter,
-            System.Globalization.CultureInfo culture
-        )
+        public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
         {
-            if (value is Core.TriggerType type)
+            if (value is ScheduleTriggerType triggerType)
             {
-                if (type == Core.TriggerType.Daily)
+                return triggerType switch
                 {
-                    return "每天";
-                }
-                else if (type == Core.TriggerType.Interval)
-                {
-                    return "间隔";
-                }
-                else if (type == Core.TriggerType.OnAppStart)
-                {
-                    return "程序启动后";
-                }
-                else if (type == Core.TriggerType.OnAppStartOnce)
-                {
-                    return "每天首次启动后";
-                }
+                    ScheduleTriggerType.Daily => "每天定时",
+                    ScheduleTriggerType.EveryStartupAfterDelay => "每天启动后",
+                    ScheduleTriggerType.OncePerDayAfterStart => "每天首次启动后",
+                    ScheduleTriggerType.IntervalAfterStartup => "每间隔",
+                    _ => "未知"
+                };
             }
 
-            return string.Empty;
+            return "未知";
         }
 
         public object ConvertBack(
             object value,
             Type targetType,
             object parameter,
-            System.Globalization.CultureInfo culture
+            CultureInfo culture
         )
         {
-            if (value is string triggerTypeString)
+            if (value is string str)
             {
-                if (triggerTypeString == "每天")
+                return str switch
                 {
-                    return Core.TriggerType.Daily;
-                }
-                else if (triggerTypeString == "间隔")
-                {
-                    return Core.TriggerType.Interval;
-                }
-                else if (triggerTypeString == "程序启动后")
-                {
-                    return Core.TriggerType.OnAppStart;
-                }
-                else if (triggerTypeString == "每天首次启动后")
-                {
-                    return Core.TriggerType.OnAppStartOnce;
-                }
+                    "每天定时" => ScheduleTriggerType.Daily,
+                    "每天启动后" => ScheduleTriggerType.EveryStartupAfterDelay,
+                    "每天首次启动后" => ScheduleTriggerType.OncePerDayAfterStart,
+                    "每间隔" => ScheduleTriggerType.IntervalAfterStartup,
+                    _ => ScheduleTriggerType.Daily
+                };
             }
 
-            return Core.TriggerType.Daily;
+            return ScheduleTriggerType.Daily;
         }
     }
 }

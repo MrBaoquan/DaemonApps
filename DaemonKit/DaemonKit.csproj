@@ -4,9 +4,9 @@
     <OutputType>WinExe</OutputType>
     <TargetFramework>net9.0-windows7.0</TargetFramework>
     <PublishSingleFile Condition="'$(Configuration)' == 'Release'">true</PublishSingleFile>
-    <RuntimeIdentifier>win-x64</RuntimeIdentifier>
+    <RuntimeIdentifier>win-x86</RuntimeIdentifier>
     <EnableCompressionInSingleFile>True</EnableCompressionInSingleFile>
-    <PlatformTarget>x64</PlatformTarget>
+    <PlatformTarget>x86</PlatformTarget>
     <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
     <UseWPF>true</UseWPF>
     <IncludePackageReferencesDuringMarkupCompilation>true</IncludePackageReferencesDuringMarkupCompilation>
@@ -21,7 +21,7 @@
     <Description>windows应用程序依赖编排软件</Description>
     <Product>运维管家</Product>
     <Platforms>AnyCPU;x64;x86</Platforms>
-    <AssemblyVersion>1.25.0.1112</AssemblyVersion>
+    <AssemblyVersion>1.25.1122</AssemblyVersion>
     <FileVersion>1.25.1118</FileVersion>
     <NeutralLanguage>zh-CN</NeutralLanguage>
     <UseWindowsForms>True</UseWindowsForms>
@@ -75,26 +75,28 @@
 
   <ItemGroup>
     <PackageReference Include="FontAwesome.WPF" Version="4.7.0.9" />
-    <PackageReference Include="H.NotifyIcon" Version="2.4.1" />
-    <PackageReference Include="H.NotifyIcon.Wpf" Version="2.4.1" />
-    <PackageReference Include="Hardware.Info" Version="101.1.0.1" />
-    <PackageReference Include="MaterialDesignColors" Version="5.3.0" />
-    <PackageReference Include="MaterialDesignThemes" Version="5.3.0" />
+    <PackageReference Include="H.NotifyIcon" Version="2.3.0" />
+    <PackageReference Include="H.NotifyIcon.Wpf" Version="2.3.0" />
+    <PackageReference Include="Hardware.Info" Version="101.0.1.1" />
+    <PackageReference Include="MaterialDesignColors" Version="2.1.1" />
+    <PackageReference Include="MaterialDesignThemes" Version="4.7.1" />
     <PackageReference Include="MessagePack" Version="3.1.4" />
     <PackageReference Include="MessagePack.Annotations" Version="3.1.4" />
     <PackageReference Include="NLog" Version="6.0.6" />
 
-    <PackageReference Include="ReactiveMarbles.ObservableEvents.SourceGenerator" Version="1.3.1">
+    <PackageReference Include="ReactiveMarbles.ObservableEvents.SourceGenerator" Version="1.1.4">
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
     </PackageReference>
-    <PackageReference Include="ReactiveMarbles.PropertyChanged" Version="2.0.27" />
+    <PackageReference Include="ReactiveMarbles.PropertyChanged" Version="2.0.6" />
 
-    <PackageReference Include="ReactiveUI" Version="22.3.1" />
-    <PackageReference Include="ReactiveUI.WPF" Version="22.3.1" />
-    <PackageReference Include="System.Reactive" Version="6.1.0" />
-    <PackageReference Include="System.Reactive.Linq" Version="6.1.0" />
+    <PackageReference Include="ReactiveUI" Version="19.5.41" />
+    <PackageReference Include="ReactiveUI.WPF" Version="19.5.41" />
+    <PackageReference Include="System.IO.Ports" Version="8.0.0" />
+    <PackageReference Include="System.Reactive" Version="6.0.1" />
+    <PackageReference Include="System.Reactive.Linq" Version="6.0.1" />
     <PackageReference Include="TaskScheduler" Version="2.12.2" />
+    <PackageReference Include="WindowsDisplayAPI" Version="1.3.0.13" />
   </ItemGroup>
 
   <ItemGroup>

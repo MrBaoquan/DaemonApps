@@ -122,11 +122,18 @@ namespace DaemonKit.Core
                 try
                 {
                     _process = new Process();
+
+                    // 检测是否为脚本文件
+                    var ext = System.IO.Path.GetExtension(Path).ToLowerInvariant();
+                    bool isScript =
+                        ext == ".bat" || ext == ".cmd" || ext == ".ps1" || ext == ".vbs";
+
                     _process.StartInfo = new ProcessStartInfo
                     {
                         FileName = Path,
                         Arguments = metaData.Arguments ?? string.Empty,
-                        CreateNoWindow = true,
+                        // 脚本文件显示命令窗口，其他程序隐藏
+                        CreateNoWindow = !isScript,
                         UseShellExecute = false,
                         Verb = metaData.RunAs ? "runas" : "",
                         WorkingDirectory =
@@ -287,6 +294,55 @@ namespace DaemonKit.Core
             }
         }
 
+        public static void KillProcess(string Path, int pid)
+        {
+            try
+            {
+                var process = Process.GetProcessById(pid);
+                if (process == null)
+                {
+                    NLogger.Warn("未找到需要终止的进程: {0} (PID: {1})", Path, pid);
+                    return;
+                }
+
+                // 检测是否为脚本文件
+                var ext = System.IO.Path.GetExtension(Path).ToLowerInvariant();
+                bool isScript = ext == ".bat" || ext == ".cmd" || ext == ".ps1" || ext == ".vbs";
+
+                // 对于非脚本文件，验证路径是否匹配
+                if (!isScript)
+                {
+                    var exePath = string.Empty;
+                    try
+                    {
+                        exePath = process.MainModule?.FileName ?? string.Empty;
+                    }
+                    catch { }
+
+                    if (
+                        !string.IsNullOrEmpty(exePath)
+                        && !exePath.Equals(Path, StringComparison.OrdinalIgnoreCase)
+                    )
+                    {
+                        NLogger.Warn("进程路径不匹配，跳过终止: 期望 {0}, 实际 {1} (PID: {2})", Path, exePath, pid);
+                        return;
+                    }
+                }
+                else
+                {
+                    NLogger.Info("检测到脚本进程，直接使用 PID 终止: {0} (PID: {1})", Path, pid);
+                }
+
+                NLogger.Info("正在终止进程: {0} (PID: {1})", Path, pid);
+                process.Kill();
+                NLogger.Info("已终止进程: {0} (PID: {1})", Path, pid);
+            }
+            catch (Exception ex)
+            {
+                NLogger.Error("终止进程失败: {0} (PID: {1}), 错误: {2}", Path, pid, ex.Message);
+            }
+        }
+
         /// <summary>
         /// 安全关闭进程 - 发送WM_CLOSE消息请求关闭，超时后强制终止
         /// </summary>
@@ -346,6 +402,81 @@ namespace DaemonKit.Core
             return true;
         }
 
+        public static async Task<bool> SafeKillProcess(string Path, int pid, int timeoutMs = 5000)
+        {
+            const int WM_CLOSE = 0x0010;
+            Process process = null;
+
+            try
+            {
+                process = Process.GetProcessById(pid);
+            }
+            catch
+            {
+                NLogger.Warn("进程未找到: {0} (PID: {1})", Path, pid);
+                return false;
+            }
+
+            var exePath = string.Empty;
+            try
+            {
+                exePath = process.MainModule?.FileName ?? string.Empty;
+            }
+            catch { }
+
+            if (
+                !string.IsNullOrEmpty(exePath)
+                && !exePath.Equals(Path, StringComparison.OrdinalIgnoreCase)
+            )
+            {
+                NLogger.Warn("进程路径不匹配，跳过安全关闭: 期望 {0}, 实际 {1} (PID: {2})", Path, exePath, pid);
+                return false;
+            }
+
+            try
+            {
+                if (process.MainWindowHandle != IntPtr.Zero)
+                {
+                    WinAPI.PostMessage(
+                        process.MainWindowHandle,
+                        WM_CLOSE,
+                        IntPtr.Zero,
+                        IntPtr.Zero
+                    );
+                    NLogger.Info("已向进程发送关闭消息: {0} (PID: {1})", Path, pid);
+
+                    var waitTask = Task.Run(() => process.WaitForExit(timeoutMs));
+                    bool exited = await waitTask;
+
+                    if (exited)
+                    {
+                        NLogger.Info("进程已正常退出: {0} (PID: {1})", Path, pid);
+                        return true;
+                    }
+                    else
+                    {
+                        NLogger.Warn(
+                            "进程未在 {0}ms 内响应关闭消息，执行强制终止: {1} (PID: {2})",
+                            timeoutMs,
+                            Path,
+                            pid
+                        );
+                    }
+                }
+                else
+                {
+                    NLogger.Warn("进程无主窗口句柄，无法发送WM_CLOSE，执行强制终止: {0} (PID: {1})", Path, pid);
+                }
+            }
+            catch (Exception ex)
+            {
+                NLogger.Error("安全关闭进程失败: {0} (PID: {1}), 错误: {2}", Path, pid, ex.Message);
+            }
+
+            KillProcess(Path, pid);
+            return true;
+        }
+
         /// <summary>
         /// 根据配置决定使用安全关闭还是强制终止
         /// </summary>
@@ -358,6 +489,23 @@ namespace DaemonKit.Core
             else
             {
                 KillProcess(Path);
+            }
+        }
+
+        public static async Task KillProcess(
+            string Path,
+            int pid,
+            bool useSafeKill,
+            int timeoutMs = 5000
+        )
+        {
+            if (useSafeKill)
+            {
+                await SafeKillProcess(Path, pid, timeoutMs);
+            }
+            else
+            {
+                KillProcess(Path, pid);
             }
         }
     }

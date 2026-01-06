@@ -6,6 +6,7 @@ using System.Text;
 using System.Threading.Tasks;
 using System.Windows;
 using DaemonKit.Core;
+using DaemonKit.PowerSaving;
 using ReactiveUI;
 
 namespace DaemonKit
@@ -19,6 +20,13 @@ namespace DaemonKit
 
     public partial class MainViewModel : ReactiveObject
     {
+        private PowerSavingViewModel? _powerSaving;
+        public PowerSavingViewModel? PowerSaving
+        {
+            get => _powerSaving;
+            set => this.RaiseAndSetIfChanged(ref _powerSaving, value);
+        }
+
         private ProcessCommandParameter openCMD_args = new ProcessCommandParameter
         {
             Path = "cmd.exe",
@@ -129,15 +137,11 @@ namespace DaemonKit
                 _parameter => _parameter,
                 outputScheduler: RxApp.MainThreadScheduler
             );
-            SMBShare = ReactiveCommand.Create(
-                () => { },
-                outputScheduler: RxApp.MainThreadScheduler
-            );
-            SMBUnshare = ReactiveCommand.Create(
-                () => { },
-                outputScheduler: RxApp.MainThreadScheduler
-            );
             OpenRemotePanel = ReactiveCommand.Create(
+                () => { },
+                outputScheduler: RxApp.MainThreadScheduler
+            );
+            OpenPowerSavingPanel = ReactiveCommand.Create(
                 () => { },
                 outputScheduler: RxApp.MainThreadScheduler
             );
@@ -148,10 +152,6 @@ namespace DaemonKit
             );
 
             PickColor = ReactiveCommand.Create(
-                () => { },
-                outputScheduler: RxApp.MainThreadScheduler
-            );
-            PickPosition = ReactiveCommand.Create(
                 () => { },
                 outputScheduler: RxApp.MainThreadScheduler
             );
@@ -206,6 +206,20 @@ namespace DaemonKit
             set { this.RaiseAndSetIfChanged(ref _Text, value); }
         }
 
+        private ProcessItem? _rootProcessNode;
+        public ProcessItem? RootProcessNode
+        {
+            get { return _rootProcessNode; }
+            set { this.RaiseAndSetIfChanged(ref _rootProcessNode, value); }
+        }
+
+        private GlobalScheduleConfig? _globalSchedule;
+        public GlobalScheduleConfig? GlobalSchedule
+        {
+            get { return _globalSchedule; }
+            set { this.RaiseAndSetIfChanged(ref _globalSchedule, value); }
+        }
+
         public ReactiveCommand<Unit, Unit> AddTreeNode { get; protected set; }
         public ReactiveCommand<Unit, Unit> EditTreeNode { get; protected set; }
         public ReactiveCommand<Unit, Unit> DeleteTreeNode { get; protected set; }
@@ -223,15 +237,12 @@ namespace DaemonKit
         }
         public ReactiveCommand<ProcessItem, ProcessItem> EnableNameInput { get; protected set; }
         public ReactiveCommand<ProcessItem, ProcessItem> ConfirmNameInput { get; protected set; }
-
-        public ReactiveCommand<Unit, Unit> SMBShare { get; protected set; }
-        public ReactiveCommand<Unit, Unit> SMBUnshare { get; protected set; }
         public ReactiveCommand<Unit, Unit> OpenRemotePanel { get; protected set; }
+        public ReactiveCommand<Unit, Unit> OpenPowerSavingPanel { get; protected set; }
 
         public ReactiveCommand<Unit, Unit> OpenScheduleWindow { get; protected set; }
 
         public ReactiveCommand<Unit, Unit> PickColor { get; protected set; }
-        public ReactiveCommand<Unit, Unit> PickPosition { get; protected set; }
         public ReactiveCommand<Unit, Unit> TakeScreenshot { get; protected set; }
 
         public ReactiveCommand<Unit, Unit> ShowWindow { get; protected set; }

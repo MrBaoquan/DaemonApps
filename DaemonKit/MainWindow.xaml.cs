@@ -4,6 +4,8 @@ using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Net.Sockets;
+using System.Reactive;
+using System.Reactive.Disposables;
 using System.Reactive.Linq;
 using System.Runtime.InteropServices;
 using System.Runtime.InteropServices;
@@ -16,6 +18,7 @@ using System.Windows.Input;
 using System.Windows.Interop;
 using System.Windows.Media;
 using DaemonKit.Core;
+using DaemonKit.PowerSaving;
 using DNHper;
 using Hardware.Info;
 // using IWshRuntimeLibrary;
@@ -27,7 +30,6 @@ using Newtonsoft.Json;
 using ReactiveMarbles.ObservableEvents;
 using ReactiveUI;
 using System.Collections.Generic;
-using System.Reactive.Disposables;
 
 namespace DaemonKit
 {
@@ -44,6 +46,16 @@ namespace DaemonKit
         [DllImport("user32.dll")]
         private static extern bool UnregisterHotKey(IntPtr hWnd, int id);
 
+        [DllImport("user32.dll")]
+        private static extern bool GetLastInputInfo(ref LASTINPUTINFO plii);
+
+        [StructLayout(LayoutKind.Sequential)]
+        private struct LASTINPUTINFO
+        {
+            public uint cbSize;
+            public uint dwTime;
+        }
+
         private const int HOTKEY_ID = 9000; // Alt+X for screenshot
         private const int WM_HOTKEY = 0x0312;
 
@@ -57,13 +69,45 @@ namespace DaemonKit
         Settings settingsWindow = null!;
         Schedule scheduleWindow = null!;
         DaemonTable _table = null!;
+        PowerSavingWindow powerSavingWindow = null!;
+
+        // 全局计划任务配置
+        public static GlobalScheduleConfig GlobalSchedule { get; set; } = null!;
 
         // 程序启动时间
         private static DateTime appStartTime = DateTime.Now;
         private static bool isFirstStartToday = false;
 
+        private bool _idleActionTriggered;
+        private bool _idleAutoPowerSavingTriggered;
+
+        private TimeSpan IdleThreshold
+        {
+            get
+            {
+                var minutes = Math.Max(1, AppSettings?.IdleAutoActionThresholdMinutes ?? 5);
+                return TimeSpan.FromMinutes(minutes);
+            }
+        }
+
+        private TimeSpan IdlePowerSavingThreshold
+        {
+            get
+            {
+                var minutes = Math.Max(1, AppSettings?.IdleAutoPowerSavingThresholdMinutes ?? 5);
+                return TimeSpan.FromMinutes(minutes);
+            }
+        }
+
         // 单例管理 - 确保截屏窗口只有一个实例
         private static PickerOverlay? _activePickerOverlay = null;
+
+        // 新的任务调度引擎
+        private ScheduleTaskEngine _scheduleTaskEngine = null!;
+
+        // 倒计时对话框单例与等待队列
+        private CountdownConfirmDialog? _activeCountdownDialog;
+        private readonly List<TaskCompletionSource<bool>> _countdownAwaiters = new();
 
         #endregion
 
@@ -83,6 +127,14 @@ namespace DaemonKit
             processNodeForm = new ProcessNodeForm();
             settingsWindow = new Settings();
             scheduleWindow = new Schedule();
+            powerSavingWindow = new PowerSavingWindow();
+
+            // Set PowerSaving ViewModel reference in MainViewModel
+            if (ViewModel != null && powerSavingWindow.DataContext is PowerSavingViewModel psvm)
+            {
+                ViewModel.PowerSaving = psvm;
+            }
+
             _table = new DaemonTable();
 
             this.WhenActivated(disposables =>
@@ -113,6 +165,40 @@ namespace DaemonKit
                 NLogger.Info("加载进程树..");
                 loadExtensions();
                 loadConfig();
+
+                // 初始化新的任务调度引擎（使用全局配置）
+                _scheduleTaskEngine = new ScheduleTaskEngine(rootProcessNode, GlobalSchedule)
+                {
+                    ConfirmHandler = ConfirmSchedulePowerActionAsync
+                };
+                _scheduleTaskEngine.TaskExecuting += (sender, context) =>
+                {
+                    NLogger.Info(
+                        $"执行任务: [{context.TaskConfig.Name}] - {context.TaskConfig.Action}"
+                    );
+                };
+                _scheduleTaskEngine.TaskExecuted += (sender, context) =>
+                {
+                    if (context.IsSuccess)
+                    {
+                        NLogger.Info($"任务完成: {context.Result}");
+                    }
+                    else
+                    {
+                        NLogger.Error($"任务失败: {context.ErrorMessage}");
+                    }
+                };
+
+                // 订阅全局计划任务启用状态变化，自动保存配置
+                GlobalSchedule
+                    .WhenAnyValue(x => x.ScheduleTasksEnabled)
+                    .Skip(1) // 跳过初始值
+                    .ObserveOn(RxApp.MainThreadScheduler)
+                    .Subscribe(enabled =>
+                    {
+                        saveConfig();
+                        NLogger.Info($"计划任务已{(enabled ? "启用" : "禁用")}");
+                    });
 
                 // 检查是否首次启动并启动计划任务监控
                 CheckFirstStartToday();
@@ -167,7 +253,7 @@ namespace DaemonKit
                             // 动态注册/注销快捷键
                             if (AppSettings.EnableGlobalHotKey && !oldHotKeyEnabled)
                             {
-                                Utils.RegisterHotKey(this);
+                                Utils.RegisterHotKey(this, AppSettings);
                                 NLogger.Info("已启用全局快捷键");
                             }
                             else if (!AppSettings.EnableGlobalHotKey && oldHotKeyEnabled)
@@ -263,9 +349,8 @@ namespace DaemonKit
                     .ObserveOn(RxApp.MainThreadScheduler)
                     .Subscribe(_ =>
                     {
-                        scheduleWindow.Title = scheduleWindow.ViewModel!.SetEditingProcessItem(
-                            _selectedTreeNode
-                        );
+                        scheduleWindow.ViewModel!.SetGlobalConfig(GlobalSchedule, rootProcessNode);
+                        scheduleWindow.Title = "全局计划任务";
                         scheduleWindow.Show();
                         var scheduleHelper = new WindowInteropHelper(scheduleWindow);
                         ProcManager.KeepTopWindow(scheduleHelper.Handle, 0, 0, 0, 0);
@@ -303,24 +388,6 @@ namespace DaemonKit
                     WinAPI.OpenProcess("explorer.exe", AppPathes.AppRoot);
                 });
 
-                ViewModel.SMBShare.Subscribe(_ =>
-                {
-                    WinAPI.OpenProcess(
-                        Path.Combine(AppPathes.ExtensionPath, "SMBShare.bat"),
-                        "",
-                        true
-                    );
-                });
-
-                ViewModel.SMBUnshare.Subscribe(_ =>
-                {
-                    WinAPI.OpenProcess(
-                        Path.Combine(AppPathes.ExtensionPath, "SMBUnshare.bat"),
-                        "",
-                        true
-                    );
-                });
-
                 ViewModel.OpenRemotePanel
                     .ObserveOn(RxApp.MainThreadScheduler)
                     .Subscribe(_ =>
@@ -332,14 +399,70 @@ namespace DaemonKit
                     .ObserveOn(RxApp.MainThreadScheduler)
                     .Subscribe(_ =>
                     {
-                        scheduleWindow.Title = scheduleWindow.ViewModel!.SetEditingProcessItem(
-                            rootProcessNode
-                        );
+                        scheduleWindow.ViewModel!.SetGlobalConfig(GlobalSchedule, rootProcessNode);
+                        scheduleWindow.Title = "全局计划任务";
 
                         scheduleWindow.Show();
                         // 窗口置于最前
                         var scheduleHelper = new WindowInteropHelper(scheduleWindow);
                         ProcManager.KeepTopWindow(scheduleHelper.Handle, 0, 0, 0, 0);
+                    });
+
+                ViewModel.OpenPowerSavingPanel
+                    .ObserveOn(RxApp.MainThreadScheduler)
+                    .Subscribe(_ =>
+                    {
+                        // 如果窗口已关闭，需要重新创建
+                        if (powerSavingWindow.IsLoaded == false || powerSavingWindow.Parent != null)
+                        {
+                            try
+                            {
+                                powerSavingWindow.Close();
+                            }
+                            catch { }
+                            powerSavingWindow = new PowerSavingWindow(AppSettings);
+                            if (powerSavingWindow.DataContext is PowerSavingViewModel vm)
+                            {
+                                // Update MainViewModel reference
+                                if (ViewModel != null)
+                                {
+                                    ViewModel.PowerSaving = vm;
+                                }
+
+                                vm.PropertyChanged += (sender, args) =>
+                                {
+                                    if (
+                                        args.PropertyName
+                                            == nameof(PowerSavingViewModel.DefaultNormalBrightness)
+                                        || args.PropertyName
+                                            == nameof(
+                                                PowerSavingViewModel.DefaultPowerSavingBrightness
+                                            )
+                                        || args.PropertyName
+                                            == nameof(PowerSavingViewModel.IsPowerSavingMode)
+                                    )
+                                    {
+                                        vm.SaveSettings(AppSettings);
+                                        saveConfig();
+                                    }
+                                };
+                            }
+                            // 订阅关闭事件以保存设置
+                            powerSavingWindow.Closed += (s, e) =>
+                            {
+                                if (powerSavingWindow.DataContext is PowerSavingViewModel vm)
+                                {
+                                    vm.SaveSettings(AppSettings);
+                                    saveConfig();
+                                    DNHper.NLogger.Info("[PowerSaving] 设置已保存");
+                                }
+                            };
+                        }
+
+                        powerSavingWindow.Show();
+                        powerSavingWindow.Activate();
+                        var helper = new WindowInteropHelper(powerSavingWindow);
+                        ProcManager.KeepTopWindow(helper.Handle, 0, 0, 0, 0);
                     });
 
                 ViewModel.PickColor
@@ -360,35 +483,6 @@ namespace DaemonKit
                             NLogger.Info($"拾取颜色: {overlay.Result}");
                             MessageBox.Show(
                                 $"颜色 {overlay.Result} 已复制到剪贴板",
-                                "拾取成功",
-                                MessageBoxButton.OK,
-                                MessageBoxImage.Information
-                            );
-                        }
-                        this.WindowState = System.Windows.WindowState.Normal;
-                    });
-
-                ViewModel.PickPosition
-                    .ObserveOn(RxApp.MainThreadScheduler)
-                    .Subscribe(_ =>
-                    {
-                        if (_activePickerOverlay != null)
-                        {
-                            _activePickerOverlay.Close();
-                            _activePickerOverlay = null;
-                        }
-                        var overlay = new PickerOverlay
-                        {
-                            Mode = PickerOverlay.PickerMode.Position
-                        };
-                        _activePickerOverlay = overlay;
-                        overlay.Closed += (s, args) => _activePickerOverlay = null;
-                        this.WindowState = System.Windows.WindowState.Minimized;
-                        if (overlay.ShowDialog() == true)
-                        {
-                            NLogger.Info($"拾取位置: {overlay.Result}");
-                            MessageBox.Show(
-                                $"位置 {overlay.Result} 已复制到剪贴板",
                                 "拾取成功",
                                 MessageBoxButton.OK,
                                 MessageBoxImage.Information
@@ -502,15 +596,9 @@ namespace DaemonKit
 
                 scheduleWindow.ViewModel.SaveCommand.Subscribe(_ =>
                 {
-                    var itemNode = scheduleWindow.ViewModel.EditingProcessItem;
-                    itemNode.ScheduleItems = scheduleWindow.ViewModel.ScheduleItems.ToList();
-                    itemNode
-                        .AllChildren()
-                        .Select(_ => _.ScheduleItems)
-                        .SelectMany(_ => _)
-                        .ToList()
-                        .ForEach(_ => _.CalculateStatus());
+                    scheduleWindow.ViewModel.SaveTaskConfigs();
                     saveConfig();
+                    NLogger.Info("全局任务计划已保存");
                 });
                 // TODO 测试结束
 
@@ -555,14 +643,16 @@ namespace DaemonKit
                     Application.Current.Shutdown();
                 });
 
-                ViewModel.ShutdownSystem.Subscribe(_ =>
+                ViewModel.ShutdownSystem.Subscribe(async _ =>
                 {
-                    WinAPI.OpenProcess("shutdown.exe", "/s /t 0");
+                    // 调试模式 - 仅测试确认对话框
+                    await ExecuteShutdownTask();
                 });
 
-                ViewModel.RestartSystem.Subscribe(_ =>
+                ViewModel.RestartSystem.Subscribe(async _ =>
                 {
-                    WinAPI.OpenProcess("shutdown.exe", "/r /t 0");
+                    // 调试模式 - 仅测试确认对话框
+                    await ExecuteRestartTask();
                 });
 
                 if (AppSettings.DisableExplorer)
@@ -579,36 +669,104 @@ namespace DaemonKit
                 Observable
                     .Interval(TimeSpan.FromSeconds(1))
                     .ObserveOn(RxApp.MainThreadScheduler)
-                    .Subscribe(_ =>
+                    .Subscribe(async _ =>
                     {
                         this.clockText.Text = DateTime.Now.ToString("yyyy-MM-dd H:mm:ss");
 
                         // TODO 执行结点计划任务
                         var _scheduleItems = rootProcessNode.RefreshSchedule();
-                        _scheduleItems.ForEach(
-                            ((ProcessItem processItem, ScheduleItem scheduleItem) item) =>
+                        foreach (var item in _scheduleItems)
+                        {
+                            var (processItem, scheduleItem) = item;
+                            if (scheduleItem.TaskType == ScheduleTaskType.Start)
                             {
-                                var (processItem, scheduleItem) = item;
-                                if (scheduleItem.TaskType == ScheduleTaskType.Start)
-                                {
-                                    processItem.RunNode();
-                                }
-                                else if (scheduleItem.TaskType == ScheduleTaskType.Stop)
-                                {
-                                    processItem.KillNode();
-                                }
-                                else if (scheduleItem.TaskType == ScheduleTaskType.Shutdown)
-                                {
-                                    ViewModel.ShutdownSystem.Execute().Subscribe();
-                                }
-                                else if (scheduleItem.TaskType == ScheduleTaskType.Restart)
-                                {
-                                    ViewModel.RestartSystem.Execute().Subscribe();
-                                }
-
-                                scheduleItem.MarkAsExecuted();
+                                processItem.RunNode();
                             }
-                        );
+                            else if (scheduleItem.TaskType == ScheduleTaskType.Stop)
+                            {
+                                processItem.KillNode();
+                            }
+                            else if (scheduleItem.TaskType == ScheduleTaskType.Shutdown)
+                            {
+                                await ExecuteShutdownTask();
+                            }
+                            else if (scheduleItem.TaskType == ScheduleTaskType.Restart)
+                            {
+                                await ExecuteRestartTask();
+                            }
+
+                            scheduleItem.MarkAsExecuted();
+                        }
+                    });
+
+                Observable
+                    .Interval(TimeSpan.FromSeconds(10))
+                    .ObserveOn(RxApp.MainThreadScheduler)
+                    .Subscribe(_ =>
+                    {
+                        var idleDuration = GetIdleDuration();
+
+                        // 处理空闲自动关闭桌面
+                        if (AppSettings.EnableIdleAutoAction)
+                        {
+                            var threshold = IdleThreshold;
+                            if (idleDuration >= threshold)
+                            {
+                                if (!_idleActionTriggered)
+                                {
+                                    HandleIdleTimeout();
+                                    _idleActionTriggered = true;
+                                }
+                            }
+                            else
+                            {
+                                _idleActionTriggered = false;
+                            }
+                        }
+                        else
+                        {
+                            _idleActionTriggered = false;
+                        }
+
+                        // 处理空闲自动省电
+                        if (AppSettings.EnableIdleAutoPowerSaving)
+                        {
+                            var powerSavingThreshold = IdlePowerSavingThreshold;
+                            if (idleDuration >= powerSavingThreshold)
+                            {
+                                if (
+                                    !_idleAutoPowerSavingTriggered
+                                    && powerSavingWindow?.DataContext is PowerSavingViewModel psvm
+                                    && !psvm.IsPowerSavingMode
+                                )
+                                {
+                                    // 进入省电模式
+                                    psvm.IsPowerSavingMode = true;
+                                    _idleAutoPowerSavingTriggered = true;
+                                    NLogger.Info(
+                                        $"空闲{powerSavingThreshold.TotalMinutes}分钟，自动进入省电模式"
+                                    );
+                                }
+                            }
+                            else
+                            {
+                                if (
+                                    _idleAutoPowerSavingTriggered
+                                    && powerSavingWindow?.DataContext is PowerSavingViewModel psvm2
+                                    && psvm2.IsPowerSavingMode
+                                )
+                                {
+                                    // 检测到用户活动，退出省电模式
+                                    psvm2.IsPowerSavingMode = false;
+                                    NLogger.Info("检测到用户活动，退出省电模式");
+                                }
+                                _idleAutoPowerSavingTriggered = false;
+                            }
+                        }
+                        else
+                        {
+                            _idleAutoPowerSavingTriggered = false;
+                        }
                     });
 
                 // 广播设备信息
@@ -1106,6 +1264,11 @@ namespace DaemonKit
                 var _sysMgrMenu = new MenuItem { Header = "系统" };
                 var _toolMenu = new MenuItem { Header = "工具" };
 
+                // 统计 System 和 Tool 类别的项数，用于添加分隔线
+                int systemItemCount = _extConfig.Extensions.Count(e => e.Group == "System");
+                int systemBasicCount = 2; // 前两项：控制面板、任务管理器
+                bool systemSeparatorAdded = false;
+
                 _extConfig.Extensions
                     .WithIndex()
                     .ToList()
@@ -1160,6 +1323,16 @@ namespace DaemonKit
                         );
                         if (_extention.item.Group == "System")
                         {
+                            // 在基础系统工具和高级设置项之间添加分隔线
+                            if (
+                                _sysMgrMenu.Items.Count == systemBasicCount
+                                && !systemSeparatorAdded
+                                && systemItemCount > systemBasicCount
+                            )
+                            {
+                                _sysMgrMenu.Items.Add(new Separator());
+                                systemSeparatorAdded = true;
+                            }
                             _sysMgrMenu.Items.Add(_menuItem);
                         }
                         else
@@ -1221,6 +1394,9 @@ namespace DaemonKit
             );
             rootProcessNode.SyncRelationships();
 
+            // 将 rootProcessNode 传递给 ViewModel 以便 XAML 绑定
+            ViewModel.RootProcessNode = rootProcessNode;
+
             if (!System.IO.File.Exists(AppPathes.AppSettingPath))
             {
                 USerialization.SerializeXML(new AppSettings(), AppPathes.AppSettingPath);
@@ -1238,13 +1414,49 @@ namespace DaemonKit
             }
             AppSettings = USerialization.DeserializeXML<AppSettings>(AppPathes.AppSettingPath);
 
+            // 加载全局计划任务配置
+            if (!System.IO.File.Exists(AppPathes.GlobalSchedulePath))
+            {
+                // 首次运行或升级，从 rootProcessNode 迁移数据
+                NLogger.Info("未找到全局计划任务配置，尝试迁移旧数据...");
+                GlobalSchedule = MigrateScheduleTasksToGlobal(rootProcessNode);
+                USerialization.SerializeXML(GlobalSchedule, AppPathes.GlobalSchedulePath);
+                NLogger.Info($"已迁移 {GlobalSchedule.ScheduleTasks.Count} 个计划任务到全局配置");
+            }
+            else
+            {
+                if (
+                    System.IO.File.ReadAllText(AppPathes.GlobalSchedulePath).Length == 0
+                    && System.IO.File.Exists(AppPathes.GlobalSchedulePath_Backup)
+                )
+                {
+                    System.IO.File.Copy(
+                        AppPathes.GlobalSchedulePath_Backup,
+                        AppPathes.GlobalSchedulePath,
+                        true
+                    );
+                }
+                GlobalSchedule = USerialization.DeserializeXML<GlobalScheduleConfig>(
+                    AppPathes.GlobalSchedulePath
+                );
+            }
+
+            // 验证全局配置
+            if (!GlobalSchedule.Validate(out string validationError))
+            {
+                NLogger.Warn($"全局计划任务配置验证失败: {validationError}");
+            }
+
+            // 将全局配置传递给 ViewModel
+            ViewModel.GlobalSchedule = GlobalSchedule;
+
             Utils.SyncSettings();
             rootProcessNode.SyncSettings(AppSettings);
 
             // 根据配置决定是否注册全局快捷键
             if (AppSettings.EnableGlobalHotKey)
             {
-                Utils.RegisterHotKey(this);
+                Utils.RegisterHotKey(this, AppSettings);
                 NLogger.Info("已注册全局快捷键");
             }
 
@@ -1274,6 +1486,7 @@ namespace DaemonKit
         {
             USerialization.SerializeXML(rootProcessNode, AppPathes.TreeViewDataPath);
             USerialization.SerializeXML(AppSettings, AppPathes.AppSettingPath);
+            USerialization.SerializeXML(GlobalSchedule, AppPathes.GlobalSchedulePath);
             if (!Directory.Exists(AppPathes.ConfigDir_BackUp))
             {
                 Directory.CreateDirectory(AppPathes.ConfigDir_BackUp);
@@ -1291,8 +1504,66 @@ namespace DaemonKit
                 true
             );
             System.IO.File.Copy(AppPathes.AppSettingPath, AppPathes.AppSettingPath_Backup, true);
+            System.IO.File.Copy(
+                AppPathes.GlobalSchedulePath,
+                AppPathes.GlobalSchedulePath_Backup,
+                true
+            );
 
             NLogger.Info("配置文件保存成功.");
+        }
+
+        /// <summary>
+        /// 迁移旧的计划任务数据到全局配置
+        /// 从进程树的所有节点收集任务，合并到全局配置中
+        /// </summary>
+        private GlobalScheduleConfig MigrateScheduleTasksToGlobal(ProcessItem rootNode)
+        {
+            var globalConfig = GlobalScheduleConfig.CreateDefault();
+
+            // 保留根节点的启用状态
+            globalConfig.ScheduleTasksEnabled = rootNode.ScheduleTasksEnabled;
+
+            // 递归收集所有节点的任务
+            CollectTasksFromNode(rootNode, globalConfig.ScheduleTasks, rootNode);
+
+            return globalConfig;
+        }
+
+        /// <summary>
+        /// 递归收集节点的计划任务
+        /// </summary>
+        private void CollectTasksFromNode(
+            ProcessItem node,
+            List<ScheduleTaskConfig> globalTasks,
+            ProcessItem rootNode
+        )
+        {
+            if (node.ScheduleTaskConfigs != null && node.ScheduleTaskConfigs.Count > 0)
+            {
+                foreach (var task in node.ScheduleTaskConfigs)
+                {
+                    var migratedTask = task.Clone();
+
+                    // 设置目标节点信息（对于节点级操作）
+                    if (migratedTask.IsNodeLevelAction())
+                    {
+                        migratedTask.TargetNodeId = node.Name; // 使用Name作为标识
+                        migratedTask.TargetNodeName = node.Name;
+                    }
+
+                    globalTasks.Add(migratedTask);
+                }
+            }
+
+            // 递归处理子节点
+            if (node.Children != null)
+            {
+                foreach (var child in node.Children)
+                {
+                    CollectTasksFromNode(child, globalTasks, rootNode);
+                }
+            }
         }
 
         #endregion
@@ -1331,12 +1602,14 @@ namespace DaemonKit
             switch (msg)
             {
                 case WM_HOTKEY:
-                    if (wParam.ToInt32() == 88)
+                    var hotkeyId = wParam.ToInt32();
+
+                    if (hotkeyId == 88)
                     {
                         handled = true;
                         ViewModel.Quit.Execute().Subscribe();
                     }
-                    if (wParam.ToInt32() == 99)
+                    if (hotkeyId == 99)
                     {
                         handled = true;
                         if (
@@ -1347,19 +1620,38 @@ namespace DaemonKit
                             ViewModel.ShowWindow.Execute().Subscribe();
                         }
                     }
-                    else if (wParam.ToInt32() == HOTKEY_ID)
+                    else if (hotkeyId == HOTKEY_ID)
                     {
+                        if (!AppSettings.EnableGlobalHotKey || !AppSettings.EnableScreenshot)
+                        {
+                            break;
+                        }
                         // Alt+X 快捷键被按下，触发截图
                         handled = true;
-                        Dispatcher.BeginInvoke(
-                            new System.Action(() =>
-                            {
-                                TriggerScreenshot();
-                            })
-                        );
+                        Observable
+                            .Return(Unit.Default)
+                            .ObserveOn(RxApp.MainThreadScheduler)
+                            .Subscribe(_ => TriggerScreenshot());
                     }
-                    else if (wParam.ToInt32() == 100)
+                    else if (hotkeyId == 9001)
+                    { //Alt+C
+                        if (!AppSettings.EnableGlobalHotKey)
+                        {
+                            break;
+                        }
+                        // Alt+C 快捷键被按下，触发拾色
+                        handled = true;
+                        Observable
+                            .Return(Unit.Default)
+                            .ObserveOn(RxApp.MainThreadScheduler)
+                            .Subscribe(_ => ViewModel.PickColor.Execute().Subscribe());
+                    }
+                    else if (hotkeyId == 100)
                     { //Ctrl+D
+                        if (!AppSettings.EnableGlobalHotKey || !AppSettings.EnableToggleWindow)
+                        {
+                            break;
+                        }
                         handled = true;
                         if (
                             this.Visibility == Visibility.Hidden
@@ -1373,25 +1665,58 @@ namespace DaemonKit
                             ViewModel.HideWindow.Execute().Subscribe();
                         }
                     }
-                    else if (wParam.ToInt32() == 101)
+                    else if (hotkeyId == 101)
                     { //Ctrl+R
+                        if (!AppSettings.EnableGlobalHotKey || !AppSettings.EnableStartTree)
+                        {
+                            break;
+                        }
                         handled = true;
                         ViewModel.RunNodeTree.Execute().Subscribe();
                     }
-                    else if (wParam.ToInt32() == 102)
+                    else if (hotkeyId == 102)
                     { //Ctrl+W
+                        if (!AppSettings.EnableGlobalHotKey || !AppSettings.EnableStopTree)
+                        {
+                            break;
+                        }
                         handled = true;
                         ViewModel.KillNodeTree.Execute().Subscribe();
                     }
-                    else if (wParam.ToInt32() == 103)
+                    else if (hotkeyId == 103)
                     {
+                        if (!AppSettings.EnableGlobalHotKey || !AppSettings.EnableDesktopOn)
+                        {
+                            break;
+                        }
                         handled = true;
                         ViewModel.RunProcess.Execute(ViewModel.OpenFileExplorer_args).Subscribe();
                     }
-                    else if (wParam.ToInt32() == 104)
+                    else if (hotkeyId == 104)
                     {
+                        if (!AppSettings.EnableGlobalHotKey || !AppSettings.EnableDesktopOff)
+                        {
+                            break;
+                        }
                         handled = true;
                         ViewModel.RunProcess.Execute(ViewModel.KillFileExplorer_args).Subscribe();
+                    }
+                    else if (hotkeyId == 105)
+                    {
+                        if (
+                            !AppSettings.EnableGlobalHotKey
+                            || !AppSettings.EnableScheduleToggleHotKey
+                        )
+                        {
+                            break;
+                        }
+
+                        handled = true;
+                        GlobalSchedule.ScheduleTasksEnabled = !GlobalSchedule.ScheduleTasksEnabled;
+                        saveConfig();
+                        NLogger.Info(
+                            $"全局计划任务已{(GlobalSchedule.ScheduleTasksEnabled ? "启用" : "禁用")}（快捷键切换）"
+                        );
                     }
                     break;
                 case WM_QUERYENDSESSION:
@@ -1426,7 +1751,7 @@ namespace DaemonKit
 
             // 更新标记文件
             File.WriteAllText(markerFile, today);
-            NLogger.Info($"程序启动时间: {appStartTime}, 是否每天首次启动: {isFirstStartToday}");
+            NLogger.Info($"程序启动时间: {appStartTime}, 是否当日首次启动: {isFirstStartToday}");
         }
 
         /// <summary>
@@ -1434,12 +1759,19 @@ namespace DaemonKit
         /// </summary>
         private void StartScheduleTaskMonitor()
         {
-            // 每秒检查一次任务
+            // 使用新的任务调度引擎进行任务检查和执行
             Observable
                 .Timer(TimeSpan.Zero, TimeSpan.FromSeconds(1))
                 .ObserveOn(RxApp.MainThreadScheduler)
-                .Subscribe(_ =>
+                .Subscribe(async _ =>
                 {
+                    // 新引擎检查新格式的任务
+                    if (_scheduleTaskEngine != null)
+                    {
+                        await _scheduleTaskEngine.CheckAndExecutePendingTasks();
+                    }
+
+                    // 保留旧的任务检查以保证兼容性
                     CheckAndExecuteScheduleTasks();
                 });
         }
@@ -1541,7 +1873,9 @@ namespace DaemonKit
             }
 
             NLogger.Info("执行关机命令");
-            Process.Start("shutdown", "/s /t 0");
+            // 调试模式 - 暂时注释真正的关机命令
+            //Process.Start("shutdown", "/s /t 0");
+            NLogger.Info("系统关机命令已确认（调试模式，未真正执行）");
         }
 
         /// <summary>
@@ -1557,7 +1891,9 @@ namespace DaemonKit
             }
 
             NLogger.Info("执行重启命令");
-            Process.Start("shutdown", "/r /t 0");
+            // 调试模式 - 暂时注释真正的重启命令
+            //Process.Start("shutdown", "/r /t 0");
+            NLogger.Info("系统重启命令已确认（调试模式，未真正执行）");
         }
 
         /// <summary>
@@ -1584,20 +1920,69 @@ namespace DaemonKit
             string message
         )
         {
-            var taskCompletionSource = new TaskCompletionSource<bool>();
+            var tcs = new TaskCompletionSource<bool>();
 
             await Dispatcher.InvokeAsync(() =>
             {
-                var dialog = new CountdownConfirmDialog
+                // 若已有倒计时弹窗，则重置倒计时并复用，避免重复弹窗
+                if (_activeCountdownDialog != null && _activeCountdownDialog.IsVisible)
+                {
+                    _countdownAwaiters.Add(tcs);
+                    _activeCountdownDialog.ResetCountdown(10);
+                    _activeCountdownDialog.Activate();
+                    return;
+                }
+
+                _countdownAwaiters.Clear();
+                _countdownAwaiters.Add(tcs);
+
+                _activeCountdownDialog = new CountdownConfirmDialog
                 {
                     ViewModel = new CountdownConfirmViewModel(title, message, 10)
                 };
 
-                var result = dialog.ShowDialog();
-                taskCompletionSource.SetResult(result == true);
+                _activeCountdownDialog.Closed += CountdownDialog_Closed;
+                _activeCountdownDialog.ShowDialog();
             });
 
-            return await taskCompletionSource.Task;
+            return await tcs.Task;
+        }
+
+        private void CountdownDialog_Closed(object? sender, EventArgs e)
+        {
+            bool result = (_activeCountdownDialog?.DialogResult ?? false) == true;
+
+            foreach (var waiter in _countdownAwaiters)
+            {
+                waiter.TrySetResult(result);
+            }
+
+            _countdownAwaiters.Clear();
+
+            if (_activeCountdownDialog != null)
+            {
+                _activeCountdownDialog.Closed -= CountdownDialog_Closed;
+                _activeCountdownDialog = null;
+            }
+        }
+
+        private async System.Threading.Tasks.Task<bool> ConfirmSchedulePowerActionAsync(
+            Core.ScheduleTaskAction action
+        )
+        {
+            if (!AppSettings.EnableCountdownConfirm)
+            {
+                return true;
+            }
+
+            return action switch
+            {
+                Core.ScheduleTaskAction.ShutdownSystem
+                    => await ShowCountdownConfirm("系统关机", "系统将在倒计时结束后关机"),
+                Core.ScheduleTaskAction.RestartSystem
+                    => await ShowCountdownConfirm("系统重启", "系统将在倒计时结束后重启"),
+                _ => true
+            };
         }
 
         /// <summary>
@@ -1635,27 +2020,115 @@ namespace DaemonKit
             }
         }
 
+        private TimeSpan GetIdleDuration()
+        {
+            var info = new LASTINPUTINFO { cbSize = (uint)Marshal.SizeOf<LASTINPUTINFO>() };
+            if (!GetLastInputInfo(ref info))
+            {
+                return TimeSpan.Zero;
+            }
+
+            var lastInputTick = info.dwTime;
+            var currentTick = (uint)Environment.TickCount;
+            var idleMilliseconds =
+                currentTick >= lastInputTick
+                    ? currentTick - lastInputTick
+                    : uint.MaxValue - lastInputTick + currentTick + 1;
+
+            return TimeSpan.FromMilliseconds(idleMilliseconds);
+        }
+
+        private void HandleIdleTimeout()
+        {
+            try
+            {
+                var desktopRunning = Process.GetProcessesByName("explorer").Any();
+                if (desktopRunning)
+                {
+                    WinAPI.OpenProcess("taskkill.exe", "/f /im explorer.exe");
+                    NLogger.Info("空闲超时，已关闭桌面进程");
+                }
+
+                if (!rootProcessNode.IsRuning)
+                {
+                    rootProcessNode.RunNode();
+                    NLogger.Info("空闲超时，已启动进程树");
+                }
+            }
+            catch (Exception ex)
+            {
+                NLogger.Error($"执行空闲超时操作失败: {ex.Message}");
+            }
+        }
+
         private void TriggerScreenshot()
         {
             try
             {
-                var overlay = new PickerOverlay { Mode = PickerOverlay.PickerMode.Screenshot };
+                var overlay = PickerOverlay.GetInstance();
+                // 如果已经在显示中，直接激活并返回，防止多实例
+                if (overlay.IsVisible)
+                {
+                    overlay.Activate();
+                    return;
+                }
+
+                overlay.Mode = PickerOverlay.PickerMode.Screenshot;
                 this.WindowState = System.Windows.WindowState.Minimized;
                 if (overlay.ShowDialog() == true)
                 {
                     NLogger.Info($"截图保存: {overlay.Result}");
-                    MessageBox.Show(
-                        $"截图已保存并复制到剪贴板\n{overlay.Result}",
-                        "截图成功",
-                        MessageBoxButton.OK,
-                        MessageBoxImage.Information
-                    );
                 }
                 this.WindowState = System.Windows.WindowState.Minimized;
             }
             catch (Exception ex)
             {
                 NLogger.Error($"截图失败: {ex.Message}");
+            }
+        }
+
+        private void OpenScreenshotFolder_Click(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                var screenshotPath = Path.Combine(AppPathes.AppRoot, "Screenshots");
+                if (!Directory.Exists(screenshotPath))
+                {
+                    Directory.CreateDirectory(screenshotPath);
+                }
+                WinAPI.OpenProcess("explorer.exe", screenshotPath);
+                NLogger.Info($"打开截图文件夹: {screenshotPath}");
+            }
+            catch (Exception ex)
+            {
+                NLogger.Error($"打开截图文件夹失败: {ex.Message}");
+            }
+        }
+
+        private void OpenHotkeySettings_Click(object sender, RoutedEventArgs e)
+        {
+            var oldHotKeyEnabled = AppSettings.EnableGlobalHotKey;
+            var hotkeyWindow = new HotkeySettingsWindow { Owner = this };
+            hotkeyWindow.ViewModel.LoadFrom(AppSettings);
+            var result = hotkeyWindow.ShowDialog();
+            if (result == true)
+            {
+                hotkeyWindow.ViewModel.ApplyTo(AppSettings);
+                saveConfig();
+
+                if (AppSettings.EnableGlobalHotKey)
+                {
+                    Utils.RegisterHotKey(this, AppSettings);
+                    NLogger.Info("已启用全局快捷键");
+                }
+                else
+                {
+                    Utils.UnRegisterHotKey(this);
+                    if (oldHotKeyEnabled)
+                    {
+                        NLogger.Info("已禁用全局快捷键");
+                    }
+                }
             }
         }
 

@@ -4,90 +4,185 @@ using System.Reactive.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
+using System.Windows.Threading;
 using ReactiveUI;
 
 namespace DaemonKit
 {
     public partial class CountdownConfirmDialog : ReactiveWindow<CountdownConfirmViewModel>
     {
-        private CancellationTokenSource _cancellationTokenSource;
+        private CancellationTokenSource? _cancellationTokenSource;
+        private DispatcherTimer? _countdownTimer;
+        private System.Windows.Controls.TextBlock? _countdownTextBlock;
+        private readonly object _timerLock = new();
 
         public CountdownConfirmDialog()
         {
             InitializeComponent();
-
-            this.WhenActivated(disposables =>
-            {
-                if (ViewModel != null)
-                {
-                    ViewModel.Confirm.Subscribe(_ =>
-                    {
-                        DialogResult = true;
-                        Close();
-                    });
-
-                    ViewModel.Cancel.Subscribe(_ =>
-                    {
-                        DialogResult = false;
-                        Close();
-                    });
-                }
-            });
-
             Loaded += CountdownConfirmDialog_Loaded;
         }
 
-        private async void CountdownConfirmDialog_Loaded(object sender, RoutedEventArgs e)
+        protected override void OnContentRendered(EventArgs e)
+        {
+            base.OnContentRendered(e);
+            // 获取倒计时数字 TextBlock
+            _countdownTextBlock =
+                FindName("CountdownTextBlock") as System.Windows.Controls.TextBlock;
+            // 确保 DataContext 已经设置
+            if (DataContext == null && ViewModel != null)
+            {
+                DataContext = ViewModel;
+            }
+        }
+
+        private void CountdownConfirmDialog_Loaded(object sender, RoutedEventArgs e)
+        {
+            if (ViewModel == null)
+            {
+                System.Diagnostics.Debug.WriteLine("ERROR: ViewModel is null in Loaded event");
+                return;
+            }
+
+            // 获取 TextBlock 引用
+            _countdownTextBlock =
+                FindName("CountdownTextBlock") as System.Windows.Controls.TextBlock;
+
+            System.Diagnostics.Debug.WriteLine(
+                $"Countdown started with value: {ViewModel.Countdown}"
+            );
+
+            StartCountdownTimer();
+        }
+
+        private void StartCountdownTimer()
+        {
+            lock (_timerLock)
+            {
+                StopCountdownTimerInternal();
+
+                _cancellationTokenSource = new CancellationTokenSource();
+                _countdownTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(1) };
+                _countdownTimer.Tick += OnCountdownTick;
+
+                UpdateCountdownText();
+                _countdownTimer.Start();
+            }
+        }
+
+        public void ResetCountdown(int seconds)
         {
             if (ViewModel == null)
                 return;
 
-            _cancellationTokenSource = new CancellationTokenSource();
+            lock (_timerLock)
+            {
+                ViewModel.Countdown = seconds;
+                UpdateCountdownText();
+                StopCountdownTimerInternal();
+
+                _cancellationTokenSource = new CancellationTokenSource();
+                _countdownTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(1) };
+                _countdownTimer.Tick += OnCountdownTick;
+                _countdownTimer.Start();
+            }
+        }
+
+        private void UpdateCountdownText()
+        {
+            if (_countdownTextBlock != null && ViewModel != null)
+            {
+                _countdownTextBlock.Text = ViewModel.Countdown.ToString();
+            }
+        }
+
+        private void OnCountdownTick(object? sender, EventArgs e)
+        {
+            if (_cancellationTokenSource?.IsCancellationRequested == true || ViewModel == null)
+            {
+                StopCountdownTimerInternal();
+                return;
+            }
 
             try
             {
-                await Task.Run(
-                    async () =>
-                    {
-                        while (
-                            ViewModel.Countdown > 0
-                            && !_cancellationTokenSource.Token.IsCancellationRequested
-                        )
-                        {
-                            await Task.Delay(1000, _cancellationTokenSource.Token);
-                            if (!_cancellationTokenSource.Token.IsCancellationRequested)
-                            {
-                                await Dispatcher.InvokeAsync(() => ViewModel.Countdown--);
-                            }
-                        }
+                if (ViewModel.Countdown > 0)
+                {
+                    ViewModel.Countdown--;
+                    UpdateCountdownText();
+                    System.Diagnostics.Debug.WriteLine($"Countdown: {ViewModel.Countdown}");
+                }
 
-                        // 倒计时结束，自动确认
-                        if (
-                            ViewModel.Countdown == 0
-                            && !_cancellationTokenSource.Token.IsCancellationRequested
-                        )
-                        {
-                            await Dispatcher.InvokeAsync(() =>
-                            {
-                                DialogResult = true;
-                                Close();
-                            });
-                        }
-                    },
-                    _cancellationTokenSource.Token
+                if (ViewModel.Countdown <= 0)
+                {
+                    System.Diagnostics.Debug.WriteLine("Countdown reached 0, auto-closing dialog");
+                    StopCountdownTimerInternal();
+                    DialogResult = true;
+                    Close();
+                }
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"Countdown timer error: {ex.Message}");
+                StopCountdownTimerInternal();
+            }
+        }
+
+        private void ConfirmButton_Click(object sender, RoutedEventArgs e)
+        {
+            StopCountdownTimer();
+            DialogResult = true;
+            Close();
+        }
+
+        private void CancelButton_Click(object sender, RoutedEventArgs e)
+        {
+            StopCountdownTimer();
+            DialogResult = false;
+            Close();
+        }
+
+        private void TextBlock_Loaded(object sender, RoutedEventArgs e)
+        {
+            var textBlock = sender as System.Windows.Controls.TextBlock;
+            if (textBlock != null)
+            {
+                System.Diagnostics.Debug.WriteLine(
+                    $"TextBlock loaded, DataContext: {textBlock.DataContext}"
                 );
             }
-            catch (TaskCanceledException)
+        }
+
+        private void StopCountdownTimer()
+        {
+            lock (_timerLock)
             {
-                // 任务被取消，忽略
+                StopCountdownTimerInternal();
+                _cancellationTokenSource?.Cancel();
+            }
+        }
+
+        private void StopCountdownTimerInternal()
+        {
+            if (_countdownTimer != null)
+            {
+                _countdownTimer.Tick -= OnCountdownTick;
+                _countdownTimer.Stop();
+                _countdownTimer = null;
             }
         }
 
         protected override void OnClosed(EventArgs e)
         {
-            _cancellationTokenSource?.Cancel();
-            _cancellationTokenSource?.Dispose();
-            base.OnClosed(e);
+            try
+            {
+                StopCountdownTimer();
+            }
+            catch { }
+            finally
+            {
+                _cancellationTokenSource?.Dispose();
+                base.OnClosed(e);
+            }
         }
     }
 }

@@ -176,26 +176,62 @@ namespace DaemonKit
                 .ObserveOn(RxApp.MainThreadScheduler);
         }
 
-        public static void RegisterHotKey(System.Windows.Window window)
+        public static void RegisterHotKey(System.Windows.Window window, AppSettings settings)
         {
             var helper = new WindowInteropHelper(window);
-            WinAPI.RegisterHotKey(helper.Handle, 100, (uint)KeyModifiers.Ctrl, 0x44);
-            WinAPI.RegisterHotKey(helper.Handle, 101, (uint)KeyModifiers.Ctrl, 0x52);
-            WinAPI.RegisterHotKey(helper.Handle, 102, (uint)KeyModifiers.Ctrl, 0x57);
-            WinAPI.RegisterHotKey(
-                helper.Handle,
-                103,
-                (uint)(KeyModifiers.Ctrl | KeyModifiers.Shift),
-                0x45
-            );
-            WinAPI.RegisterHotKey(
-                helper.Handle,
-                104,
-                (uint)(KeyModifiers.Ctrl | KeyModifiers.Shift),
-                0x57
-            );
-            // 注册 Alt+X 截图快捷键
-            WinAPI.RegisterHotKey(helper.Handle, 9000, (uint)KeyModifiers.Alt, 0x58);
+            UnRegisterHotKey(window);
+            if (!settings.EnableGlobalHotKey)
+            {
+                return;
+            }
+
+            if (settings.EnableToggleWindow)
+            {
+                WinAPI.RegisterHotKey(helper.Handle, 100, (uint)KeyModifiers.Ctrl, 0x44);
+            }
+
+            if (settings.EnableStartTree)
+            {
+                WinAPI.RegisterHotKey(helper.Handle, 101, (uint)KeyModifiers.Ctrl, 0x52);
+            }
+
+            if (settings.EnableStopTree)
+            {
+                WinAPI.RegisterHotKey(helper.Handle, 102, (uint)KeyModifiers.Ctrl, 0x57);
+            }
+
+            if (settings.EnableDesktopOn)
+            {
+                WinAPI.RegisterHotKey(
+                    helper.Handle,
+                    103,
+                    (uint)(KeyModifiers.Ctrl | KeyModifiers.Shift),
+                    0x45
+                );
+            }
+
+            if (settings.EnableDesktopOff)
+            {
+                WinAPI.RegisterHotKey(
+                    helper.Handle,
+                    104,
+                    (uint)(KeyModifiers.Ctrl | KeyModifiers.Shift),
+                    0x57
+                );
+            }
+
+            if (settings.EnableScreenshot)
+            {
+                WinAPI.RegisterHotKey(helper.Handle, 9000, (uint)KeyModifiers.Alt, 0x58);
+                // Alt+C for color picker
+                WinAPI.RegisterHotKey(helper.Handle, 9001, (uint)KeyModifiers.Alt, 0x43);
+            }
+
+            if (settings.EnableScheduleToggleHotKey)
+            {
+                // Alt + S
+                WinAPI.RegisterHotKey(helper.Handle, 105, (uint)KeyModifiers.Alt, 0x53);
+            }
         }
 
         public static void UnRegisterHotKey(System.Windows.Window window)
@@ -207,6 +243,8 @@ namespace DaemonKit
             WinAPI.UnregisterHotKey(helper.Handle, 103);
             WinAPI.UnregisterHotKey(helper.Handle, 104);
             WinAPI.UnregisterHotKey(helper.Handle, 9000); // Alt+X
+            WinAPI.UnregisterHotKey(helper.Handle, 9001); // Alt+C
+            WinAPI.UnregisterHotKey(helper.Handle, 105); // Alt+S
         }
 
         //static RegistryKey runKey = Registry.CurrentUser.OpenSubKey (@"SOFTWARE\Microsoft\Windows\CurrentVersion\Run", true);
