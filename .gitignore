@@ -5,6 +5,7 @@
 
 # Sensitive credentials - DO NOT COMMIT
 keys.txt
+replace-secrets.txt
 *.key
 *.secret
 
