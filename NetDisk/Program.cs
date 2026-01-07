@@ -19,9 +19,9 @@ using Aliyun.OSS;
 
 internal class Config
 {
-    public static string AccessKeyId = "LTAI5tKDhJYL9LPzURWz3Nbf";
+    public static string AccessKeyId = Environment.GetEnvironmentVariable("ALIYUN_ACCESS_KEY_ID") ?? string.Empty;
 
-    public static string AccessKeySecret = "7NRMO7As77WJGzeGmb5vgma7vCGe07";
+    public static string AccessKeySecret = Environment.GetEnvironmentVariable("ALIYUN_ACCESS_KEY_SECRET") ?? string.Empty;
 
     public static string Endpoint = "oss-cn-hangzhou.aliyuncs.com";
 }

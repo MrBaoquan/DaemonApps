@@ -57,8 +57,8 @@ namespace CloudDisk
             }
 
             data = parser.ReadFile(ConfigPath);
-            data["Authroization"]["accessKeyId"] = data["Authroization"]["accessKeyId"]?? "LTAI5tNeJvByceRseJHj3huE";
-            data["Authroization"]["accessKeySecret"] = data["Authroization"]["accessKeySecret"]?? "B2ZupSGlyu9SmwHpoDLvTXSazE7QqH";
+            data["Authroization"]["accessKeyId"] = data["Authroization"]["accessKeyId"] ?? Environment.GetEnvironmentVariable("ALIYUN_ACCESS_KEY_ID") ?? string.Empty;
+            data["Authroization"]["accessKeySecret"] = data["Authroization"]["accessKeySecret"] ?? Environment.GetEnvironmentVariable("ALIYUN_ACCESS_KEY_SECRET") ?? string.Empty;
             data["Authroization"]["endpoint"] = data["Authroization"]["endpoint"]?? "oss-cn-beijing.aliyuncs.com";
             data["Authroization"]["bucketName"] = data["Authroization"]["bucketName"]?? "and-disk";
 
