@@ -9,6 +9,11 @@ replace-secrets.txt
 *.key
 *.secret
 
+# Large library files and build artifacts
+*.lib
+*.ilk
+*.ipch
+
 # User-specific files
 *.rsuser
 *.suo
