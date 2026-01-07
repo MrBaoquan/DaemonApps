@@ -463,3 +463,6 @@ $RECYCLE.BIN/
 *.exe
 *.lib
 *.dll
+## 忽略输出目录
+bin/
+obj/

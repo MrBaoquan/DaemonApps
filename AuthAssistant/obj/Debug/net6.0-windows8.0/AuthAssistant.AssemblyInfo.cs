@@ -14,7 +14,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("AuthAssistant")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+7ad852a083dba75bcf2d498125e84c617d8c4495")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+5ec915137764a6aac0bd14c90e31f818ca870c04")]
 [assembly: System.Reflection.AssemblyProductAttribute("AuthAssistant")]
 [assembly: System.Reflection.AssemblyTitleAttribute("AuthAssistant")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]
