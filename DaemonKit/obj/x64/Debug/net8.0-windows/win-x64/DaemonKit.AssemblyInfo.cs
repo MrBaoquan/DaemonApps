@@ -16,7 +16,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCopyrightAttribute("@mrbaoquan")]
 [assembly: System.Reflection.AssemblyDescriptionAttribute("windows应用程序依赖编排软件")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.25.1118")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+7ad852a083dba75bcf2d498125e84c617d8c4495")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+2b13b1f37561ad06e83340994d9d9f2e12422ef0")]
 [assembly: System.Reflection.AssemblyProductAttribute("运维管家")]
 [assembly: System.Reflection.AssemblyTitleAttribute("DaemonKit")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.25.1122")]
