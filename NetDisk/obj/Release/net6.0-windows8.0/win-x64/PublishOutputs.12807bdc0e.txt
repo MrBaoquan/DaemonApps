@@ -1,4 +1,0 @@
-C:\Users\Administrator\source\repos\DaemonApps\ColudDisk\bin\Release\net6.0\publish\win-x64\ColudDisk.dll
-C:\Users\Administrator\source\repos\DaemonApps\ColudDisk\bin\Release\net6.0\publish\win-x64\ColudDisk.pdb
-C:\Users\Administrator\source\repos\DaemonApps\ColudDisk\bin\Release\net6.0\publish\win-x64\Aliyun.OSS.Core.dll
-C:\Users\Administrator\source\repos\DaemonApps\ColudDisk\bin\Release\net6.0\publish\win-x64\ColudDisk.deps.json
