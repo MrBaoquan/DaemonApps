@@ -1,1 +1,0 @@
-C:\Users\Administrator\source\repos\DaemonApps\MauiApp1\MauiApp1.csproj;x64

@@ -466,3 +466,4 @@ $RECYCLE.BIN/
 ## 忽略输出目录
 bin/
 obj/
+*.nupkg
