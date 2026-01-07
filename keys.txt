@@ -1,0 +1,25 @@
+# Alibaba Cloud AccessKey Credentials
+# 阿里云访问密钥凭证
+# DO NOT COMMIT THIS FILE TO GIT / 请勿将此文件提交到Git
+
+## CloudDisk / NetDisk (Beijing Region)
+AccessKeyId: LTAI5tNeJvByceRseJHj3huE
+AccessKeySecret: B2ZupSGlyu9SmwHpoDLvTXSazE7QqH
+Endpoint: oss-cn-beijing.aliyuncs.com
+BucketName: and-disk
+
+## NetDisk (Hangzhou Region)  
+AccessKeyId: LTAI5tKDhJYL9LPzURWz3Nbf
+AccessKeySecret: 7NRMO7As77WJGzeGmb5vgma7vCGe07
+Endpoint: oss-cn-hangzhou.aliyuncs.com
+BucketName: parful-netdisk
+
+## Environment Variables Setup (Windows)
+# Run these commands to configure keys:
+# setx ALIYUN_ACCESS_KEY_ID "LTAI5tNeJvByceRseJHj3huE"
+# setx ALIYUN_ACCESS_KEY_SECRET "B2ZupSGlyu9SmwHpoDLvTXSazE7QqH"
+
+## Security Notes
+# 1. Keep this file secure and local only
+# 2. Consider rotating these keys periodically
+# 3. Use environment variables or secret management tools in production

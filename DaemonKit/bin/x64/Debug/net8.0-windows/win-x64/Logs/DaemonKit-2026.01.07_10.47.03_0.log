@@ -1,0 +1,33 @@
+2026-01-07 10:46:42.7993 [Info] - DaemonKit 已启动 
+2026-01-07 10:46:42.8126 [Info] - 加载进程树.. 
+2026-01-07 10:46:43.3910 [Info] - 已注册全局快捷键 
+2026-01-07 10:46:43.4112 [Info] - 节能模式窗口已初始化 
+2026-01-07 10:46:43.4112 [Info] - 程序启动时间: 2026/1/7 10:46:41, 是否当日首次启动: False 
+2026-01-07 10:46:43.4247 [Info] - 启动进程树, Delay:500 
+2026-01-07 10:46:43.5720 [Debug] - [MonitorName] 硬件ID: PHLC213 
+2026-01-07 10:46:43.5720 [Debug] - [MonitorName] 成功读取EDID，长度: 128 字节 
+2026-01-07 10:46:43.5720 [Debug] - [MonitorName] EDID制造商ID: PHL 
+2026-01-07 10:46:43.5720 [Debug] - [MonitorName] EDID监视器名称: PHL 271V8 
+2026-01-07 10:46:43.5720 [Info] - [MonitorName] 成功解析显示器名称: PHL 271V8 
+2026-01-07 10:46:43.5780 [Debug] - [MonitorName] 硬件ID: PHLC213 
+2026-01-07 10:46:43.5780 [Debug] - [MonitorName] 成功读取EDID，长度: 128 字节 
+2026-01-07 10:46:43.5780 [Debug] - [MonitorName] EDID制造商ID: PHL 
+2026-01-07 10:46:43.5780 [Debug] - [MonitorName] EDID监视器名称: PHL 271V8 
+2026-01-07 10:46:43.5780 [Info] - [MonitorName] 成功解析显示器名称: PHL 271V8 
+2026-01-07 10:46:43.5780 [Info] - [BrightnessCoordinator] 创建驱动: DDC/CI (标准显示器) 设备=PHL 271V8, 参数=\\?\DISPLAY#PHLC213#5&4c98cf7&0&UID4352#{e6f07b5f-ee97-4a90-b076-33f57bf4eaa7} 
+2026-01-07 10:46:53.9667 [Info] - 配置文件保存成功. 
+2026-01-07 10:46:54.3242 [Info] - 空闲自动省电已启用 
+2026-01-07 10:46:56.9122 [Debug] - [MonitorName] 硬件ID: PHLC213 
+2026-01-07 10:46:56.9122 [Debug] - [MonitorName] 成功读取EDID，长度: 128 字节 
+2026-01-07 10:46:56.9122 [Debug] - [MonitorName] EDID制造商ID: PHL 
+2026-01-07 10:46:56.9122 [Debug] - [MonitorName] EDID监视器名称: PHL 271V8 
+2026-01-07 10:46:56.9122 [Info] - [MonitorName] 成功解析显示器名称: PHL 271V8 
+2026-01-07 10:46:56.9122 [Debug] - [MonitorName] 硬件ID: PHLC213 
+2026-01-07 10:46:56.9122 [Debug] - [MonitorName] 成功读取EDID，长度: 128 字节 
+2026-01-07 10:46:56.9122 [Debug] - [MonitorName] EDID制造商ID: PHL 
+2026-01-07 10:46:56.9122 [Debug] - [MonitorName] EDID监视器名称: PHL 271V8 
+2026-01-07 10:46:56.9122 [Info] - [MonitorName] 成功解析显示器名称: PHL 271V8 
+2026-01-07 10:46:56.9293 [Info] - [BrightnessCoordinator] 创建驱动: DDC/CI (标准显示器) 设备=PHL 271V8, 参数=\\?\DISPLAY#PHLC213#5&4c98cf7&0&UID4352#{e6f07b5f-ee97-4a90-b076-33f57bf4eaa7} 
+2026-01-07 10:46:57.4347 [Info] - [PowerSaving] 启动时亮度设置完成: 成功 2/2 
+2026-01-07 10:46:58.0906 [Info] - [PowerSaving] 点击省电模式按钮，当前 IsBusy=False, IsPowerSavingMode=False 
+2026-01-07 10:46:58.3232 [Info] - [PowerSaving] 后台亮度设置完成: 省电模式, 成功 2/2 

@@ -1,0 +1,6 @@
+C:\Users\Administrator\source\repos\DaemonApps\ColudDisk\obj\Release\netcoreapp3.1\ColudDisk1.csproj.AssemblyReference.cache
+C:\Users\Administrator\source\repos\DaemonApps\ColudDisk\obj\Release\netcoreapp3.1\ColudDisk1.GeneratedMSBuildEditorConfig.editorconfig
+C:\Users\Administrator\source\repos\DaemonApps\ColudDisk\obj\Release\netcoreapp3.1\ColudDisk1.AssemblyInfoInputs.cache
+C:\Users\Administrator\source\repos\DaemonApps\ColudDisk\obj\Release\netcoreapp3.1\ColudDisk1.AssemblyInfo.cs
+C:\Users\Administrator\source\repos\DaemonApps\ColudDisk\obj\Release\netcoreapp3.1\ColudDisk1.csproj.CoreCompileInputs.cache
+C:\Users\Administrator\source\repos\DaemonApps\ColudDisk\obj\Release\netcoreapp3.1\ColudDisk1.sourcelink.json

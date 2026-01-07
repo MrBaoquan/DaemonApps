@@ -1,0 +1,4 @@
+﻿C:\Program Files\Microsoft Visual Studio\2022\Professional\MSBuild\Microsoft\VC\v170\Microsoft.CppBuild.targets(531,5): warning MSB8028: 中间目录(Debug\)包含从另一个项目(AuthValidator.vcxproj)共享的文件。   这会导致错误的清除和重新生成行为。
+  dllmain.cpp
+    正在创建库 C:\Users\Administrator\source\repos\DaemonApps\Debug\LicHper_inject.lib 和对象 C:\Users\Administrator\source\repos\DaemonApps\Debug\LicHper_inject.exp
+  LicHper_inject.vcxproj -> C:\Users\Administrator\source\repos\DaemonApps\Debug\LicHper_inject.dll

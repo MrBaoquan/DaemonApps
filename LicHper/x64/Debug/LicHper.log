@@ -1,0 +1,48 @@
+﻿C:\Program Files\Microsoft Visual Studio\2022\Professional\MSBuild\Microsoft\VC\v170\Microsoft.CppBuild.targets(538,5): warning MSB8028: 中间目录(x64\Debug\)包含从另一个项目(AuthCore.vcxproj, AuthValidator.vcxproj)共享的文件。   这会导致错误的清除和重新生成行为。
+  DXGIHook.cpp
+cryptlibd.lib(cryptlib.obj) : warning LNK4099: 未找到 PDB“”(使用“cryptlibd.lib(cryptlib.obj)”或在“”中寻找)；正在链接对象，如同没有调试信息一样
+cryptlibd.lib(filters.obj) : warning LNK4099: 未找到 PDB“”(使用“cryptlibd.lib(filters.obj)”或在“”中寻找)；正在链接对象，如同没有调试信息一样
+cryptlibd.lib(allocate.obj) : warning LNK4099: 未找到 PDB“”(使用“cryptlibd.lib(allocate.obj)”或在“”中寻找)；正在链接对象，如同没有调试信息一样
+cryptlibd.lib(rijndael.obj) : warning LNK4099: 未找到 PDB“”(使用“cryptlibd.lib(rijndael.obj)”或在“”中寻找)；正在链接对象，如同没有调试信息一样
+cryptlibd.lib(integer.obj) : warning LNK4099: 未找到 PDB“”(使用“cryptlibd.lib(integer.obj)”或在“”中寻找)；正在链接对象，如同没有调试信息一样
+cryptlibd.lib(algparam.obj) : warning LNK4099: 未找到 PDB“”(使用“cryptlibd.lib(algparam.obj)”或在“”中寻找)；正在链接对象，如同没有调试信息一样
+cryptlibd.lib(modes.obj) : warning LNK4099: 未找到 PDB“”(使用“cryptlibd.lib(modes.obj)”或在“”中寻找)；正在链接对象，如同没有调试信息一样
+cryptlibd.lib(basecode.obj) : warning LNK4099: 未找到 PDB“”(使用“cryptlibd.lib(basecode.obj)”或在“”中寻找)；正在链接对象，如同没有调试信息一样
+cryptlibd.lib(base64.obj) : warning LNK4099: 未找到 PDB“”(使用“cryptlibd.lib(base64.obj)”或在“”中寻找)；正在链接对象，如同没有调试信息一样
+cryptlibd.lib(misc.obj) : warning LNK4099: 未找到 PDB“”(使用“cryptlibd.lib(misc.obj)”或在“”中寻找)；正在链接对象，如同没有调试信息一样
+cryptlibd.lib(queue.obj) : warning LNK4099: 未找到 PDB“”(使用“cryptlibd.lib(queue.obj)”或在“”中寻找)；正在链接对象，如同没有调试信息一样
+cryptlibd.lib(fips140.obj) : warning LNK4099: 未找到 PDB“”(使用“cryptlibd.lib(fips140.obj)”或在“”中寻找)；正在链接对象，如同没有调试信息一样
+cryptlibd.lib(pch.obj) : warning LNK4099: 未找到 PDB“”(使用“cryptlibd.lib(pch.obj)”或在“”中寻找)；正在链接对象，如同没有调试信息一样
+cryptlibd.lib(mqueue.obj) : warning LNK4099: 未找到 PDB“”(使用“cryptlibd.lib(mqueue.obj)”或在“”中寻找)；正在链接对象，如同没有调试信息一样
+cryptlibd.lib(cpu.obj) : warning LNK4099: 未找到 PDB“”(使用“cryptlibd.lib(cpu.obj)”或在“”中寻找)；正在链接对象，如同没有调试信息一样
+cryptlibd.lib(rijndael_simd.obj) : warning LNK4099: 未找到 PDB“”(使用“cryptlibd.lib(rijndael_simd.obj)”或在“”中寻找)；正在链接对象，如同没有调试信息一样
+cryptlibd.lib(rdtables.obj) : warning LNK4099: 未找到 PDB“”(使用“cryptlibd.lib(rdtables.obj)”或在“”中寻找)；正在链接对象，如同没有调试信息一样
+cryptlibd.lib(dll.obj) : warning LNK4099: 未找到 PDB“”(使用“cryptlibd.lib(dll.obj)”或在“”中寻找)；正在链接对象，如同没有调试信息一样
+cryptlibd.lib(nbtheory.obj) : warning LNK4099: 未找到 PDB“”(使用“cryptlibd.lib(nbtheory.obj)”或在“”中寻找)；正在链接对象，如同没有调试信息一样
+cryptlibd.lib(asn.obj) : warning LNK4099: 未找到 PDB“”(使用“cryptlibd.lib(asn.obj)”或在“”中寻找)；正在链接对象，如同没有调试信息一样
+cryptlibd.lib(pubkey.obj) : warning LNK4099: 未找到 PDB“”(使用“cryptlibd.lib(pubkey.obj)”或在“”中寻找)；正在链接对象，如同没有调试信息一样
+cryptlibd.lib(iterhash.obj) : warning LNK4099: 未找到 PDB“”(使用“cryptlibd.lib(iterhash.obj)”或在“”中寻找)；正在链接对象，如同没有调试信息一样
+cryptlibd.lib(sha.obj) : warning LNK4099: 未找到 PDB“”(使用“cryptlibd.lib(sha.obj)”或在“”中寻找)；正在链接对象，如同没有调试信息一样
+cryptlibd.lib(des.obj) : warning LNK4099: 未找到 PDB“”(使用“cryptlibd.lib(des.obj)”或在“”中寻找)；正在链接对象，如同没有调试信息一样
+cryptlibd.lib(gfpcrypt.obj) : warning LNK4099: 未找到 PDB“”(使用“cryptlibd.lib(gfpcrypt.obj)”或在“”中寻找)；正在链接对象，如同没有调试信息一样
+cryptlibd.lib(hmac.obj) : warning LNK4099: 未找到 PDB“”(使用“cryptlibd.lib(hmac.obj)”或在“”中寻找)；正在链接对象，如同没有调试信息一样
+cryptlibd.lib(gf2n.obj) : warning LNK4099: 未找到 PDB“”(使用“cryptlibd.lib(gf2n.obj)”或在“”中寻找)；正在链接对象，如同没有调试信息一样
+cryptlibd.lib(ec2n.obj) : warning LNK4099: 未找到 PDB“”(使用“cryptlibd.lib(ec2n.obj)”或在“”中寻找)；正在链接对象，如同没有调试信息一样
+cryptlibd.lib(ecp.obj) : warning LNK4099: 未找到 PDB“”(使用“cryptlibd.lib(ecp.obj)”或在“”中寻找)；正在链接对象，如同没有调试信息一样
+cryptlibd.lib(hex.obj) : warning LNK4099: 未找到 PDB“”(使用“cryptlibd.lib(hex.obj)”或在“”中寻找)；正在链接对象，如同没有调试信息一样
+cryptlibd.lib(rng.obj) : warning LNK4099: 未找到 PDB“”(使用“cryptlibd.lib(rng.obj)”或在“”中寻找)；正在链接对象，如同没有调试信息一样
+cryptlibd.lib(osrng.obj) : warning LNK4099: 未找到 PDB“”(使用“cryptlibd.lib(osrng.obj)”或在“”中寻找)；正在链接对象，如同没有调试信息一样
+cryptlibd.lib(primetab.obj) : warning LNK4099: 未找到 PDB“”(使用“cryptlibd.lib(primetab.obj)”或在“”中寻找)；正在链接对象，如同没有调试信息一样
+cryptlibd.lib(sha_simd.obj) : warning LNK4099: 未找到 PDB“”(使用“cryptlibd.lib(sha_simd.obj)”或在“”中寻找)；正在链接对象，如同没有调试信息一样
+cryptlibd.lib(dessp.obj) : warning LNK4099: 未找到 PDB“”(使用“cryptlibd.lib(dessp.obj)”或在“”中寻找)；正在链接对象，如同没有调试信息一样
+cryptlibd.lib(randpool.obj) : warning LNK4099: 未找到 PDB“”(使用“cryptlibd.lib(randpool.obj)”或在“”中寻找)；正在链接对象，如同没有调试信息一样
+cryptlibd.lib(gf2n_simd.obj) : warning LNK4099: 未找到 PDB“”(使用“cryptlibd.lib(gf2n_simd.obj)”或在“”中寻找)；正在链接对象，如同没有调试信息一样
+cryptlibd.lib(hrtimer.obj) : warning LNK4099: 未找到 PDB“”(使用“cryptlibd.lib(hrtimer.obj)”或在“”中寻找)；正在链接对象，如同没有调试信息一样
+    正在创建库 C:\Users\Administrator\source\repos\DaemonApps\x64\Debug\LicHper.lib 和对象 C:\Users\Administrator\source\repos\DaemonApps\x64\Debug\LicHper.exp
+  LicHper.vcxproj -> C:\Users\Administrator\source\repos\DaemonApps\x64\Debug\LicHper.dll
+  已复制         1 个文件。
+  已复制         1 个文件。
+  已复制         1 个文件。
+  已复制         1 个文件。
+  已复制         1 个文件。
+  已复制         1 个文件。
