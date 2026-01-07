@@ -127,13 +127,15 @@ namespace DaemonKit
             processNodeForm = new ProcessNodeForm();
             settingsWindow = new Settings();
             scheduleWindow = new Schedule();
-            powerSavingWindow = new PowerSavingWindow();
+
+            // PowerSavingWindow 需要等 AppSettings 加载后再初始化
+            // powerSavingWindow = new PowerSavingWindow();
 
             // Set PowerSaving ViewModel reference in MainViewModel
-            if (ViewModel != null && powerSavingWindow.DataContext is PowerSavingViewModel psvm)
-            {
-                ViewModel.PowerSaving = psvm;
-            }
+            // if (ViewModel != null && powerSavingWindow.DataContext is PowerSavingViewModel psvm)
+            // {
+            //     ViewModel.PowerSaving = psvm;
+            // }
 
             _table = new DaemonTable();
 
@@ -244,11 +246,31 @@ namespace DaemonKit
                         {
                             var oldHotKeyEnabled = AppSettings.EnableGlobalHotKey;
                             var oldTouchScreenDisabled = AppSettings.DisableTouchScreen;
+                            var oldEnableIdleAutoPowerSaving =
+                                AppSettings.EnableIdleAutoPowerSaving;
 
                             AppSettings = newSettingsWindow.ViewModel.Confirm.Execute().Wait();
                             rootProcessNode.SyncSettings(AppSettings);
                             saveConfig();
                             Utils.SyncSettings();
+
+                            // 同步设置到 PowerSavingViewModel
+                            if (powerSavingWindow?.DataContext is PowerSavingViewModel psvm)
+                            {
+                                psvm.EnableIdleAutoPowerSaving =
+                                    AppSettings.EnableIdleAutoPowerSaving;
+
+                                // 如果 EnableIdleAutoPowerSaving 状态改变，记录日志
+                                if (
+                                    oldEnableIdleAutoPowerSaving
+                                    != AppSettings.EnableIdleAutoPowerSaving
+                                )
+                                {
+                                    NLogger.Info(
+                                        $"空闲自动省电已{(AppSettings.EnableIdleAutoPowerSaving ? "启用" : "禁用")}"
+                                    );
+                                }
+                            }
 
                             // 动态注册/注销快捷键
                             if (AppSettings.EnableGlobalHotKey && !oldHotKeyEnabled)
@@ -429,8 +451,19 @@ namespace DaemonKit
                                     ViewModel.PowerSaving = vm;
                                 }
 
+                                // 定义保存配置的回调（只保存 AppSettings，避免频繁保存 treeview.xml）
+                                void SaveConfigCallback()
+                                {
+                                    vm.SaveSettings(AppSettings);
+                                    SaveAppSettingsOnly();
+                                }
+
+                                // 设置配置改变时的保存回调
+                                vm.OnConfigChanged = SaveConfigCallback;
+
                                 vm.PropertyChanged += (sender, args) =>
                                 {
+                                    // 监听所有关键属性变化，包括亮度、协议配置等
                                     if (
                                         args.PropertyName
                                             == nameof(PowerSavingViewModel.DefaultNormalBrightness)
@@ -442,8 +475,7 @@ namespace DaemonKit
                                             == nameof(PowerSavingViewModel.IsPowerSavingMode)
                                     )
                                     {
-                                        vm.SaveSettings(AppSettings);
-                                        saveConfig();
+                                        SaveConfigCallback();
                                     }
                                 };
                             }
@@ -740,8 +772,8 @@ namespace DaemonKit
                                     && !psvm.IsPowerSavingMode
                                 )
                                 {
-                                    // 进入省电模式
-                                    psvm.IsPowerSavingMode = true;
+                                    // 进入省电模式 - 调用Command执行实际亮度切换
+                                    psvm.ApplyPowerSavingCommand.Execute().Subscribe();
                                     _idleAutoPowerSavingTriggered = true;
                                     NLogger.Info(
                                         $"空闲{powerSavingThreshold.TotalMinutes}分钟，自动进入省电模式"
@@ -756,8 +788,8 @@ namespace DaemonKit
                                     && psvm2.IsPowerSavingMode
                                 )
                                 {
-                                    // 检测到用户活动，退出省电模式
-                                    psvm2.IsPowerSavingMode = false;
+                                    // 检测到用户活动，退出省电模式 - 调用Command执行实际亮度切换
+                                    psvm2.RestoreNormalCommand.Execute().Subscribe();
                                     NLogger.Info("检测到用户活动，退出省电模式");
                                 }
                                 _idleAutoPowerSavingTriggered = false;
@@ -1479,38 +1511,169 @@ namespace DaemonKit
                     NLogger.Error($"初始化触摸屏状态时发生异常: {ex.Message}");
                 }
             }
+
+            // 初始化节能模式窗口（确保 AppSettings 已加载）
+            if (powerSavingWindow == null)
+            {
+                powerSavingWindow = new PowerSavingWindow(AppSettings);
+                if (ViewModel != null && powerSavingWindow.DataContext is PowerSavingViewModel psvm)
+                {
+                    ViewModel.PowerSaving = psvm;
+                    NLogger.Info("节能模式窗口已初始化");
+                }
+            }
         }
 
         // 数据持久化
         private void saveConfig()
         {
-            USerialization.SerializeXML(rootProcessNode, AppPathes.TreeViewDataPath);
-            USerialization.SerializeXML(AppSettings, AppPathes.AppSettingPath);
-            USerialization.SerializeXML(GlobalSchedule, AppPathes.GlobalSchedulePath);
-            if (!Directory.Exists(AppPathes.ConfigDir_BackUp))
+            try
             {
-                Directory.CreateDirectory(AppPathes.ConfigDir_BackUp);
-                WinAPI.OpenProcess("attrib.exe", $"+h {AppPathes.ConfigDir_BackUp}");
-            }
-            // 备份配置文件
-            System.IO.File.Copy(
-                AppPathes.TreeViewDataPath,
-                AppPathes.TreeViewDataPath_Backup,
-                true
-            );
-            System.IO.File.Copy(
-                AppPathes.ExtensionConfigPath,
-                AppPathes.ExtensionConfigPath_Backup,
-                true
-            );
-            System.IO.File.Copy(AppPathes.AppSettingPath, AppPathes.AppSettingPath_Backup, true);
-            System.IO.File.Copy(
-                AppPathes.GlobalSchedulePath,
-                AppPathes.GlobalSchedulePath_Backup,
-                true
-            );
+                // 尝试保存配置，如果文件被锁定则重试
+                SaveConfigWithRetry(() =>
+                {
+                    USerialization.SerializeXML(rootProcessNode, AppPathes.TreeViewDataPath);
+                    USerialization.SerializeXML(AppSettings, AppPathes.AppSettingPath);
+                    USerialization.SerializeXML(GlobalSchedule, AppPathes.GlobalSchedulePath);
+                });
 
-            NLogger.Info("配置文件保存成功.");
+                if (!Directory.Exists(AppPathes.ConfigDir_BackUp))
+                {
+                    Directory.CreateDirectory(AppPathes.ConfigDir_BackUp);
+                    WinAPI.OpenProcess("attrib.exe", $"+h {AppPathes.ConfigDir_BackUp}");
+                }
+
+                // 备份配置文件（只备份成功保存的文件）
+                try
+                {
+                    System.IO.File.Copy(
+                        AppPathes.TreeViewDataPath,
+                        AppPathes.TreeViewDataPath_Backup,
+                        true
+                    );
+                }
+                catch (Exception ex)
+                {
+                    NLogger.Warn($"备份 TreeView 配置失败: {ex.Message}");
+                }
+
+                try
+                {
+                    System.IO.File.Copy(
+                        AppPathes.ExtensionConfigPath,
+                        AppPathes.ExtensionConfigPath_Backup,
+                        true
+                    );
+                }
+                catch (Exception ex)
+                {
+                    NLogger.Warn($"备份扩展配置失败: {ex.Message}");
+                }
+
+                try
+                {
+                    System.IO.File.Copy(
+                        AppPathes.AppSettingPath,
+                        AppPathes.AppSettingPath_Backup,
+                        true
+                    );
+                }
+                catch (Exception ex)
+                {
+                    NLogger.Warn($"备份应用设置失败: {ex.Message}");
+                }
+
+                try
+                {
+                    System.IO.File.Copy(
+                        AppPathes.GlobalSchedulePath,
+                        AppPathes.GlobalSchedulePath_Backup,
+                        true
+                    );
+                }
+                catch (Exception ex)
+                {
+                    NLogger.Warn($"备份全局计划失败: {ex.Message}");
+                }
+
+                NLogger.Info("配置文件保存成功.");
+            }
+            catch (Exception ex)
+            {
+                NLogger.Error($"保存配置文件失败: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// 只保存 AppSettings，不保存其他配置（用于节能模式配置频繁更新的场景）
+        /// </summary>
+        private void SaveAppSettingsOnly()
+        {
+            try
+            {
+                SaveConfigWithRetry(() =>
+                {
+                    USerialization.SerializeXML(AppSettings, AppPathes.AppSettingPath);
+                });
+
+                // 备份应用设置
+                try
+                {
+                    if (!Directory.Exists(AppPathes.ConfigDir_BackUp))
+                    {
+                        Directory.CreateDirectory(AppPathes.ConfigDir_BackUp);
+                    }
+                    System.IO.File.Copy(
+                        AppPathes.AppSettingPath,
+                        AppPathes.AppSettingPath_Backup,
+                        true
+                    );
+                }
+                catch (Exception ex)
+                {
+                    NLogger.Warn($"备份应用设置失败: {ex.Message}");
+                }
+            }
+            catch (Exception ex)
+            {
+                NLogger.Error($"保存应用设置失败: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// 带重试机制的配置保存
+        /// </summary>
+        private void SaveConfigWithRetry(
+            System.Action saveAction,
+            int maxRetries = 3,
+            int delayMs = 50
+        )
+        {
+            Exception lastException = null;
+
+            for (int i = 0; i < maxRetries; i++)
+            {
+                try
+                {
+                    saveAction();
+                    return; // 保存成功，直接返回
+                }
+                catch (System.IO.IOException ex) when (ex.HResult == -2147024864) // 0x80070020: File is in use
+                {
+                    lastException = ex;
+                    if (i < maxRetries - 1)
+                    {
+                        // 等待后重试
+                        System.Threading.Thread.Sleep(delayMs);
+                    }
+                }
+            }
+
+            // 所有重试都失败了，抛出最后一个异常
+            if (lastException != null)
+            {
+                throw lastException;
+            }
         }
 
         /// <summary>

@@ -200,6 +200,8 @@ namespace DaemonKit.PowerSaving
             if (
                 name.Contains("ksv")
                 || friendly.Contains("ksv")
+                || name.Contains("kys")
+                || friendly.Contains("kys")
                 || name.Contains("km2")
                 || name.Contains("km4")
                 || friendly.Contains("km2")

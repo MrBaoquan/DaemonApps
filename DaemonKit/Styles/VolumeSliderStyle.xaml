@@ -9,6 +9,10 @@
     <!-- 音量滑块样式 - 完全移除按下效果 -->
     <Style x:Key="VolumeSliderStyle"
            TargetType="Slider">
+        <Setter Property="OverridesDefaultStyle"
+                Value="True"/>
+        <Setter Property="materialDesign:RippleAssist.IsDisabled"
+                Value="True"/>
         <Setter Property="Focusable"
                 Value="False"/>
         <Setter Property="Template">
@@ -62,24 +66,28 @@
                                 </RepeatButton>
                             </Track.IncreaseRepeatButton>
                             <Track.Thumb>
-                                <Thumb Focusable="False">
+                                <Thumb Focusable="False"
+                                        Opacity="1"
+                                        OverridesDefaultStyle="True">
                                     <Thumb.Style>
                                         <Style TargetType="Thumb">
                                             <Setter Property="Template">
                                                 <Setter.Value>
                                                     <ControlTemplate TargetType="Thumb">
-                                                        <Ellipse Fill="{DynamicResource MaterialDesign.Brush.Primary}"
-                                                                 Width="16"
-                                                                 Height="16"
-                                                                 Stroke="White"
-                                                                 StrokeThickness="2">
-                                                            <Ellipse.Effect>
-                                                                <DropShadowEffect BlurRadius="4"
-                                                                                  ShadowDepth="1"
-                                                                                  Opacity="0.3"
+                                                        <Border Width="20"
+                                                                Height="20"
+                                                                Background="#1976D2"
+                                                                BorderBrush="White"
+                                                                BorderThickness="2"
+                                                                CornerRadius="10"
+                                                                Panel.ZIndex="10">
+                                                            <Border.Effect>
+                                                                <DropShadowEffect BlurRadius="6"
+                                                                                  ShadowDepth="2"
+                                                                                  Opacity="0.4"
                                                                                   Color="Black"/>
-                                                            </Ellipse.Effect>
-                                                        </Ellipse>
+                                                            </Border.Effect>
+                                                        </Border>
                                                     </ControlTemplate>
                                                 </Setter.Value>
                                             </Setter>

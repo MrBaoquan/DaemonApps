@@ -12,6 +12,8 @@ namespace DaemonKit.PowerSaving
     /// </summary>
     public sealed class BrightnessCoordinator
     {
+        private readonly MonitorEnumerator _monitorEnumerator = new();
+
         // 缓存已创建的驱动实例，避免重复创建
         private readonly Dictionary<string, IBrightnessDriver> _driverCache = new();
 
@@ -118,7 +120,7 @@ namespace DaemonKit.PowerSaving
             // 按需创建驱动实例
             IBrightnessDriver? driver = protocol switch
             {
-                ProtocolType.DdcCi => new DdcCiBrightnessDriver(),
+                ProtocolType.DdcCi => new DdcCiBrightnessDriver(_monitorEnumerator),
                 ProtocolType.KSV_Serial
                     => KsvLedBrightnessDriver.CreateSerial(
                         display.SerialPort,

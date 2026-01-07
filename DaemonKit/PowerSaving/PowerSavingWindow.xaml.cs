@@ -2,6 +2,7 @@ using System.Windows;
 using System.Windows.Controls;
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
+using System;
 
 namespace DaemonKit.PowerSaving
 {
@@ -9,9 +10,9 @@ namespace DaemonKit.PowerSaving
     {
         private PowerSavingViewModel _viewModel;
 
-        public event PropertyChangedEventHandler PropertyChanged;
+        public event PropertyChangedEventHandler? PropertyChanged;
 
-        private void OnPropertyChanged([CallerMemberName] string propertyName = null)
+        private void OnPropertyChanged([CallerMemberName] string? propertyName = null)
         {
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
         }
@@ -21,16 +22,6 @@ namespace DaemonKit.PowerSaving
             InitializeComponent();
             _viewModel = new PowerSavingViewModel();
             DataContext = _viewModel;
-
-            // 订阅按钮点击事件
-            if (FindName("NormalModeButton") is Button normalBtn)
-            {
-                normalBtn.Click += NormalModeButton_Click;
-            }
-            if (FindName("PowerSavingModeButton") is Button savingBtn)
-            {
-                savingBtn.Click += PowerSavingModeButton_Click;
-            }
         }
 
         public PowerSavingWindow(AppSettings settings)
@@ -44,12 +35,29 @@ namespace DaemonKit.PowerSaving
         /// </summary>
         private void NormalModeButton_Click(object sender, RoutedEventArgs e)
         {
+            // 防止事件冒泡导致重复触发
+            e.Handled = true;
+
             if (DataContext is PowerSavingViewModel vm)
             {
-                // 先设置模式，然后强制应用亮度（即使已经是正常模式）
-                vm.IsPowerSavingMode = false;
-                // 如果已经是正常模式，手动触发恢复
-                _ = vm.RestoreNormalCommand.Execute();
+                DNHper.NLogger.Info(
+                    $"[PowerSaving] 点击正常模式按钮，当前 IsBusy={vm.IsBusy}, IsPowerSavingMode={vm.IsPowerSavingMode}"
+                );
+
+                // 如果已经是正常模式，不需要再次执行
+                if (!vm.IsPowerSavingMode)
+                {
+                    DNHper.NLogger.Info("[PowerSaving] 已经是正常模式，跳过");
+                    return;
+                }
+
+                // ReactiveCommand.Execute() 返回 IObservable，必须订阅才会执行
+                vm.RestoreNormalCommand
+                    .Execute()
+                    .Subscribe(
+                        _ => { },
+                        ex => DNHper.NLogger.Error($"[PowerSaving] 切换正常模式失败: {ex.Message}")
+                    );
             }
         }
 
@@ -58,12 +66,29 @@ namespace DaemonKit.PowerSaving
         /// </summary>
         private void PowerSavingModeButton_Click(object sender, RoutedEventArgs e)
         {
+            // 防止事件冒泡导致重复触发
+            e.Handled = true;
+
             if (DataContext is PowerSavingViewModel vm)
             {
-                // 先设置模式，然后强制应用亮度（即使已经是省电模式）
-                vm.IsPowerSavingMode = true;
-                // 如果已经是省电模式，手动触发应用
-                _ = vm.ApplyPowerSavingCommand.Execute();
+                DNHper.NLogger.Info(
+                    $"[PowerSaving] 点击省电模式按钮，当前 IsBusy={vm.IsBusy}, IsPowerSavingMode={vm.IsPowerSavingMode}"
+                );
+
+                // 如果已经是省电模式，不需要再次执行
+                if (vm.IsPowerSavingMode)
+                {
+                    DNHper.NLogger.Info("[PowerSaving] 已经是省电模式，跳过");
+                    return;
+                }
+
+                // ReactiveCommand.Execute() 返回 IObservable，必须订阅才会执行
+                vm.ApplyPowerSavingCommand
+                    .Execute()
+                    .Subscribe(
+                        _ => { },
+                        ex => DNHper.NLogger.Error($"[PowerSaving] 切换省电模式失败: {ex.Message}")
+                    );
             }
         }
     }

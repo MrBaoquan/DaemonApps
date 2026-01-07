@@ -45,21 +45,23 @@ namespace DaemonKit
         public byte PowerSavingNormalBrightness { get; set; } = 100;
         public byte PowerSavingLowBrightness { get; set; } = 56;
         public List<DisplayConfig> PowerSavingDisplayConfigs { get; set; } = new();
-
-        // LED 设备配置
-        public bool LedEnabled { get; set; } = false;
-        public string LedConnectionType { get; set; } = "Serial"; // "Serial" 或 "TCP"
-        public string LedSerialPort { get; set; } = "COM1";
-        public int LedBaudRate { get; set; } = 115200;
-        public string LedIpAddress { get; set; } = "192.168.1.100";
-        public int LedTcpPort { get; set; } = 18100;
     }
 
     public class DisplayConfig
     {
         public string DeviceName { get; set; } = string.Empty;
+
+        /// <summary>
+        /// 显示器索引，用于区分同一型号的多个显示器
+        /// </summary>
+        public int DisplayIndex { get; set; } = -1;
         public bool OverrideEnabled { get; set; }
         public byte TargetBrightness { get; set; }
+        public string Protocol { get; set; } = "Auto"; // 协议类型持久化
+        public string SerialPort { get; set; } = "COM1";
+        public int SerialBaudRate { get; set; } = 115200;
+        public string TcpAddress { get; set; } = "192.168.1.100";
+        public int TcpPort { get; set; } = 18100;
     }
 
     public class SettingsViewModel : ReactiveObject
@@ -99,13 +101,7 @@ namespace DaemonKit
                         PowerSavingModeEnabled = PowerSavingModeEnabled,
                         PowerSavingNormalBrightness = PowerSavingNormalBrightness,
                         PowerSavingLowBrightness = PowerSavingLowBrightness,
-                        PowerSavingDisplayConfigs = PowerSavingDisplayConfigs,
-                        LedEnabled = LedEnabled,
-                        LedConnectionType = LedConnectionType,
-                        LedSerialPort = LedSerialPort,
-                        LedBaudRate = LedBaudRate,
-                        LedIpAddress = LedIpAddress,
-                        LedTcpPort = LedTcpPort
+                        PowerSavingDisplayConfigs = PowerSavingDisplayConfigs
                     };
                 },
                 outputScheduler: RxApp.MainThreadScheduler
@@ -144,12 +140,6 @@ namespace DaemonKit
             PowerSavingNormalBrightness = settings.PowerSavingNormalBrightness;
             PowerSavingLowBrightness = settings.PowerSavingLowBrightness;
             PowerSavingDisplayConfigs = settings.PowerSavingDisplayConfigs;
-            LedEnabled = settings.LedEnabled;
-            LedConnectionType = settings.LedConnectionType;
-            LedSerialPort = settings.LedSerialPort;
-            LedBaudRate = settings.LedBaudRate;
-            LedIpAddress = settings.LedIpAddress;
-            LedTcpPort = settings.LedTcpPort;
         }
 
         private bool startUP = true;

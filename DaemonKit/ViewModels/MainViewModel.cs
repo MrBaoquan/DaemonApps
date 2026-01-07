@@ -27,6 +27,9 @@ namespace DaemonKit
             set => this.RaiseAndSetIfChanged(ref _powerSaving, value);
         }
 
+        // 暴露 AppSettings 以供 UI 绑定
+        public AppSettings? AppSettings => MainWindow.AppSettings;
+
         private ProcessCommandParameter openCMD_args = new ProcessCommandParameter
         {
             Path = "cmd.exe",
