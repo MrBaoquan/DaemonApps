@@ -1,5 +1,0 @@
-﻿<ProcessItem NodeId="b7af322f489c496aaa9c71d871d5bec1" ScheduleTasksEnabled="true" Delay="0" Path="">
-    <MetaData Name="[ 进程树 ]" Path="" Arguments="" RunAs="true" KeepTop="false" NoDaemon="false" IsScript="false" MoveWindow="false" ResizeWindow="false" MinimizedStartUp="false" Delay="0" Enable="true" PosX="0" PosY="0" Width="0" Height="0" />
-    <Status>1</Status>
-    <Children />
-</ProcessItem>

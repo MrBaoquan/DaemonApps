@@ -1,4 +1,0 @@
-C:\Users\Administrator\source\repos\DaemonApps\CloudDisk\bin\Release\netstandard2.1\publish\CloudDisk.dll
-C:\Users\Administrator\source\repos\DaemonApps\CloudDisk\bin\Release\netstandard2.1\publish\CloudDisk.deps.json
-C:\Users\Administrator\source\repos\DaemonApps\CloudDisk\bin\Release\netstandard2.1\publish\CloudDisk.pdb
-C:\Users\Administrator\source\repos\DaemonApps\CloudDisk\bin\Release\netstandard2.1\publish\Aliyun.OSS.Core.dll
