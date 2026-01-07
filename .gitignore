@@ -5,14 +5,8 @@
 
 # Sensitive credentials - DO NOT COMMIT
 keys.txt
-replace-secrets.txt
 *.key
 *.secret
-
-# Large library files and build artifacts
-*.lib
-*.ilk
-*.ipch
 
 # User-specific files
 *.rsuser
@@ -27,13 +21,14 @@ replace-secrets.txt
 # Mono auto generated files
 mono_crash.*
 
-# Build results
+# Build results and directories
 [Dd]ebug/
 [Dd]ebugPublic/
 [Rr]elease/
 [Rr]eleases/
 x64/
 x86/
+x86_64/
 [Ww][Ii][Nn]32/
 [Aa][Rr][Mm]/
 [Aa][Rr][Mm]64/
@@ -42,6 +37,14 @@ bld/
 [Oo]bj/
 [Ll]og/
 [Ll]ogs/
+
+# Project-specific build directories
+**/bin/
+**/obj/
+**/Debug/
+**/Release/
+**/x64/
+**/x86/
 
 # Visual Studio 2015/2017 cache/options directory
 .vs/
@@ -427,10 +430,10 @@ Temporary Items
 .apdisk
 
 # content below from: https://github.com/github/gitignore/blob/master/Global/Windows.gitignore
-# Windows thumbnail cache files
+# Windows thumbnail cache
 Thumbs.db
+Thumbs.db:encryptable
 ehthumbs.db
-ehthumbs_vista.db
 
 # Dump file
 *.stackdump
@@ -465,10 +468,26 @@ $RECYCLE.BIN/
 !.vscode/extensions.json
 *.zip
 
-*.exe
-*.lib
+## Project-specific ignores
+# Compiled DLL files from C++ projects
 *.dll
-## 忽略输出目录
-bin/
-obj/
-*.nupkg
+*.so
+*.dylib
+
+# ImGui generated files
+imgui.ini
+
+# Publish/Package directories
+**/publish/
+**/PublishProfiles/
+
+# Package cache
+**/packages/
+
+# Generated files
+Generated\ Files/
+Generated_Code/
+
+# User preference and temp files
+temp.txt
+*.tmp
