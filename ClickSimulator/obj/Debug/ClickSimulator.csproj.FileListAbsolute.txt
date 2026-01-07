@@ -1,2 +1,0 @@
-C:\Users\Administrator\source\repos\DaemonApps\ClickSimulator\obj\Debug\ClickSimulator.csproj.AssemblyReference.cache
-C:\Users\Administrator\source\repos\DaemonApps\ClickSimulator\obj\Debug\ClickSimulator.csproj.CoreCompileInputs.cache
