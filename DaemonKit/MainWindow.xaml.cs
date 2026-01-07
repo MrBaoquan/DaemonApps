@@ -171,7 +171,8 @@ namespace DaemonKit
                 // 初始化新的任务调度引擎（使用全局配置）
                 _scheduleTaskEngine = new ScheduleTaskEngine(rootProcessNode, GlobalSchedule)
                 {
-                    ConfirmHandler = ConfirmSchedulePowerActionAsync
+                    ConfirmHandler = ConfirmSchedulePowerActionAsync,
+                    PowerSavingViewModelProvider = () => powerSavingWindow?.DataContext
                 };
                 _scheduleTaskEngine.TaskExecuting += (sender, context) =>
                 {

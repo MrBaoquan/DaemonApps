@@ -4,6 +4,7 @@ using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Reactive;
+using System.Reactive.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Xml.Serialization;
@@ -54,7 +55,13 @@ namespace DaemonKit.Core
         TakeScreenshot,
 
         /// <summary>鼠标点击</summary>
-        ClickMouse
+        ClickMouse,
+
+        /// <summary>开启节能模式</summary>
+        EnterPowerSaving,
+
+        /// <summary>退出节能模式</summary>
+        ExitPowerSaving
     }
 
     /// <summary>
@@ -236,7 +243,9 @@ namespace DaemonKit.Core
             return Action == ScheduleTaskAction.ShutdownSystem
                 || Action == ScheduleTaskAction.RestartSystem
                 || Action == ScheduleTaskAction.TakeScreenshot
-                || Action == ScheduleTaskAction.ClickMouse;
+                || Action == ScheduleTaskAction.ClickMouse
+                || Action == ScheduleTaskAction.EnterPowerSaving
+                || Action == ScheduleTaskAction.ExitPowerSaving;
         }
     }
 
@@ -286,6 +295,9 @@ namespace DaemonKit.Core
         );
         private readonly bool _isFirstStartOfDay;
         private volatile bool _isDisposed = false;
+
+        /// <summary>省电模式视图模型引用（可选）</summary>
+        public Func<object>? PowerSavingViewModelProvider { get; set; }
 
         /// <summary>任务执行时的回调事件</summary>
         public event EventHandler<ScheduleTaskContext> TaskExecuting;
@@ -667,6 +679,16 @@ namespace DaemonKit.Core
                     context.Result = $"已执行鼠标点击: ({taskConfig.ClickX}, {taskConfig.ClickY})";
                     break;
 
+                case ScheduleTaskAction.EnterPowerSaving:
+                    await ExecuteEnterPowerSavingMode();
+                    context.Result = "已开启节能模式";
+                    break;
+
+                case ScheduleTaskAction.ExitPowerSaving:
+                    await ExecuteExitPowerSavingMode();
+                    context.Result = "已退出节能模式";
+                    break;
+
                 default:
                     throw new NotSupportedException($"不支持的任务类型: {taskConfig.Action}");
             }
@@ -694,6 +716,80 @@ namespace DaemonKit.Core
             catch (Exception ex)
             {
                 NLogger.Error($"执行鼠标点击失败: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// 开启节能模式
+        /// </summary>
+        private async Task ExecuteEnterPowerSavingMode()
+        {
+            try
+            {
+                var viewModel = PowerSavingViewModelProvider?.Invoke();
+                if (viewModel == null)
+                {
+                    NLogger.Warn("无法开启节能模式: PowerSavingViewModel 未初始化");
+                    return;
+                }
+
+                // 使用反射调用 ApplyPowerSavingCommand
+                var commandProperty = viewModel.GetType().GetProperty("ApplyPowerSavingCommand");
+                if (commandProperty != null)
+                {
+                    var command = commandProperty.GetValue(viewModel) as ReactiveUI.ReactiveCommand<Unit, Unit>;
+                    if (command != null && command.CanExecute.FirstAsync().Wait())
+                    {
+                        await command.Execute();
+                        NLogger.Info("节能模式已开启");
+                    }
+                    else
+                    {
+                        NLogger.Warn("无法执行开启节能模式命令");
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                NLogger.Error($"开启节能模式失败: {ex.Message}");
+                throw;
+            }
+        }
+
+        /// <summary>
+        /// 退出节能模式
+        /// </summary>
+        private async Task ExecuteExitPowerSavingMode()
+        {
+            try
+            {
+                var viewModel = PowerSavingViewModelProvider?.Invoke();
+                if (viewModel == null)
+                {
+                    NLogger.Warn("无法退出节能模式: PowerSavingViewModel 未初始化");
+                    return;
+                }
+
+                // 使用反射调用 RestoreNormalCommand
+                var commandProperty = viewModel.GetType().GetProperty("RestoreNormalCommand");
+                if (commandProperty != null)
+                {
+                    var command = commandProperty.GetValue(viewModel) as ReactiveUI.ReactiveCommand<Unit, Unit>;
+                    if (command != null && command.CanExecute.FirstAsync().Wait())
+                    {
+                        await command.Execute();
+                        NLogger.Info("节能模式已退出");
+                    }
+                    else
+                    {
+                        NLogger.Warn("无法执行退出节能模式命令");
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                NLogger.Error($"退出节能模式失败: {ex.Message}");
+                throw;
             }
         }
 
