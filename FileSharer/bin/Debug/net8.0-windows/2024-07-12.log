@@ -1,0 +1,146 @@
+2024-07-12 08:52:24.6183 Info WebServer New State - Loading  
+2024-07-12 08:52:24.6560 Info WebServer New State - Listening  
+2024-07-12 08:57:14.6077 Info WebServer New State - Loading  
+2024-07-12 08:57:14.6442 Info WebServer New State - Listening  
+2024-07-12 09:01:23.7848 Info WebServer New State - Loading  
+2024-07-12 09:01:23.8211 Info WebServer New State - Listening  
+2024-07-12 09:05:33.3365 Info WebServer New State - Loading  
+2024-07-12 09:05:33.3685 Info WebServer New State - Listening  
+2024-07-12 09:06:47.2157 Info WebServer New State - Loading  
+2024-07-12 09:06:47.2480 Info WebServer New State - Listening  
+2024-07-12 09:08:18.8196 Info WebServer New State - Loading  
+2024-07-12 09:08:18.8568 Info WebServer New State - Listening  
+2024-07-12 09:14:16.2000 Info WebServer New State - Loading  
+2024-07-12 09:14:16.2446 Info WebServer New State - Listening  
+2024-07-12 09:15:15.1341 Info WebServer New State - Loading  
+2024-07-12 09:15:15.1717 Info WebServer New State - Listening  
+2024-07-12 09:16:08.4639 Info WebServer New State - Loading  
+2024-07-12 09:16:08.5032 Info WebServer New State - Listening  
+2024-07-12 09:16:55.1562 Info WebServer New State - Loading  
+2024-07-12 09:16:55.1937 Info WebServer New State - Listening  
+2024-07-12 09:21:46.4861 Info WebServer New State - Loading  
+2024-07-12 09:21:46.5171 Info WebServer New State - Listening  
+2024-07-12 09:24:06.1212 Info WebServer New State - Loading  
+2024-07-12 09:24:06.1591 Info WebServer New State - Listening  
+2024-07-12 09:24:37.9671 Info WebServer New State - Loading  
+2024-07-12 09:24:37.9977 Info WebServer New State - Listening  
+2024-07-12 09:25:03.5043 Info WebServer New State - Loading  
+2024-07-12 09:25:03.5591 Info WebServer New State - Listening  
+2024-07-12 09:34:45.0160 Info File Sharer Server - Loading  
+2024-07-12 09:34:45.0486 Info File Sharer Server - Listening  
+2024-07-12 09:37:02.5013 Info File Sharer Server - Loading  
+2024-07-12 09:37:02.5360 Info File Sharer Server - Listening  
+2024-07-12 09:37:09.2088 Info Shared new file: http://162.16.110.110:6699/assets/WIN_20220917_09_50_31_Pro_qrcode.png  
+2024-07-12 09:43:48.7093 Info File Sharer Server - Loading  
+2024-07-12 09:43:48.7406 Info File Sharer Server - Listening  
+2024-07-12 09:43:53.8923 Info Shared new file: http://disk.andcrane.com/WIN_20220917_09_50_31_Pro.jpg  
+2024-07-12 09:44:49.1522 Info File Sharer Server - Loading  
+2024-07-12 09:44:49.1836 Info File Sharer Server - Listening  
+2024-07-12 09:44:54.1056 Info Shared new file: http://162.16.110.110:6699/assets/WIN_20220917_09_50_31_Pro_qrcode.png  
+2024-07-12 09:45:24.3277 Info File Sharer Server - Loading  
+2024-07-12 09:45:24.3704 Info File Sharer Server - Listening  
+2024-07-12 09:45:29.8177 Info Shared new file: http://disk.andcrane.com/WIN_20220917_09_50_31_Pro.jpg  
+2024-07-12 09:45:41.8486 Info Shared new file: http://disk.andcrane.com/WIN_20220917_09_50_31_Pro.jpg  
+2024-07-12 09:45:44.3768 Info Shared new file: http://disk.andcrane.com/WIN_20220917_09_50_31_Pro.jpg  
+2024-07-12 09:45:47.4035 Info Shared new file: http://disk.andcrane.com/WIN_20220917_09_50_31_Pro.jpg  
+2024-07-12 09:48:40.6083 Info File Sharer Server - Loading  
+2024-07-12 09:48:40.6548 Info File Sharer Server - Listening  
+2024-07-12 09:48:45.7531 Info Shared new file: Failed with error info: Invalid file path filesharer/C:\Users\Administrator\source\repos\DaemonApps\FileSharer\bin\Debug\net8.0-windows\assets\WIN_20220917_09_50_31_Pro.jpg.  
+2024-07-12 09:50:32.9669 Info File Sharer Server - Loading  
+2024-07-12 09:50:33.0008 Info File Sharer Server - Listening  
+2024-07-12 09:50:38.0424 Info Shared new file: http://disk.andcrane.com/file_sharer\WIN_20220917_09_50_31_Pro.jpg  
+2024-07-12 09:51:53.9140 Info File Sharer Server - Loading  
+2024-07-12 09:51:53.9508 Info File Sharer Server - Listening  
+2024-07-12 09:51:59.7504 Info Shared new file: http://disk.andcrane.com/file_sharer/WIN_20220917_09_50_31_Pro.jpg  
+2024-07-12 10:21:46.0041 Info File Sharer Server - Loading  
+2024-07-12 10:21:46.0395 Info File Sharer Server - Listening  
+2024-07-12 10:27:27.3935 Info File Sharer Server - Loading  
+2024-07-12 10:27:27.4220 Info File Sharer Server - Listening  
+2024-07-12 10:39:14.6897 Info Ethernet  
+2024-07-12 10:39:14.7120 Info Ethernet  
+2024-07-12 10:39:14.7120 Info Wireless80211  
+2024-07-12 10:39:14.7120 Info Ethernet  
+2024-07-12 10:39:14.7120 Info Loopback  
+2024-07-12 10:39:14.7120 Info Ethernet  
+2024-07-12 10:39:14.7120 Info Ethernet  
+2024-07-12 10:39:18.0447 Info File Sharer Server - Loading  
+2024-07-12 10:39:18.0653 Info File Sharer Server - Listening  
+2024-07-12 10:47:55.6865 Info Ethernet  
+2024-07-12 10:47:55.7009 Info Ethernet  
+2024-07-12 10:47:55.7009 Info Wireless80211  
+2024-07-12 10:47:55.7009 Info Ethernet  
+2024-07-12 10:47:55.7009 Info Loopback  
+2024-07-12 10:47:55.7009 Info Ethernet  
+2024-07-12 10:47:55.7009 Info Ethernet  
+2024-07-12 10:47:59.3582 Info File Sharer Server - Loading  
+2024-07-12 10:47:59.3785 Info File Sharer Server - Listening  
+2024-07-12 10:48:59.0769 Info Ethernet  
+2024-07-12 10:48:59.0956 Info Ethernet  
+2024-07-12 10:48:59.0956 Info Wireless80211  
+2024-07-12 10:48:59.0956 Info Ethernet  
+2024-07-12 10:48:59.0956 Info Loopback  
+2024-07-12 10:48:59.0956 Info Ethernet  
+2024-07-12 10:48:59.0956 Info Ethernet  
+2024-07-12 10:48:59.1688 Info File Sharer Server - Loading  
+2024-07-12 10:48:59.1980 Info File Sharer Server - Listening  
+2024-07-12 11:00:18.6842 Info Ethernet  
+2024-07-12 11:00:18.7013 Info Ethernet  
+2024-07-12 11:00:18.7013 Info Wireless80211  
+2024-07-12 11:00:18.7013 Info Ethernet  
+2024-07-12 11:00:18.7013 Info Loopback  
+2024-07-12 11:00:18.7013 Info Ethernet  
+2024-07-12 11:00:18.7013 Info Ethernet  
+2024-07-12 11:00:18.7540 Info File Sharer Server - Loading  
+2024-07-12 11:00:18.7805 Info File Sharer Server - Listening  
+2024-07-12 12:15:11.4277 Info Ethernet  
+2024-07-12 12:15:11.4433 Info Ethernet  
+2024-07-12 12:15:11.4433 Info Wireless80211  
+2024-07-12 12:15:11.4433 Info Ethernet  
+2024-07-12 12:15:11.4433 Info Loopback  
+2024-07-12 12:15:11.4433 Info Ethernet  
+2024-07-12 12:15:11.4433 Info Ethernet  
+2024-07-12 12:15:11.5003 Info File Sharer Server - Loading  
+2024-07-12 12:15:11.5225 Info File Sharer Server - Listening  
+2024-07-12 13:31:01.5959 Info File Sharer Server - Loading  
+2024-07-12 13:31:01.6341 Info File Sharer Server - Listening  
+2024-07-12 13:54:48.1047 Info File Sharer Server - Loading  
+2024-07-12 13:54:48.1392 Info File Sharer Server - Listening  
+2024-07-12 14:00:16.8260 Info File Sharer Server - Loading  
+2024-07-12 14:00:16.8732 Info File Sharer Server - Listening  
+2024-07-12 14:03:33.0268 Info Shared new file: http://disk.andcrane.com/file_sharer/WIN_20220917_09_50_31_Pro.jpg  
+2024-07-12 14:03:36.7613 Info Shared new file: http://disk.andcrane.com/file_sharer/WIN_20220917_09_50_31_Pro.jpg  
+2024-07-12 14:03:37.7447 Info Shared new file: http://disk.andcrane.com/file_sharer/WIN_20220917_09_50_31_Pro.jpg  
+2024-07-12 14:03:38.7181 Info Shared new file: http://disk.andcrane.com/file_sharer/WIN_20220917_09_50_31_Pro.jpg  
+2024-07-12 14:03:39.6036 Info Shared new file: http://disk.andcrane.com/file_sharer/WIN_20220917_09_50_31_Pro.jpg  
+2024-07-12 14:03:40.5140 Info Shared new file: http://disk.andcrane.com/file_sharer/WIN_20220917_09_50_31_Pro.jpg  
+2024-07-12 14:03:41.4842 Info Shared new file: http://disk.andcrane.com/file_sharer/WIN_20220917_09_50_31_Pro.jpg  
+2024-07-12 14:03:42.3406 Info Shared new file: http://disk.andcrane.com/file_sharer/WIN_20220917_09_50_31_Pro.jpg  
+2024-07-12 14:03:43.2841 Info Shared new file: http://disk.andcrane.com/file_sharer/WIN_20220917_09_50_31_Pro.jpg  
+2024-07-12 14:03:44.2459 Info Shared new file: http://disk.andcrane.com/file_sharer/WIN_20220917_09_50_31_Pro.jpg  
+2024-07-12 14:03:45.0760 Info Shared new file: http://disk.andcrane.com/file_sharer/WIN_20220917_09_50_31_Pro.jpg  
+2024-07-12 14:03:45.8603 Info Shared new file: http://disk.andcrane.com/file_sharer/WIN_20220917_09_50_31_Pro.jpg  
+2024-07-12 14:03:46.4831 Info Shared new file: http://disk.andcrane.com/file_sharer/WIN_20220917_09_50_31_Pro.jpg  
+2024-07-12 14:03:49.3038 Info Shared new file: http://disk.andcrane.com/file_sharer/WIN_20220917_09_50_31_Pro.jpg  
+2024-07-12 15:47:46.9585 Info File Sharer Server - Loading  
+2024-07-12 15:47:46.9916 Info File Sharer Server - Listening  
+2024-07-12 17:04:53.9181 Info File Sharer Server - Loading  
+2024-07-12 17:04:53.9577 Info File Sharer Server - Listening  
+2024-07-12 17:06:21.0256 Info File Sharer Server - Loading  
+2024-07-12 17:06:21.0589 Info File Sharer Server - Listening  
+2024-07-12 17:06:42.8471 Info File Sharer Server - Loading  
+2024-07-12 17:06:42.8804 Info File Sharer Server - Listening  
+2024-07-12 17:06:59.1213 Info File Sharer Server - Loading  
+2024-07-12 17:06:59.1527 Info File Sharer Server - Listening  
+2024-07-12 17:09:37.5684 Info File Sharer Server - Loading  
+2024-07-12 17:09:37.6164 Info File Sharer Server - Listening  
+2024-07-12 17:21:18.8722 Info File Sharer Server - Loading  
+2024-07-12 17:21:18.9136 Info File Sharer Server - Listening  
+2024-07-12 17:21:35.1745 Info Shared new file: http://disk.andcrane.com/file_sharer/WIN_20220917_09_50_31_Pro.jpg  
+2024-07-12 17:29:49.3261 Info File Sharer Server - Loading  
+2024-07-12 17:29:49.3645 Info File Sharer Server - Listening  
+2024-07-12 17:30:00.4105 Info File Sharer Server - Loading  
+2024-07-12 17:30:00.4515 Info File Sharer Server - Listening  
+2024-07-12 17:30:42.2632 Info File Sharer Server - Loading  
+2024-07-12 17:30:42.3021 Info File Sharer Server - Listening  
+2024-07-12 17:35:21.4791 Info File Sharer Server - Loading  
+2024-07-12 17:35:21.5197 Info File Sharer Server - Listening  

@@ -1,0 +1,13 @@
+C:\Users\Administrator\source\repos\DaemonApps\ColudDisk\bin\Release\net6.0\win-x86\ColudDisk.deps.json
+C:\Users\Administrator\source\repos\DaemonApps\ColudDisk\bin\Release\net6.0\win-x86\ColudDisk.dll
+C:\Users\Administrator\source\repos\DaemonApps\ColudDisk\bin\Release\net6.0\win-x86\ColudDisk.pdb
+C:\Users\Administrator\source\repos\DaemonApps\ColudDisk\obj\Release\net6.0\win-x86\ColudDisk.csproj.AssemblyReference.cache
+C:\Users\Administrator\source\repos\DaemonApps\ColudDisk\obj\Release\net6.0\win-x86\ColudDisk.GeneratedMSBuildEditorConfig.editorconfig
+C:\Users\Administrator\source\repos\DaemonApps\ColudDisk\obj\Release\net6.0\win-x86\ColudDisk.AssemblyInfoInputs.cache
+C:\Users\Administrator\source\repos\DaemonApps\ColudDisk\obj\Release\net6.0\win-x86\ColudDisk.AssemblyInfo.cs
+C:\Users\Administrator\source\repos\DaemonApps\ColudDisk\obj\Release\net6.0\win-x86\ColudDisk.csproj.CoreCompileInputs.cache
+C:\Users\Administrator\source\repos\DaemonApps\ColudDisk\obj\Release\net6.0\win-x86\ColudDisk.sourcelink.json
+C:\Users\Administrator\source\repos\DaemonApps\ColudDisk\obj\Release\net6.0\win-x86\ColudDisk.dll
+C:\Users\Administrator\source\repos\DaemonApps\ColudDisk\obj\Release\net6.0\win-x86\refint\ColudDisk.dll
+C:\Users\Administrator\source\repos\DaemonApps\ColudDisk\obj\Release\net6.0\win-x86\ColudDisk.pdb
+C:\Users\Administrator\source\repos\DaemonApps\ColudDisk\obj\Release\net6.0\win-x86\ref\ColudDisk.dll

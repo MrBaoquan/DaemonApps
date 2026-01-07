@@ -1,0 +1,37 @@
+时间:2025/3/28 10:27:15
+说明:接口返回结果为：data: {"id":"e815e1c0-ddaf-4794-bc72-bc9537302a75","object":"chat.completion.chunk","created":1743128830,"model":"deepseek-chat","system_fingerprint":"fp_3d5141a69a_prod0225","choices":[{"index":0,"delta":{"role":"assistant","content":""},"logprobs":null,"finish_reason":null}]}
+
+data: {"id":"e815e1c0-ddaf-4794-bc72-bc9537302a75","object":"chat.completion.chunk","created":1743128830,"model":"deepseek-chat","system_fingerprint":"fp_3d5141a69a_prod0225","choices":[{"index":0,"delta":{"content":"你好"},"logprobs":null,"finish_reason":null}]}
+
+data: {"id":"e815e1c0-ddaf-4794-bc72-bc9537302a75","object":"chat.completion.chunk","created":1743128830,"model":"deepseek-chat","system_fingerprint":"fp_3d5141a69a_prod0225","choices":[{"index":0,"delta":{"content":"！"},"logprobs":null,"finish_reason":null}]}
+
+data: {"id":"e815e1c0-ddaf-4794-bc72-bc9537302a75","object":"chat.completion.chunk","created":1743128830,"model":"deepseek-chat","system_fingerprint":"fp_3d5141a69a_prod0225","choices":[{"index":0,"delta":{"content":"😊"},"logprobs":null,"finish_reason":null}]}
+
+data: {"id":"e815e1c0-ddaf-4794-bc72-bc9537302a75","object":"chat.completion.chunk","created":1743128830,"model":"deepseek-chat","system_fingerprint":"fp_3d5141a69a_prod0225","choices":[{"index":0,"delta":{"content":" "},"logprobs":null,"finish_reason":null}]}
+
+data: {"id":"e815e1c0-ddaf-4794-bc72-bc9537302a75","object":"chat.completion.chunk","created":1743128830,"model":"deepseek-chat","system_fingerprint":"fp_3d5141a69a_prod0225","choices":[{"index":0,"delta":{"content":"很高兴"},"logprobs":null,"finish_reason":null}]}
+
+data: {"id":"e815e1c0-ddaf-4794-bc72-bc9537302a75","object":"chat.completion.chunk","created":1743128830,"model":"deepseek-chat","system_fingerprint":"fp_3d5141a69a_prod0225","choices":[{"index":0,"delta":{"content":"见到"},"logprobs":null,"finish_reason":null}]}
+
+data: {"id":"e815e1c0-ddaf-4794-bc72-bc9537302a75","object":"chat.completion.chunk","created":1743128830,"model":"deepseek-chat","system_fingerprint":"fp_3d5141a69a_prod0225","choices":[{"index":0,"delta":{"content":"你"},"logprobs":null,"finish_reason":null}]}
+
+data: {"id":"e815e1c0-ddaf-4794-bc72-bc9537302a75","object":"chat.completion.chunk","created":1743128830,"model":"deepseek-chat","system_fingerprint":"fp_3d5141a69a_prod0225","choices":[{"index":0,"delta":{"content":"～"},"logprobs":null,"finish_reason":null}]}
+
+data: {"id":"e815e1c0-ddaf-4794-bc72-bc9537302a75","object":"chat.completion.chunk","created":1743128830,"model":"deepseek-chat","system_fingerprint":"fp_3d5141a69a_prod0225","choices":[{"index":0,"delta":{"content":"有什么"},"logprobs":null,"finish_reason":null}]}
+
+data: {"id":"e815e1c0-ddaf-4794-bc72-bc9537302a75","object":"chat.completion.chunk","created":1743128830,"model":"deepseek-chat","system_fingerprint":"fp_3d5141a69a_prod0225","choices":[{"index":0,"delta":{"content":"我可以"},"logprobs":null,"finish_reason":null}]}
+
+data: {"id":"e815e1c0-ddaf-4794-bc72-bc9537302a75","object":"chat.completion.chunk","created":1743128830,"model":"deepseek-chat","system_fingerprint":"fp_3d5141a69a_prod0225","choices":[{"index":0,"delta":{"content":"帮"},"logprobs":null,"finish_reason":null}]}
+
+data: {"id":"e815e1c0-ddaf-4794-bc72-bc9537302a75","object":"chat.completion.chunk","created":1743128830,"model":"deepseek-chat","system_fingerprint":"fp_3d5141a69a_prod0225","choices":[{"index":0,"delta":{"content":"你的"},"logprobs":null,"finish_reason":null}]}
+
+data: {"id":"e815e1c0-ddaf-4794-bc72-bc9537302a75","object":"chat.completion.chunk","created":1743128830,"model":"deepseek-chat","system_fingerprint":"fp_3d5141a69a_prod0225","choices":[{"index":0,"delta":{"content":"吗"},"logprobs":null,"finish_reason":null}]}
+
+data: {"id":"e815e1c0-ddaf-4794-bc72-bc9537302a75","object":"chat.completion.chunk","created":1743128830,"model":"deepseek-chat","system_fingerprint":"fp_3d5141a69a_prod0225","choices":[{"index":0,"delta":{"content":"？"},"logprobs":null,"finish_reason":null}]}
+
+data: {"id":"e815e1c0-ddaf-4794-bc72-bc9537302a75","object":"chat.completion.chunk","created":1743128830,"model":"deepseek-chat","system_fingerprint":"fp_3d5141a69a_prod0225","choices":[{"index":0,"delta":{"content":""},"logprobs":null,"finish_reason":"stop"}],"usage":{"prompt_tokens":4,"completion_tokens":15,"total_tokens":19,"prompt_tokens_details":{"cached_tokens":0},"prompt_cache_hit_tokens":0,"prompt_cache_miss_tokens":4}}
+
+data: [DONE]
+
+
+

@@ -1,0 +1,38 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<package xmlns="http://schemas.microsoft.com/packaging/2012/06/nuspec.xsd">
+  <metadata>
+    <id>FileSharer</id>
+    <version>1.0.0</version>
+    <authors>FileSharer</authors>
+    <description>Package Description</description>
+    <repository type="git" commit="fa61642fa7b8ed30bddb604c8669ef6e45801ec4" />
+    <dependencies>
+      <group targetFramework="net8.0-windows7.0">
+        <dependency id="CloudDisk" version="1.0.0" exclude="Build,Analyzers" />
+        <dependency id="EmbedIO" version="3.5.2" exclude="Build,Analyzers" />
+        <dependency id="HttpMultipartParser" version="8.4.0" exclude="Build,Analyzers" />
+        <dependency id="Markdig.Wpf" version="0.5.0.1" exclude="Build,Analyzers" />
+        <dependency id="MaterialDesignThemes" version="5.1.0" exclude="Build,Analyzers" />
+        <dependency id="NLog" version="5.3.2" exclude="Build,Analyzers" />
+        <dependency id="QRCoder" version="1.6.0" exclude="Build,Analyzers" />
+        <dependency id="ReactiveUI.WPF" version="20.1.1" exclude="Build,Analyzers" />
+        <dependency id="YKT.AI.TotalApi" version="8.0.0" exclude="Build,Analyzers" />
+        <dependency id="ini-parser-netstandard" version="2.5.2" exclude="Build,Analyzers" />
+      </group>
+    </dependencies>
+    <frameworkReferences>
+      <group targetFramework="net8.0-windows7.0">
+        <frameworkReference name="Microsoft.WindowsDesktop.App.WPF" />
+      </group>
+    </frameworkReferences>
+    <contentFiles>
+      <files include="any/net8.0-windows7.0/Assets/logo.ico" buildAction="Content" />
+    </contentFiles>
+  </metadata>
+  <files>
+    <file src="C:\Users\Administrator\source\repos\DaemonApps\FileSharer\bin\Debug\net8.0-windows\FileSharer.runtimeconfig.json" target="lib\net8.0-windows7.0\FileSharer.runtimeconfig.json" />
+    <file src="C:\Users\Administrator\source\repos\DaemonApps\FileSharer\bin\Debug\net8.0-windows\FileSharer.dll" target="lib\net8.0-windows7.0\FileSharer.dll" />
+    <file src="C:\Users\Administrator\source\repos\DaemonApps\FileSharer\Assets\logo.ico" target="content\Assets\logo.ico" />
+    <file src="C:\Users\Administrator\source\repos\DaemonApps\FileSharer\Assets\logo.ico" target="contentFiles\any\net8.0-windows7.0\Assets\logo.ico" />
+  </files>
+</package>

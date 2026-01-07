@@ -1,0 +1,481 @@
+{
+  "runtimeTarget": {
+    "name": ".NETCoreApp,Version=v8.0",
+    "signature": ""
+  },
+  "compilationOptions": {},
+  "targets": {
+    ".NETCoreApp,Version=v8.0": {
+      "DynamicData/8.3.27": {
+        "dependencies": {
+          "System.Reactive": "6.0.1"
+        },
+        "runtime": {
+          "lib/net8.0/DynamicData.dll": {
+            "assemblyVersion": "8.3.0.0",
+            "fileVersion": "8.3.27.26536"
+          }
+        }
+      },
+      "FontAwesome.WPF/4.7.0.9": {
+        "runtime": {
+          "lib/net40/FontAwesome.WPF.dll": {
+            "assemblyVersion": "4.7.0.37774",
+            "fileVersion": "4.7.0.9"
+          }
+        }
+      },
+      "H.GeneratedIcons.System.Drawing/2.3.0": {
+        "dependencies": {
+          "System.Drawing.Common": "9.0.1"
+        },
+        "runtime": {
+          "lib/net8.0/H.GeneratedIcons.System.Drawing.dll": {
+            "assemblyVersion": "2.0.0.0",
+            "fileVersion": "2.3.0.0"
+          }
+        }
+      },
+      "H.NotifyIcon/2.3.0": {
+        "dependencies": {
+          "H.GeneratedIcons.System.Drawing": "2.3.0"
+        },
+        "runtime": {
+          "lib/net8.0/H.NotifyIcon.dll": {
+            "assemblyVersion": "2.0.0.0",
+            "fileVersion": "2.3.0.0"
+          }
+        }
+      },
+      "H.NotifyIcon.Wpf/2.3.0": {
+        "dependencies": {
+          "H.NotifyIcon": "2.3.0"
+        },
+        "runtime": {
+          "lib/net8.0-windows7.0/H.NotifyIcon.Wpf.dll": {
+            "assemblyVersion": "2.0.0.0",
+            "fileVersion": "2.3.0.0"
+          }
+        }
+      },
+      "Hardware.Info/101.0.1.1": {
+        "dependencies": {
+          "System.Management": "8.0.0"
+        },
+        "runtime": {
+          "lib/netstandard2.0/Hardware.Info.dll": {
+            "assemblyVersion": "101.0.1.1",
+            "fileVersion": "101.0.1.1"
+          }
+        }
+      },
+      "MaterialDesignColors/2.1.1": {
+        "runtime": {
+          "lib/net7.0/MaterialDesignColors.dll": {
+            "assemblyVersion": "2.1.1.0",
+            "fileVersion": "2.1.1.0"
+          }
+        }
+      },
+      "MaterialDesignThemes/4.7.1": {
+        "dependencies": {
+          "MaterialDesignColors": "2.1.1",
+          "Microsoft.Xaml.Behaviors.Wpf": "1.1.39"
+        },
+        "runtime": {
+          "lib/net7.0/MaterialDesignThemes.Wpf.dll": {
+            "assemblyVersion": "4.7.1.0",
+            "fileVersion": "4.7.1.0"
+          }
+        }
+      },
+      "MessagePack/3.1.4": {
+        "dependencies": {
+          "MessagePack.Annotations": "3.1.4",
+          "Microsoft.NET.StringTools": "17.11.4"
+        },
+        "runtime": {
+          "lib/net8.0/MessagePack.dll": {
+            "assemblyVersion": "3.1.4.0",
+            "fileVersion": "3.1.4.0"
+          }
+        }
+      },
+      "MessagePack.Annotations/3.1.4": {
+        "runtime": {
+          "lib/netstandard2.0/MessagePack.Annotations.dll": {
+            "assemblyVersion": "3.1.4.0",
+            "fileVersion": "3.1.4.0"
+          }
+        }
+      },
+      "Microsoft.NET.StringTools/17.11.4": {
+        "runtime": {
+          "lib/net8.0/Microsoft.NET.StringTools.dll": {
+            "assemblyVersion": "1.0.0.0",
+            "fileVersion": "17.11.4.40609"
+          }
+        }
+      },
+      "Microsoft.Win32.SystemEvents/9.0.1": {
+        "runtime": {
+          "runtimes/win/lib/net8.0/Microsoft.Win32.SystemEvents.dll": {
+            "assemblyVersion": "9.0.0.0",
+            "fileVersion": "9.0.124.61010"
+          }
+        }
+      },
+      "Microsoft.Xaml.Behaviors.Wpf/1.1.39": {
+        "runtime": {
+          "lib/net5.0-windows7.0/Microsoft.Xaml.Behaviors.dll": {
+            "assemblyVersion": "1.1.0.0",
+            "fileVersion": "1.1.39.4716"
+          }
+        }
+      },
+      "Newtonsoft.Json/13.0.3": {
+        "runtime": {
+          "lib/net6.0/Newtonsoft.Json.dll": {
+            "assemblyVersion": "13.0.0.0",
+            "fileVersion": "13.0.3.27908"
+          }
+        }
+      },
+      "NLog/6.0.6": {
+        "runtime": {
+          "lib/netstandard2.1/NLog.dll": {
+            "assemblyVersion": "6.0.0.0",
+            "fileVersion": "6.0.6.4706"
+          }
+        }
+      },
+      "ReactiveMarbles.PropertyChanged/2.0.6": {
+        "dependencies": {
+          "System.Reactive": "6.0.1"
+        },
+        "runtime": {
+          "lib/net5.0/ReactiveMarbles.PropertyChanged.dll": {
+            "assemblyVersion": "2.0.0.0",
+            "fileVersion": "2.0.6.8516"
+          }
+        }
+      },
+      "ReactiveUI/19.5.41": {
+        "dependencies": {
+          "DynamicData": "8.3.27",
+          "Splat": "14.8.12"
+        },
+        "runtime": {
+          "lib/net8.0/ReactiveUI.dll": {
+            "assemblyVersion": "19.5.0.0",
+            "fileVersion": "19.5.41.25387"
+          }
+        }
+      },
+      "ReactiveUI.WPF/19.5.41": {
+        "dependencies": {
+          "ReactiveUI": "19.5.41"
+        },
+        "runtime": {
+          "lib/net462/ReactiveUI.Wpf.dll": {
+            "assemblyVersion": "19.5.0.0",
+            "fileVersion": "19.5.41.25387"
+          }
+        }
+      },
+      "Splat/14.8.12": {
+        "runtime": {
+          "lib/net8.0/Splat.dll": {
+            "assemblyVersion": "14.8.0.0",
+            "fileVersion": "14.8.12.56860"
+          }
+        }
+      },
+      "System.Drawing.Common/9.0.1": {
+        "dependencies": {
+          "Microsoft.Win32.SystemEvents": "9.0.1"
+        },
+        "runtime": {
+          "lib/net8.0/System.Drawing.Common.dll": {
+            "assemblyVersion": "9.0.0.0",
+            "fileVersion": "9.0.124.61006"
+          },
+          "lib/net8.0/System.Private.Windows.Core.dll": {
+            "assemblyVersion": "9.0.0.0",
+            "fileVersion": "9.0.124.61006"
+          }
+        }
+      },
+      "System.IO.Ports/8.0.0": {
+        "runtime": {
+          "runtimes/win/lib/net8.0/System.IO.Ports.dll": {
+            "assemblyVersion": "8.0.0.0",
+            "fileVersion": "8.0.23.53103"
+          }
+        }
+      },
+      "System.Management/8.0.0": {
+        "runtime": {
+          "runtimes/win/lib/net8.0/System.Management.dll": {
+            "assemblyVersion": "8.0.0.0",
+            "fileVersion": "8.0.23.53103"
+          }
+        }
+      },
+      "System.Reactive/6.0.1": {
+        "runtime": {
+          "lib/net6.0/System.Reactive.dll": {
+            "assemblyVersion": "6.0.0.0",
+            "fileVersion": "6.0.1.7420"
+          }
+        }
+      },
+      "System.Reactive.Linq/6.0.1": {
+        "dependencies": {
+          "System.Reactive": "6.0.1"
+        },
+        "runtime": {
+          "lib/netstandard2.0/System.Reactive.Linq.dll": {
+            "assemblyVersion": "3.0.6000.0",
+            "fileVersion": "3.0.6000.0"
+          }
+        }
+      },
+      "TaskScheduler/2.12.2": {
+        "runtime": {
+          "lib/net8.0-windows7.0/Microsoft.Win32.TaskScheduler.dll": {
+            "assemblyVersion": "2.12.2.0",
+            "fileVersion": "2.12.2.0"
+          }
+        },
+        "resources": {
+          "lib/net8.0-windows7.0/de/Microsoft.Win32.TaskScheduler.resources.dll": {
+            "locale": "de"
+          },
+          "lib/net8.0-windows7.0/es/Microsoft.Win32.TaskScheduler.resources.dll": {
+            "locale": "es"
+          },
+          "lib/net8.0-windows7.0/fr/Microsoft.Win32.TaskScheduler.resources.dll": {
+            "locale": "fr"
+          },
+          "lib/net8.0-windows7.0/it/Microsoft.Win32.TaskScheduler.resources.dll": {
+            "locale": "it"
+          },
+          "lib/net8.0-windows7.0/ja/Microsoft.Win32.TaskScheduler.resources.dll": {
+            "locale": "ja"
+          },
+          "lib/net8.0-windows7.0/pl/Microsoft.Win32.TaskScheduler.resources.dll": {
+            "locale": "pl"
+          },
+          "lib/net8.0-windows7.0/ru/Microsoft.Win32.TaskScheduler.resources.dll": {
+            "locale": "ru"
+          },
+          "lib/net8.0-windows7.0/sv/Microsoft.Win32.TaskScheduler.resources.dll": {
+            "locale": "sv"
+          },
+          "lib/net8.0-windows7.0/tr/Microsoft.Win32.TaskScheduler.resources.dll": {
+            "locale": "tr"
+          },
+          "lib/net8.0-windows7.0/zh-CN/Microsoft.Win32.TaskScheduler.resources.dll": {
+            "locale": "zh-CN"
+          },
+          "lib/net8.0-windows7.0/zh-Hant/Microsoft.Win32.TaskScheduler.resources.dll": {
+            "locale": "zh-Hant"
+          }
+        }
+      },
+      "WindowsDisplayAPI/1.3.0.13": {
+        "runtime": {
+          "lib/netstandard2.0/WindowsDisplayAPI.dll": {
+            "assemblyVersion": "1.3.0.13",
+            "fileVersion": "1.3.0.13"
+          }
+        }
+      }
+    }
+  },
+  "libraries": {
+    "DynamicData/8.3.27": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-m5PGnTbFCE04xrH3peeNtiHrXJM5Vxk6Sy9bwXm8ahZ+/ZavqYb8XstBD1GFqcU7g6f8YD3zPcI7XkkW3Y1Ang==",
+      "path": "dynamicdata/8.3.27",
+      "hashPath": "dynamicdata.8.3.27.nupkg.sha512"
+    },
+    "FontAwesome.WPF/4.7.0.9": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-SXE080rnyWMm9Dt0BZzMxh89/o9teuSaqL1N+0O/XM/F/HU8JuZA4XaEKxjBigwZPHHU3/udTa0QMYCHkmH43Q==",
+      "path": "fontawesome.wpf/4.7.0.9",
+      "hashPath": "fontawesome.wpf.4.7.0.9.nupkg.sha512"
+    },
+    "H.GeneratedIcons.System.Drawing/2.3.0": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-3iI+3gy0VJNfXpMCJTHDfqOtVPCp4oXz9jlphtnG3s3dWo/jx1y1N6vuFiKdbzKElztPE+W5nM+7KHBEEyr8zg==",
+      "path": "h.generatedicons.system.drawing/2.3.0",
+      "hashPath": "h.generatedicons.system.drawing.2.3.0.nupkg.sha512"
+    },
+    "H.NotifyIcon/2.3.0": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-nmxzTPfYzwusJkfTapccqvv2SDQr1cOpIXkPnPiFhmux3X79n+gWkoBuKyA2zyE86FFRVoKfc6TklK0RLCjnRw==",
+      "path": "h.notifyicon/2.3.0",
+      "hashPath": "h.notifyicon.2.3.0.nupkg.sha512"
+    },
+    "H.NotifyIcon.Wpf/2.3.0": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-B90srTcFoCfNXg3rifnyg7W9L1LSCHZbQsdI/UplPwEzvwZowCC2BDhcmMxhjr3kqtMTKXkULCXOBPs1vTNXJQ==",
+      "path": "h.notifyicon.wpf/2.3.0",
+      "hashPath": "h.notifyicon.wpf.2.3.0.nupkg.sha512"
+    },
+    "Hardware.Info/101.0.1.1": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-ueI3NbMoOL9FVb2Sq0evJihk7Pa9lmJUaxUTaSs2CA0N5LIVzOJf/qHDIEy10GdJKJJl20HJuENKeNfonawuuw==",
+      "path": "hardware.info/101.0.1.1",
+      "hashPath": "hardware.info.101.0.1.1.nupkg.sha512"
+    },
+    "MaterialDesignColors/2.1.1": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-eHGBycBIDoe6nh0F0IJ2MEtfBe+F7AjS85WzhJlLGiGuX5AEV/jZZAmXeJ3FV9YA47ZybvmshnS6dABnbmQ1TA==",
+      "path": "materialdesigncolors/2.1.1",
+      "hashPath": "materialdesigncolors.2.1.1.nupkg.sha512"
+    },
+    "MaterialDesignThemes/4.7.1": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-peRUXx9f0LYJm5EDpDEufEW7+nk0uGUpcNRx/sK84gW/yMopTzt4rWyi13o5+9R8Xm7H8JWQGubWE0WxZVBe8Q==",
+      "path": "materialdesignthemes/4.7.1",
+      "hashPath": "materialdesignthemes.4.7.1.nupkg.sha512"
+    },
+    "MessagePack/3.1.4": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-BH0wlHWmVoZpbAPyyt2Awbq30C+ZsS3eHSkYdnyUAbqVJ22fAJDzn2xTieBeoT5QlcBzp61vHcv878YJGfi3mg==",
+      "path": "messagepack/3.1.4",
+      "hashPath": "messagepack.3.1.4.nupkg.sha512"
+    },
+    "MessagePack.Annotations/3.1.4": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-aVWrDAkCdqxwQsz/q0ldPh2EFn48M99YUzE9OvZjMq2RNLKz4o2z88iGFvSvbMqOWRweRvKPHBJZe22PRqzslQ==",
+      "path": "messagepack.annotations/3.1.4",
+      "hashPath": "messagepack.annotations.3.1.4.nupkg.sha512"
+    },
+    "Microsoft.NET.StringTools/17.11.4": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-mudqUHhNpeqIdJoUx2YDWZO/I9uEDYVowan89R6wsomfnUJQk6HteoQTlNjZDixhT2B4IXMkMtgZtoceIjLRmA==",
+      "path": "microsoft.net.stringtools/17.11.4",
+      "hashPath": "microsoft.net.stringtools.17.11.4.nupkg.sha512"
+    },
+    "Microsoft.Win32.SystemEvents/9.0.1": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-OxjcwJqBW/5A1111+vL9d+5KYTvOzeCTJY9zHZ0kpQI4wX075p6L7inHPSYuf0MGakVjUvaShvw9e9pfbInU2Q==",
+      "path": "microsoft.win32.systemevents/9.0.1",
+      "hashPath": "microsoft.win32.systemevents.9.0.1.nupkg.sha512"
+    },
+    "Microsoft.Xaml.Behaviors.Wpf/1.1.39": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-8PZKqw9QOcu42xk8puY4P1+EXHL9YGOR9b7qhaYx5cILHul456H073tj99vyPcCt0W0781T9RwHqkx507ZyUpQ==",
+      "path": "microsoft.xaml.behaviors.wpf/1.1.39",
+      "hashPath": "microsoft.xaml.behaviors.wpf.1.1.39.nupkg.sha512"
+    },
+    "Newtonsoft.Json/13.0.3": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-HrC5BXdl00IP9zeV+0Z848QWPAoCr9P3bDEZguI+gkLcBKAOxix/tLEAAHC+UvDNPv4a2d18lOReHMOagPa+zQ==",
+      "path": "newtonsoft.json/13.0.3",
+      "hashPath": "newtonsoft.json.13.0.3.nupkg.sha512"
+    },
+    "NLog/6.0.6": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-eUd/LDIwPtufj5OxtzFYiwuoKpzaS87iqO9P9D05avLCk4jIoOlqMwRH0o/43LmzM+CmgVAdDrCOq/rOK0sDKw==",
+      "path": "nlog/6.0.6",
+      "hashPath": "nlog.6.0.6.nupkg.sha512"
+    },
+    "ReactiveMarbles.PropertyChanged/2.0.6": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-HjV7t58F4LIvW60Cw8BX/CRDztFFS3rwiQd631+7quDsXjnz4FPi5y4Au2fqfSeg1GMup5M13PcdCwzlgJWMyw==",
+      "path": "reactivemarbles.propertychanged/2.0.6",
+      "hashPath": "reactivemarbles.propertychanged.2.0.6.nupkg.sha512"
+    },
+    "ReactiveUI/19.5.41": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-qusIoJHhzNFm/Ei52wwesy15le/NAMWm40UOz2boaWcBntqOJJPR6YucDUibHNo5v9opNP7ZCAMa+w3rzX6AIw==",
+      "path": "reactiveui/19.5.41",
+      "hashPath": "reactiveui.19.5.41.nupkg.sha512"
+    },
+    "ReactiveUI.WPF/19.5.41": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-KC/zYb7ZUYSh7amgiK6OKvydzYNNrS+u6AhKRrM3j0uVzc+GD25mZYEBJmEa8ZfqdF7WOaTZ5j7DE5fQn1/jVw==",
+      "path": "reactiveui.wpf/19.5.41",
+      "hashPath": "reactiveui.wpf.19.5.41.nupkg.sha512"
+    },
+    "Splat/14.8.12": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-7dTp+hgC2CS4DqjHtgkeS7hsECbpD09ukGwxL63HVM/aih9zseIaIjWhS6sQWlWw5GDvli8bVMHeZ1dekgmuvQ==",
+      "path": "splat/14.8.12",
+      "hashPath": "splat.14.8.12.nupkg.sha512"
+    },
+    "System.Drawing.Common/9.0.1": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-TTPkCqSMyMaG8BXlBKYTTJFtLV0SvjjsvgUN598hYgHaX/5B7tdUc2JhQF9vwrYmlzxId+gwFnKYuxQ2XsSz2g==",
+      "path": "system.drawing.common/9.0.1",
+      "hashPath": "system.drawing.common.9.0.1.nupkg.sha512"
+    },
+    "System.IO.Ports/8.0.0": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-MaiPbx2/QXZc62gm/DrajRrGPG1lU4m08GWMoWiymPYM+ba4kfACp2PbiYpqJ4QiFGhHD00zX3RoVDTucjWe9g==",
+      "path": "system.io.ports/8.0.0",
+      "hashPath": "system.io.ports.8.0.0.nupkg.sha512"
+    },
+    "System.Management/8.0.0": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-jrK22i5LRzxZCfGb+tGmke2VH7oE0DvcDlJ1HAKYU8cPmD8XnpUT0bYn2Gy98GEhGjtfbR/sxKTVb+dE770pfA==",
+      "path": "system.management/8.0.0",
+      "hashPath": "system.management.8.0.0.nupkg.sha512"
+    },
+    "System.Reactive/6.0.1": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-rHaWtKDwCi9qJ3ObKo8LHPMuuwv33YbmQi7TcUK1C264V3MFnOr5Im7QgCTdLniztP3GJyeiSg5x8NqYJFqRmg==",
+      "path": "system.reactive/6.0.1",
+      "hashPath": "system.reactive.6.0.1.nupkg.sha512"
+    },
+    "System.Reactive.Linq/6.0.1": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-XC+ZxI74RhP10po29httLW82gjtVQYkLaGM36FIpjd0+lroTerWViadxSXjcWiFPslsdvqNTPrIT+oIA3i4Rfw==",
+      "path": "system.reactive.linq/6.0.1",
+      "hashPath": "system.reactive.linq.6.0.1.nupkg.sha512"
+    },
+    "TaskScheduler/2.12.2": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-glpAb3VrwfdAofp6PIyAzL0ZeTV7XUJ8muu0oZoTeyU5jtk2sMJ6QAMRRuFbovcaj+SBJiEUGklxIWOqQoxshA==",
+      "path": "taskscheduler/2.12.2",
+      "hashPath": "taskscheduler.2.12.2.nupkg.sha512"
+    },
+    "WindowsDisplayAPI/1.3.0.13": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-YXQUdFeMgFrgBjjH84h03UWSV/V0uLdlxhu4yChmmfSc2HN1yXLrc8aB/D2So9yrEQRSQKHg6TpLha0ciCPy+Q==",
+      "path": "windowsdisplayapi/1.3.0.13",
+      "hashPath": "windowsdisplayapi.1.3.0.13.nupkg.sha512"
+    }
+  }
+}

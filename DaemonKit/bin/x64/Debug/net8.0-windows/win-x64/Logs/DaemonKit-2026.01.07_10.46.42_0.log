@@ -1,0 +1,36 @@
+2026-01-07 10:46:32.5203 [Info] - DaemonKit 已启动 
+2026-01-07 10:46:32.5319 [Info] - 加载进程树.. 
+2026-01-07 10:46:32.7000 [Info] - 未找到全局计划任务配置，尝试迁移旧数据... 
+2026-01-07 10:46:32.7247 [Info] - 已迁移 0 个计划任务到全局配置 
+2026-01-07 10:46:33.1909 [Info] - 已注册全局快捷键 
+2026-01-07 10:46:33.2118 [Info] - 节能模式窗口已初始化 
+2026-01-07 10:46:33.2218 [Info] - 程序启动时间: 2026/1/7 10:46:30, 是否当日首次启动: False 
+2026-01-07 10:46:33.2218 [Info] - 启动进程树, Delay:500 
+2026-01-07 10:46:33.3744 [Debug] - [MonitorName] 硬件ID: PHLC213 
+2026-01-07 10:46:33.3744 [Debug] - [MonitorName] 成功读取EDID，长度: 128 字节 
+2026-01-07 10:46:33.3744 [Debug] - [MonitorName] EDID制造商ID: PHL 
+2026-01-07 10:46:33.3744 [Debug] - [MonitorName] EDID监视器名称: PHL 271V8 
+2026-01-07 10:46:33.3744 [Info] - [MonitorName] 成功解析显示器名称: PHL 271V8 
+2026-01-07 10:46:33.3744 [Debug] - [MonitorName] 硬件ID: PHLC213 
+2026-01-07 10:46:33.3744 [Debug] - [MonitorName] 成功读取EDID，长度: 128 字节 
+2026-01-07 10:46:33.3744 [Debug] - [MonitorName] EDID制造商ID: PHL 
+2026-01-07 10:46:33.3744 [Debug] - [MonitorName] EDID监视器名称: PHL 271V8 
+2026-01-07 10:46:33.3744 [Info] - [MonitorName] 成功解析显示器名称: PHL 271V8 
+2026-01-07 10:46:33.3744 [Info] - [BrightnessCoordinator] 创建驱动: DDC/CI (标准显示器) 设备=PHL 271V8, 参数=\\?\DISPLAY#PHLC213#5&4c98cf7&0&UID4352#{e6f07b5f-ee97-4a90-b076-33f57bf4eaa7} 
+2026-01-07 10:46:36.2858 [Debug] - [MonitorName] 硬件ID: PHLC213 
+2026-01-07 10:46:36.2858 [Debug] - [MonitorName] 成功读取EDID，长度: 128 字节 
+2026-01-07 10:46:36.2858 [Debug] - [MonitorName] EDID制造商ID: PHL 
+2026-01-07 10:46:36.2858 [Debug] - [MonitorName] EDID监视器名称: PHL 271V8 
+2026-01-07 10:46:36.2858 [Info] - [MonitorName] 成功解析显示器名称: PHL 271V8 
+2026-01-07 10:46:36.2858 [Debug] - [MonitorName] 硬件ID: PHLC213 
+2026-01-07 10:46:36.2858 [Debug] - [MonitorName] 成功读取EDID，长度: 128 字节 
+2026-01-07 10:46:36.2858 [Debug] - [MonitorName] EDID制造商ID: PHL 
+2026-01-07 10:46:36.2858 [Debug] - [MonitorName] EDID监视器名称: PHL 271V8 
+2026-01-07 10:46:36.2858 [Info] - [MonitorName] 成功解析显示器名称: PHL 271V8 
+2026-01-07 10:46:36.3027 [Info] - [BrightnessCoordinator] 创建驱动: DDC/CI (标准显示器) 设备=PHL 271V8, 参数=\\?\DISPLAY#PHLC213#5&4c98cf7&0&UID4352#{e6f07b5f-ee97-4a90-b076-33f57bf4eaa7} 
+2026-01-07 10:46:37.3551 [Info] - [PowerSaving] 点击省电模式按钮，当前 IsBusy=False, IsPowerSavingMode=False 
+2026-01-07 10:46:37.5903 [Info] - [PowerSaving] 后台亮度设置完成: 省电模式, 成功 2/2 
+2026-01-07 10:46:38.3390 [Info] - [PowerSaving] 点击正常模式按钮，当前 IsBusy=False, IsPowerSavingMode=True 
+2026-01-07 10:46:38.5687 [Info] - [PowerSaving] 后台亮度设置完成: 正常模式, 成功 2/2 
+2026-01-07 10:46:38.9719 [Info] - [PowerSaving] 点击省电模式按钮，当前 IsBusy=False, IsPowerSavingMode=False 
+2026-01-07 10:46:39.1989 [Info] - [PowerSaving] 后台亮度设置完成: 省电模式, 成功 2/2 

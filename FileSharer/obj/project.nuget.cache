@@ -1,0 +1,60 @@
+{
+  "version": 2,
+  "dgSpecHash": "Ekjzd1HSHFg=",
+  "success": true,
+  "projectFilePath": "C:\\Users\\Administrator\\source\\repos\\DaemonApps\\FileSharer\\FileSharer.csproj",
+  "expectedPackageFiles": [
+    "C:\\Users\\Administrator\\.nuget\\packages\\aliyun.oss.sdk.netcore\\2.13.0\\aliyun.oss.sdk.netcore.2.13.0.nupkg.sha512",
+    "C:\\Users\\Administrator\\.nuget\\packages\\costura.fody\\5.7.0\\costura.fody.5.7.0.nupkg.sha512",
+    "C:\\Users\\Administrator\\.nuget\\packages\\dynamicdata\\8.4.1\\dynamicdata.8.4.1.nupkg.sha512",
+    "C:\\Users\\Administrator\\.nuget\\packages\\embedio\\3.5.2\\embedio.3.5.2.nupkg.sha512",
+    "C:\\Users\\Administrator\\.nuget\\packages\\fody\\6.5.5\\fody.6.5.5.nupkg.sha512",
+    "C:\\Users\\Administrator\\.nuget\\packages\\httpmultipartparser\\8.4.0\\httpmultipartparser.8.4.0.nupkg.sha512",
+    "C:\\Users\\Administrator\\.nuget\\packages\\ini-parser-netstandard\\2.5.2\\ini-parser-netstandard.2.5.2.nupkg.sha512",
+    "C:\\Users\\Administrator\\.nuget\\packages\\markdig\\0.22.0\\markdig.0.22.0.nupkg.sha512",
+    "C:\\Users\\Administrator\\.nuget\\packages\\markdig.wpf\\0.5.0.1\\markdig.wpf.0.5.0.1.nupkg.sha512",
+    "C:\\Users\\Administrator\\.nuget\\packages\\materialdesigncolors\\3.1.0\\materialdesigncolors.3.1.0.nupkg.sha512",
+    "C:\\Users\\Administrator\\.nuget\\packages\\materialdesignthemes\\5.1.0\\materialdesignthemes.5.1.0.nupkg.sha512",
+    "C:\\Users\\Administrator\\.nuget\\packages\\messagepack\\3.1.4\\messagepack.3.1.4.nupkg.sha512",
+    "C:\\Users\\Administrator\\.nuget\\packages\\messagepack.annotations\\3.1.4\\messagepack.annotations.3.1.4.nupkg.sha512",
+    "C:\\Users\\Administrator\\.nuget\\packages\\messagepackanalyzer\\3.1.4\\messagepackanalyzer.3.1.4.nupkg.sha512",
+    "C:\\Users\\Administrator\\.nuget\\packages\\microsoft.bcl.asyncinterfaces\\8.0.0\\microsoft.bcl.asyncinterfaces.8.0.0.nupkg.sha512",
+    "C:\\Users\\Administrator\\.nuget\\packages\\microsoft.io.recyclablememorystream\\3.0.0\\microsoft.io.recyclablememorystream.3.0.0.nupkg.sha512",
+    "C:\\Users\\Administrator\\.nuget\\packages\\microsoft.net.stringtools\\17.11.4\\microsoft.net.stringtools.17.11.4.nupkg.sha512",
+    "C:\\Users\\Administrator\\.nuget\\packages\\microsoft.netcore.platforms\\1.1.0\\microsoft.netcore.platforms.1.1.0.nupkg.sha512",
+    "C:\\Users\\Administrator\\.nuget\\packages\\microsoft.xaml.behaviors.wpf\\1.1.39\\microsoft.xaml.behaviors.wpf.1.1.39.nupkg.sha512",
+    "C:\\Users\\Administrator\\.nuget\\packages\\netstandard.library\\1.6.1\\netstandard.library.1.6.1.nupkg.sha512",
+    "C:\\Users\\Administrator\\.nuget\\packages\\newtonsoft.json\\13.0.3\\newtonsoft.json.13.0.3.nupkg.sha512",
+    "C:\\Users\\Administrator\\.nuget\\packages\\nlog\\6.0.6\\nlog.6.0.6.nupkg.sha512",
+    "C:\\Users\\Administrator\\.nuget\\packages\\polly\\8.4.1\\polly.8.4.1.nupkg.sha512",
+    "C:\\Users\\Administrator\\.nuget\\packages\\polly.core\\8.4.1\\polly.core.8.4.1.nupkg.sha512",
+    "C:\\Users\\Administrator\\.nuget\\packages\\qrcoder\\1.6.0\\qrcoder.1.6.0.nupkg.sha512",
+    "C:\\Users\\Administrator\\.nuget\\packages\\reactiveui\\20.1.1\\reactiveui.20.1.1.nupkg.sha512",
+    "C:\\Users\\Administrator\\.nuget\\packages\\reactiveui.wpf\\20.1.1\\reactiveui.wpf.20.1.1.nupkg.sha512",
+    "C:\\Users\\Administrator\\.nuget\\packages\\restsharp\\111.4.1\\restsharp.111.4.1.nupkg.sha512",
+    "C:\\Users\\Administrator\\.nuget\\packages\\splat\\15.1.1\\splat.15.1.1.nupkg.sha512",
+    "C:\\Users\\Administrator\\.nuget\\packages\\system.reactive\\6.0.1\\system.reactive.6.0.1.nupkg.sha512",
+    "C:\\Users\\Administrator\\.nuget\\packages\\tencentcloudsdk.common\\3.0.1067\\tencentcloudsdk.common.3.0.1067.nupkg.sha512",
+    "C:\\Users\\Administrator\\.nuget\\packages\\tencentcloudsdk.hunyuan\\3.0.1067\\tencentcloudsdk.hunyuan.3.0.1067.nupkg.sha512",
+    "C:\\Users\\Administrator\\.nuget\\packages\\unosquare.swan.lite\\3.1.0\\unosquare.swan.lite.3.1.0.nupkg.sha512",
+    "C:\\Users\\Administrator\\.nuget\\packages\\ykt.ai.totalapi\\8.0.0\\ykt.ai.totalapi.8.0.0.nupkg.sha512",
+    "C:\\Users\\Administrator\\.nuget\\packages\\microsoft.windowsdesktop.app.ref\\8.0.22\\microsoft.windowsdesktop.app.ref.8.0.22.nupkg.sha512",
+    "C:\\Users\\Administrator\\.nuget\\packages\\microsoft.netcore.app.ref\\8.0.22\\microsoft.netcore.app.ref.8.0.22.nupkg.sha512",
+    "C:\\Users\\Administrator\\.nuget\\packages\\microsoft.aspnetcore.app.ref\\8.0.22\\microsoft.aspnetcore.app.ref.8.0.22.nupkg.sha512",
+    "C:\\Users\\Administrator\\.nuget\\packages\\microsoft.netcore.app.host.win-x64\\8.0.22\\microsoft.netcore.app.host.win-x64.8.0.22.nupkg.sha512"
+  ],
+  "logs": [
+    {
+      "code": "NU1701",
+      "level": "Warning",
+      "message": "已使用“.NETFramework,Version=v4.6.1, .NETFramework,Version=v4.6.2, .NETFramework,Version=v4.7, .NETFramework,Version=v4.7.1, .NETFramework,Version=v4.7.2, .NETFramework,Version=v4.8, .NETFramework,Version=v4.8.1”而不是项目目标框架“net8.0-windows7.0”还原包“ReactiveUI.WPF 20.1.1”。此包可能与项目不完全兼容。",
+      "projectPath": "C:\\Users\\Administrator\\source\\repos\\DaemonApps\\FileSharer\\FileSharer.csproj",
+      "warningLevel": 1,
+      "filePath": "C:\\Users\\Administrator\\source\\repos\\DaemonApps\\FileSharer\\FileSharer.csproj",
+      "libraryId": "ReactiveUI.WPF",
+      "targetGraphs": [
+        "net8.0-windows7.0"
+      ]
+    }
+  ]
+}
