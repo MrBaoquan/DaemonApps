@@ -23,6 +23,8 @@ namespace DaemonKit.Converters
                     ScheduleTaskAction.RestartSystem => "重启电脑",
                     ScheduleTaskAction.TakeScreenshot => "全屏截图",
                     ScheduleTaskAction.ClickMouse => "鼠标点击",
+                    ScheduleTaskAction.EnterPowerSaving => "开启节能模式",
+                    ScheduleTaskAction.ExitPowerSaving => "退出节能模式",
                     _ => "未知"
                 };
             }
@@ -48,6 +50,8 @@ namespace DaemonKit.Converters
                     "重启电脑" => ScheduleTaskAction.RestartSystem,
                     "全屏截图" => ScheduleTaskAction.TakeScreenshot,
                     "鼠标点击" => ScheduleTaskAction.ClickMouse,
+                    "开启节能模式" => ScheduleTaskAction.EnterPowerSaving,
+                    "退出节能模式" => ScheduleTaskAction.ExitPowerSaving,
                     _ => ScheduleTaskAction.StartProcess
                 };
             }

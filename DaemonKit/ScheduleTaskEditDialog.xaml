@@ -93,6 +93,8 @@
                     <core:ScheduleTaskAction>RestartSystem</core:ScheduleTaskAction>
                     <core:ScheduleTaskAction>TakeScreenshot</core:ScheduleTaskAction>
                     <core:ScheduleTaskAction>ClickMouse</core:ScheduleTaskAction>
+                    <core:ScheduleTaskAction>EnterPowerSaving</core:ScheduleTaskAction>
+                    <core:ScheduleTaskAction>ExitPowerSaving</core:ScheduleTaskAction>
                 </ComboBox>
 
                 <!-- 鼠标点击参数 -->
