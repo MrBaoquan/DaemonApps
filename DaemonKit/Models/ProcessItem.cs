@@ -9,10 +9,12 @@ using System.Reactive.Linq;
 using System.Threading;
 using System.Windows;
 using System.Xml.Serialization;
+using DaemonKit.Core;
+using DaemonKit.Utilities;
 using DNHper;
 using ReactiveUI;
 
-namespace DaemonKit.Core
+namespace DaemonKit.Models
 {
     public enum TriggerType
     {

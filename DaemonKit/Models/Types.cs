@@ -1,7 +1,7 @@
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 
-namespace DaemonKit
+namespace DaemonKit.Models
 {
     public static class CommonVars
     {

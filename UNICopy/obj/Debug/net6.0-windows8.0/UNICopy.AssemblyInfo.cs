@@ -14,7 +14,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("UNICopy")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+7ad852a083dba75bcf2d498125e84c617d8c4495")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+9a95e89dab6574a8de0700043560e4125c679cdf")]
 [assembly: System.Reflection.AssemblyProductAttribute("UNICopy")]
 [assembly: System.Reflection.AssemblyTitleAttribute("UNICopy")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

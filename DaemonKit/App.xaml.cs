@@ -8,6 +8,8 @@ using System.Reflection;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
+using DaemonKit.Models;
+using DaemonKit.Utilities;
 using DNHper;
 using ReactiveUI;
 using Splat;

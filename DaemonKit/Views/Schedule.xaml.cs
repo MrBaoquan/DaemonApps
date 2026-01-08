@@ -12,6 +12,7 @@ using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using System.Windows.Shapes;
+using DaemonKit.Models;
 using ReactiveUI;
 
 namespace DaemonKit
@@ -41,10 +42,10 @@ namespace DaemonKit
         {
             // 获取点击按钮对应的任务配置
             var button = sender as Button;
-            if (button?.DataContext is Core.ScheduleTaskConfig config)
+            if (button?.DataContext is Models.ScheduleTaskConfig config)
             {
                 // 创建副本以避免直接修改原对象
-                var configCopy = new Core.ScheduleTaskConfig
+                var configCopy = new Models.ScheduleTaskConfig
                 {
                     Name = config.Name,
                     Trigger = config.Trigger,

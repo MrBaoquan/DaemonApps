@@ -15,15 +15,15 @@ build_property.PlatformNeutralAssembly =
 build_property.EnforceExtendedAnalyzerRules = 
 build_property._SupportedPlatformList = Linux,macOS,Windows
 build_property.RootNamespace = UNICopy
-build_property.ProjectDir = c:\Users\Administrator\source\repos\DaemonApps\UNICopy\
+build_property.ProjectDir = C:\Users\Administrator\source\repos\DaemonApps\UNICopy\
 build_property.EnableComHosting = 
 build_property.EnableGeneratedComInterfaceComImportInterop = 
 build_property.CsWinRTUseWindowsUIXamlProjections = false
 build_property.EffectiveAnalysisLevelStyle = 6.0
 build_property.EnableCodeStyleSeverity = 
 
-[c:/Users/Administrator/source/repos/DaemonApps/UNICopy/App.axaml]
+[C:/Users/Administrator/source/repos/DaemonApps/UNICopy/App.axaml]
 build_metadata.AdditionalFiles.SourceItemGroup = AvaloniaXaml
 
-[c:/Users/Administrator/source/repos/DaemonApps/UNICopy/Views/MainWindow.axaml]
+[C:/Users/Administrator/source/repos/DaemonApps/UNICopy/Views/MainWindow.axaml]
 build_metadata.AdditionalFiles.SourceItemGroup = AvaloniaXaml

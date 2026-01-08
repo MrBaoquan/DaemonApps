@@ -4,6 +4,7 @@
                            xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
                            xmlns:local="clr-namespace:DaemonKit"
                            xmlns:core="clr-namespace:DaemonKit.Core"
+                           xmlns:models="clr-namespace:DaemonKit.Models"
                            xmlns:System="clr-namespace:System;assembly=System.Runtime"
                            xmlns:fa="http://schemas.fontawesome.io/icons/"
                            xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes"
@@ -32,9 +33,9 @@
         <ResourceDictionary>
             <ResourceDictionary.MergedDictionaries>
                 <!-- 引入外部样式资源 -->
-                <ResourceDictionary Source="Styles/ButtonStyles.xaml"/>
-                <ResourceDictionary Source="Styles/VolumeSliderStyle.xaml"/>
-                <ResourceDictionary Source="Styles/TreeViewStyles.xaml"/>
+                <ResourceDictionary Source="../Styles/ButtonStyles.xaml"/>
+                <ResourceDictionary Source="../Styles/VolumeSliderStyle.xaml"/>
+                <ResourceDictionary Source="../Styles/TreeViewStyles.xaml"/>
             </ResourceDictionary.MergedDictionaries>
 
             <!-- 音量图标转换器 -->
@@ -486,7 +487,7 @@
                                       VirtualizingPanel.IsVirtualizing="True"
                                       VirtualizingPanel.VirtualizationMode="Recycling">
                                 <TreeView.ItemTemplate>
-                                    <HierarchicalDataTemplate DataType="{x:Type core:ProcessItem}"
+                                    <HierarchicalDataTemplate DataType="{x:Type models:ProcessItem}"
                                                               ItemsSource="{Binding Children}">
                                         <Grid HorizontalAlignment="Stretch">
                                             <!-- 主要节点内容 -->

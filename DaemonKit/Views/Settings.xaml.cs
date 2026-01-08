@@ -13,7 +13,7 @@ using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using System.Windows.Shapes;
-using DaemonKit.Core;
+using DaemonKit.Models;
 using ReactiveMarbles.ObservableEvents;
 using ReactiveUI;
 

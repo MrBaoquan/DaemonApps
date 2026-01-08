@@ -8,7 +8,8 @@ using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using System.Windows.Shapes;
 using Microsoft.Win32;
-using DaemonKit.Core;
+using DaemonKit.Models;
+using DaemonKit.Utilities;
 
 namespace DaemonKit
 {

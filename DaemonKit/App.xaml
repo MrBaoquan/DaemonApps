@@ -6,7 +6,7 @@
              xmlns:local="clr-namespace:DaemonKit"
              xmlns:System="clr-namespace:System;assembly=System.Runtime"
              ShutdownMode="OnMainWindowClose"
-             StartupUri="MainWindow.xaml">
+             StartupUri="Views/MainWindow.xaml">
     <Application.Resources>
         <ResourceDictionary>
             <ResourceDictionary.MergedDictionaries>

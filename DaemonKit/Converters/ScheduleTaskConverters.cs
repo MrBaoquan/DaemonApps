@@ -1,7 +1,7 @@
 using System;
 using System.Globalization;
 using System.Windows.Data;
-using DaemonKit.Core;
+using DaemonKit.Models;
 
 namespace DaemonKit.Converters
 {

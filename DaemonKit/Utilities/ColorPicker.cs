@@ -5,7 +5,7 @@ using System.Runtime.InteropServices;
 using System.Windows;
 using System.Windows.Media.Imaging;
 
-namespace DaemonKit.Core
+namespace DaemonKit.Utilities
 {
     public static class ColorPicker
     {

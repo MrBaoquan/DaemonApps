@@ -2,6 +2,8 @@ using System;
 using System.Runtime.InteropServices;
 using System.Security.Principal;
 using System.Text;
+using DaemonKit.Models;
+using DaemonKit.Utilities;
 using DNHper;
 
 namespace DaemonKit.Core

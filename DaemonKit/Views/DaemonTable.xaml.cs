@@ -5,7 +5,7 @@ using System.Net.Sockets;
 using System.Reactive.Linq;
 using System.Text;
 using System.Threading;
-using DaemonKit.Core;
+using DaemonKit.Models;
 using DNHper;
 using Newtonsoft.Json;
 using ReactiveMarbles.ObservableEvents;

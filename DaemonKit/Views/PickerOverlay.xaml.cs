@@ -10,7 +10,8 @@ using System.Windows.Media;
 using System.Windows.Shapes;
 using System.Windows.Threading;
 using System.Linq;
-using DaemonKit.Core;
+using DaemonKit.Models;
+using DaemonKit.Utilities;
 using Microsoft.Win32;
 
 namespace DaemonKit

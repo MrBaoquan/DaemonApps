@@ -6,7 +6,7 @@ using System.Threading.Tasks;
 using System.Xml;
 using System.Xml.Serialization;
 
-namespace DaemonKit.Core
+namespace DaemonKit.Models
 {
     public class AppConfig
     {
@@ -26,8 +26,10 @@ namespace DaemonKit.Core
     {
         [XmlAttribute]
         public string Name = string.Empty;
+
         [XmlAttribute]
         public string Path = string.Empty;
+
         [XmlAttribute]
         public string Args = string.Empty;
 

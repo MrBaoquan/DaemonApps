@@ -6,7 +6,8 @@ using System.Reactive;
 using System.Text;
 using System.Threading.Tasks;
 using System.Windows;
-using DaemonKit.Core;
+using DaemonKit.Models;
+using DaemonKit.Utilities;
 using Microsoft.Win32;
 using ReactiveUI;
 

@@ -5,6 +5,7 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:DaemonKit"
         xmlns:core="clr-namespace:DaemonKit.Core"
+        xmlns:models="clr-namespace:DaemonKit.Models"
         xmlns:converters="clr-namespace:DaemonKit.Converters"
         xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes"
         mc:Ignorable="d"
@@ -43,10 +44,10 @@
                             <TextBlock Text="{Binding Converter={StaticResource ScheduleTriggerTypeToStringConverter}}"/>
                         </DataTemplate>
                     </ComboBox.ItemTemplate>
-                    <core:ScheduleTriggerType>Daily</core:ScheduleTriggerType>
-                    <core:ScheduleTriggerType>EveryStartupAfterDelay</core:ScheduleTriggerType>
-                    <core:ScheduleTriggerType>OncePerDayAfterStart</core:ScheduleTriggerType>
-                    <core:ScheduleTriggerType>IntervalAfterStartup</core:ScheduleTriggerType>
+                    <models:ScheduleTriggerType>Daily</models:ScheduleTriggerType>
+                    <models:ScheduleTriggerType>EveryStartupAfterDelay</models:ScheduleTriggerType>
+                    <models:ScheduleTriggerType>OncePerDayAfterStart</models:ScheduleTriggerType>
+                    <models:ScheduleTriggerType>IntervalAfterStartup</models:ScheduleTriggerType>
                 </ComboBox>
 
                 <!-- 每天定时 - 显示时间选择器 -->
@@ -86,15 +87,15 @@
                             <TextBlock Text="{Binding Converter={StaticResource ScheduleTaskActionToStringConverter}}"/>
                         </DataTemplate>
                     </ComboBox.ItemTemplate>
-                    <core:ScheduleTaskAction>StartProcess</core:ScheduleTaskAction>
-                    <core:ScheduleTaskAction>StopProcess</core:ScheduleTaskAction>
-                    <core:ScheduleTaskAction>RestartProcess</core:ScheduleTaskAction>
-                    <core:ScheduleTaskAction>ShutdownSystem</core:ScheduleTaskAction>
-                    <core:ScheduleTaskAction>RestartSystem</core:ScheduleTaskAction>
-                    <core:ScheduleTaskAction>TakeScreenshot</core:ScheduleTaskAction>
-                    <core:ScheduleTaskAction>ClickMouse</core:ScheduleTaskAction>
-                    <core:ScheduleTaskAction>EnterPowerSaving</core:ScheduleTaskAction>
-                    <core:ScheduleTaskAction>ExitPowerSaving</core:ScheduleTaskAction>
+                    <models:ScheduleTaskAction>StartProcess</models:ScheduleTaskAction>
+                    <models:ScheduleTaskAction>StopProcess</models:ScheduleTaskAction>
+                    <models:ScheduleTaskAction>RestartProcess</models:ScheduleTaskAction>
+                    <models:ScheduleTaskAction>ShutdownSystem</models:ScheduleTaskAction>
+                    <models:ScheduleTaskAction>RestartSystem</models:ScheduleTaskAction>
+                    <models:ScheduleTaskAction>TakeScreenshot</models:ScheduleTaskAction>
+                    <models:ScheduleTaskAction>ClickMouse</models:ScheduleTaskAction>
+                    <models:ScheduleTaskAction>EnterPowerSaving</models:ScheduleTaskAction>
+                    <models:ScheduleTaskAction>ExitPowerSaving</models:ScheduleTaskAction>
                 </ComboBox>
 
                 <!-- 鼠标点击参数 -->

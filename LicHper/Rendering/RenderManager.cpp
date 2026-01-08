@@ -3,6 +3,7 @@
 #include "HookRenderer.h"
 #include "Logger.h"
 #include "../mINI/ini.h"
+#include "../stb/stb_image.h"
 
 #include <regex>
 #include <algorithm>
@@ -13,6 +14,44 @@ extern std::string g_appID;
 std::string GetUserFolder();
 
 namespace LicHper {
+
+// 验证水印图片是否有效（至少 10% 像素可见）
+static bool IsValidWatermarkImage(const std::string& imagePath) {
+    if (!std::filesystem::exists(imagePath)) {
+        LOG_WARNING("IsValidWatermarkImage: File not found: {}", imagePath);
+        return false;
+    }
+    
+    int width, height;
+    unsigned char* data = stbi_load(imagePath.c_str(), &width, &height, NULL, 4);
+    if (!data) {
+        LOG_WARNING("IsValidWatermarkImage: Failed to load image: {}", imagePath);
+        return false;
+    }
+    
+    // 验证图片内容 - 至少 10% 像素可见
+    int totalPixels = width * height;
+    int visiblePixels = 0;
+    int minRequired = totalPixels / 10;
+    
+    for (int i = 0; i < totalPixels && visiblePixels < minRequired; i++) {
+        unsigned char a = data[i * 4 + 3];  // alpha
+        unsigned char r = data[i * 4 + 0];
+        unsigned char g = data[i * 4 + 1];
+        unsigned char b = data[i * 4 + 2];
+        if (a > 30 && (r > 10 || g > 10 || b > 10)) {
+            visiblePixels++;
+        }
+    }
+    
+    stbi_image_free(data);
+    bool isValid = visiblePixels >= minRequired;
+    if (!isValid) {
+        LOG_WARNING("IsValidWatermarkImage: Image is mostly transparent - {}x{}, visible: {}/{}", 
+                    width, height, visiblePixels, minRequired);
+    }
+    return isValid;
+}
 
 // 渲染模式名称
 static const char* RenderModeToString(RenderMode mode) {
@@ -29,6 +68,16 @@ RenderManager& RenderManager::Instance() {
 }
 
 RenderMode RenderManager::DetectBestMode() {
+    // 检查是否是 WPF 应用（WPF 使用 DirectComposition，不走标准 DXGI Present）
+    bool isWpfApp = (GetModuleHandleA("PresentationCore.dll") != nullptr) ||
+                     (GetModuleHandleA("wpfgfx_v0400.dll") != nullptr) ||
+                     (GetModuleHandleA("wpfgfx_cor3.dll") != nullptr);
+    
+    if (isWpfApp) {
+        LOG_INFO("WPF application detected, forcing Overlay mode (WPF doesn't call DXGI Present)");
+        return RenderMode::Overlay;
+    }
+    
     // 检查宿主是否已加载 DirectX
     bool hasDirectX = HookRenderer::IsHostUsingDirectX();
     
@@ -132,6 +181,7 @@ bool RenderManager::LoadConfig(const std::string& iniPath) {
         LOG_INFO("  - ImagePath: {}", m_config.imagePath.empty() ? "(default)" : m_config.imagePath);
         LOG_INFO("  - ImageScale: {:.2f}", m_config.imageScale);
         LOG_INFO("  - ImageAlign: {}", m_config.imageAlign);
+        LOG_INFO("  - ImageAnimate: {}", m_config.imageAnimate ? "true" : "false");
         LOG_INFO("  - Timeout: {}s", m_config.timeout);
     } else {
         LOG_WARNING("Failed to load config, using defaults");
@@ -257,6 +307,7 @@ bool RenderManager::ParseIniConfig(const std::string& iniPath) {
         // 图片路径
         if (wm.has("image_path")) {
             m_config.imagePath = wm["image_path"];
+            LOG_INFO("ParseIniConfig: image_path = '{}'", m_config.imagePath);
         }
         
         // 图片缩放
@@ -280,6 +331,11 @@ bool RenderManager::ParseIniConfig(const std::string& iniPath) {
         }
         if (wm.has("image_padding_y")) {
             m_config.imagePaddingY = std::stoi(wm["image_padding_y"]);
+        }
+        
+        // 图片动画
+        if (wm.has("image_animate")) {
+            m_config.imageAnimate = (wm["image_animate"] == "true");
         }
     }
     
@@ -360,7 +416,24 @@ void RenderManager::ValidateConfig() {
         textWithoutPlaceholders.end());
     
     if (textWithoutPlaceholders.size() < 2) {
-        m_config.title = "{APPID} Demo Version";
+        // 检查是否有有效的水印图片
+        std::string imagePath = m_config.imagePath;
+        std::string lichperFolder = GetUserFolder() + "\\.lichper";
+        
+        if (imagePath.empty()) {
+            imagePath = lichperFolder + "\\watermark.png";
+        } else if (imagePath.find(':') == std::string::npos && 
+                   imagePath[0] != '\\' && imagePath[0] != '/') {
+            imagePath = lichperFolder + "\\" + imagePath;
+        }
+        
+        // 仅在没有有效水印图片时才使用默认标题
+        if (!IsValidWatermarkImage(imagePath)) {
+            LOG_INFO("ValidateConfig: No valid watermark image, using default title");
+            m_config.title = "{APPID} Demo Version";
+        } else {
+            LOG_INFO("ValidateConfig: Valid watermark image exists, empty title allowed");
+        }
     }
     
     // 验证字体大小

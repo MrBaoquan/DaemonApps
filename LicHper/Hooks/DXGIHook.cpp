@@ -356,15 +356,45 @@ bool DXGIHook::InitializeDevice(IDXGISwapChain* pSwapChain) {
         LOG_INFO("DXGIHook: D3D12 device detected from SwapChain");
         m_isD3D12 = true;
         
-        // 没有从 CreateSwapChainForHwnd 捕获到命令队列
-        // D3D12 的 SwapChain 绑定到创建时的命令队列，无法使用新创建的队列
-        // 必须回退到 Overlay 模式
-        LOG_WARNING("DXGIHook: D3D12 device found but CommandQueue not captured");
-        LOG_WARNING("DXGIHook: Cannot render on D3D12 SwapChain without original CommandQueue");
-        LOG_INFO("DXGIHook: Will fallback to Overlay mode for D3D12 app");
+        // 尝试从 SwapChain 的私有数据中获取 CommandQueue
+        // UE5 和某些引擎会将 CommandQueue 存储在 SwapChain 的私有数据中
+        if (!m_pD3D12CommandQueue) {
+            // 尝试方法1: 通过 GUID 获取私有数据
+            GUID queueGuid = { 0x6b3f214a, 0x1b9a, 0x4f4d, { 0x9f, 0x9e, 0x3c, 0x7a, 0x8b, 0x9c, 0x3d, 0x5e } };
+            UINT dataSize = sizeof(ID3D12CommandQueue*);
+            ID3D12CommandQueue* pQueue = nullptr;
+            
+            hr = pSwapChain->GetPrivateData(queueGuid, &dataSize, &pQueue);
+            if (SUCCEEDED(hr) && pQueue) {
+                m_pD3D12CommandQueue = pQueue;
+                m_ownsCommandQueue = false;  // 不拥有，不释放
+                LOG_INFO("DXGIHook: CommandQueue extracted from SwapChain private data!");
+            } else {
+                // 无法获取原始 CommandQueue
+                // 保持 isD3D12=true 但 CommandQueue=nullptr，让 HookRenderer 触发 fallback
+                LOG_WARNING("DXGIHook: D3D12 device found but CommandQueue not captured");
+                LOG_WARNING("DXGIHook: Cannot render on D3D12 SwapChain without original CommandQueue");
+                LOG_INFO("DXGIHook: Keeping D3D12 flag, will trigger Overlay fallback");
+                
+                // CommandQueue 保持为 nullptr
+                m_pD3D12CommandQueue = nullptr;
+            }
+        }
         
-        // 标记为已初始化但命令队列不可用，让 HookRenderer 处理回退
+        // 标记设备已初始化（即使 CommandQueue 为 nullptr，也让代码继续）
+        // HookRenderer 会检测 CommandQueue 并触发 fallback
         m_deviceInitialized = true;
+        
+        // 如果成功获取到了 CommandQueue，记录缓冲区信息
+        if (m_pD3D12CommandQueue) {
+            // 获取后台缓冲区数量
+            DXGI_SWAP_CHAIN_DESC desc;
+            if (SUCCEEDED(pSwapChain->GetDesc(&desc))) {
+                m_backBufferCount = desc.BufferDesc.Width > 0 ? desc.BufferCount : 3;  // 默认3个缓冲区
+                LOG_INFO("DXGIHook: Using D3D12 CommandQueue, buffer count: {}", m_backBufferCount);
+            }
+        }
+        
         return true;
     }
     

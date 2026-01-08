@@ -7,6 +7,8 @@ using System.Reactive;
 using System.Reactive.Linq;
 using System.Xml.Serialization;
 using DaemonKit.Core;
+using DaemonKit.Models;
+using DaemonKit.Utilities;
 using DNHper;
 using DynamicData.Binding;
 using ReactiveUI;
@@ -36,10 +38,10 @@ namespace DaemonKit
         }
 
         // 触发器
-        private Core.TriggerType _trigger = Core.TriggerType.Daily;
+        private ScheduleTriggerType _trigger = ScheduleTriggerType.Daily;
 
         [XmlAttribute]
-        public Core.TriggerType Trigger
+        public ScheduleTriggerType Trigger
         {
             get => _trigger;
             set => this.RaiseAndSetIfChanged(ref _trigger, value);
@@ -104,19 +106,13 @@ namespace DaemonKit
         // 计算默认状态值
         public void CalculateStatus()
         {
-            if (Trigger == Core.TriggerType.Daily)
+            if (Trigger == ScheduleTriggerType.Daily)
             {
                 Status = canDailyExecute() ? 0 : 1;
             }
-            else if (
-                Trigger == Core.TriggerType.OnAppStart || Trigger == Core.TriggerType.OnAppStartOnce
-            )
-            {
-                Status = 1; // 程序启动后的任务默认为待执行
-            }
             else
             {
-                Status = 1;
+                Status = 1; // 非每日触发器类型默认为待执行
             }
         }
 
@@ -127,18 +123,14 @@ namespace DaemonKit
                 return false;
             }
 
-            if (Trigger == Core.TriggerType.Daily)
+            if (Trigger == ScheduleTriggerType.Daily)
             {
                 return canDailyExecute();
             }
-            else if (
-                Trigger == Core.TriggerType.OnAppStart || Trigger == Core.TriggerType.OnAppStartOnce
-            )
+            else
             {
-                return true; // 由外部控制执行时机
+                return true; // 其他触发器类型由外部控制执行时机
             }
-
-            return false;
         }
 
         public void MarkAsExecuted()
@@ -168,8 +160,8 @@ namespace DaemonKit
                 .Select(x =>
                 {
                     if (
-                        x.Item1 == Core.TriggerType.OnAppStart
-                        || x.Item1 == Core.TriggerType.OnAppStartOnce
+                        x.Item1 == ScheduleTriggerType.EveryStartupAfterDelay
+                        || x.Item1 == ScheduleTriggerType.OncePerDayAfterStart
                     )
                     {
                         return $"{x.Item3} 秒";

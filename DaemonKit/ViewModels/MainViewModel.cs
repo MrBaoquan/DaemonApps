@@ -5,8 +5,9 @@ using System.Reactive;
 using System.Text;
 using System.Threading.Tasks;
 using System.Windows;
-using DaemonKit.Core;
+using DaemonKit.Models;
 using DaemonKit.PowerSaving;
+using DaemonKit.Utilities;
 using ReactiveUI;
 
 namespace DaemonKit
