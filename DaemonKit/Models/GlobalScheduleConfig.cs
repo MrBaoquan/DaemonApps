@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Xml.Serialization;
 using ReactiveUI;
 
-namespace DaemonKit.Core
+namespace DaemonKit.Models
 {
     /// <summary>
     /// 全局计划任务配置

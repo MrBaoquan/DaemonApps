@@ -3,6 +3,8 @@ using System.Diagnostics;
 using System.Reactive.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using DaemonKit.Models;
+using DaemonKit.Utilities;
 using DNHper;
 using ReactiveUI;
 

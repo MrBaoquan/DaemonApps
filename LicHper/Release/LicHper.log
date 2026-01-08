@@ -1,58 +1,416 @@
-﻿  dllmain.cpp
-  imgui_impl_dx11.cpp
-  imgui_impl_win32.cpp
-  imgui.cpp
-  imgui_demo.cpp
-  imgui_draw.cpp
-  imgui_tables.cpp
-  imgui_widgets.cpp
+﻿  DXGIHook.cpp
+C:\Users\Administrator\source\repos\DaemonApps\LicHper\Hooks\DXGIHook.cpp(1,1): warning C4819: 该文件包含不能在当前代码页(936)中表示的字符。请将该文件保存为 Unicode 格式以防止数据丢失
+C:\Users\Administrator\source\repos\DaemonApps\LicHper\Hooks\DXGIHook.h(1,1): warning C4819: 该文件包含不能在当前代码页(936)中表示的字符。请将该文件保存为 Unicode 格式以防止数据丢失
+C:\Users\Administrator\source\repos\DaemonApps\LicHper\Rendering\Logger.h(1,1): warning C4819: 该文件包含不能在当前代码页(936)中表示的字符。请将该文件保存为 Unicode 格式以防止数据丢失
+C:\Users\Administrator\source\repos\DaemonApps\LicHper\Rendering\Logger.h(4,10): fatal  error C1083: 无法打开包括文件: “spdlog/spdlog.h”: No such file or directory
+  HookRenderer.cpp
+C:\Users\Administrator\source\repos\DaemonApps\LicHper\Rendering\HookRenderer.cpp(1,1): warning C4819: 该文件包含不能在当前代码页(936)中表示的字符。请将该文件保存为 Unicode 格式以防止数据丢失
+C:\Users\Administrator\source\repos\DaemonApps\LicHper\Rendering\HookRenderer.h(1,1): warning C4819: 该文件包含不能在当前代码页(936)中表示的字符。请将该文件保存为 Unicode 格式以防止数据丢失
+C:\Users\Administrator\source\repos\DaemonApps\LicHper\Rendering\IWatermarkRenderer.h(1,1): warning C4819: 该文件包含不能在当前代码页(936)中表示的字符。请将该文件保存为 Unicode 格式以防止数据丢失
+C:\Users\Administrator\source\repos\DaemonApps\LicHper\Rendering\WatermarkConfig.h(1,1): warning C4819: 该文件包含不能在当前代码页(936)中表示的字符。请将该文件保存为 Unicode 格式以防止数据丢失
+C:\Users\Administrator\source\repos\DaemonApps\LicHper\Rendering\IWatermarkRenderer.h(18,1): error C2059: 语法错误:“public”
+C:\Users\Administrator\source\repos\DaemonApps\LicHper\Rendering\IWatermarkRenderer.h(19,32): error C2588: “::~IWatermarkRenderer”: 非法的全局 析构函数
+C:\Users\Administrator\source\repos\DaemonApps\LicHper\Rendering\IWatermarkRenderer.h(19,14): error C2575: “IWatermarkRenderer”: 只有成员函数和基可以是虚拟的
+C:\Users\Administrator\source\repos\DaemonApps\LicHper\Rendering\IWatermarkRenderer.h(19,35): error C4430: 缺少类型说明符 - 假定为 int。注意: C++ 不支持默认 int
+C:\Users\Administrator\source\repos\DaemonApps\LicHper\Rendering\IWatermarkRenderer.h(19,14): error C2610: “int LicHper::IWatermarkRenderer(void)”: 不是可默认为的特殊成员函数或比较运算符
+C:\Users\Administrator\source\repos\DaemonApps\LicHper\Rendering\IWatermarkRenderer.h(26,18): error C2575: “UpdateConfig”: 只有成员函数和基可以是虚拟的
+C:\Users\Administrator\source\repos\DaemonApps\LicHper\Rendering\IWatermarkRenderer.h(26,64): error C2059: 语法错误:“常数”
+C:\Users\Administrator\source\repos\DaemonApps\LicHper\Rendering\IWatermarkRenderer.h(29,18): error C2575: “RunRenderLoop”: 只有成员函数和基可以是虚拟的
+C:\Users\Administrator\source\repos\DaemonApps\LicHper\Rendering\IWatermarkRenderer.h(29,36): error C2059: 语法错误:“常数”
+C:\Users\Administrator\source\repos\DaemonApps\LicHper\Rendering\IWatermarkRenderer.h(34,40): error C2270: “GetMode”: 非成员函数上不允许修饰符
+C:\Users\Administrator\source\repos\DaemonApps\LicHper\Rendering\IWatermarkRenderer.h(34,42): error C2059: 语法错误:“常数”
+C:\Users\Administrator\source\repos\DaemonApps\LicHper\Rendering\IWatermarkRenderer.h(39,18): error C2182: “SetExitCallback”: “void” 这一使用无效
+C:\Users\Administrator\source\repos\DaemonApps\LicHper\Rendering\IWatermarkRenderer.h(39,47): error C2433: “SetExitCallback”: 不允许在数据声明中使用“virtual”
+C:\Users\Administrator\source\repos\DaemonApps\LicHper\Rendering\IWatermarkRenderer.h(39,34): error C2065: “ExitCallback”: 未声明的标识符
+C:\Users\Administrator\source\repos\DaemonApps\LicHper\Rendering\IWatermarkRenderer.h(39,47): error C2146: 语法错误: 缺少“)”(在标识符“callback”的前面)
+C:\Users\Administrator\source\repos\DaemonApps\LicHper\Rendering\IWatermarkRenderer.h(43,18): error C2575: “SetFallbackCallback”: 只有成员函数和基可以是虚拟的
+C:\Users\Administrator\source\repos\DaemonApps\LicHper\Rendering\IWatermarkRenderer.h(48,1): error C2059: 语法错误:“}”
+C:\Users\Administrator\source\repos\DaemonApps\LicHper\Rendering\IWatermarkRenderer.h(48,1): error C2143: 语法错误: 缺少“;”(在“}”的前面)
+C:\Program Files (x86)\Windows Kits\10\Include\10.0.26100.0\ucrt\time.h(19,1): error C2143: 语法错误: 缺少“;”(在“{”的前面)
+C:\Program Files (x86)\Windows Kits\10\Include\10.0.26100.0\ucrt\time.h(19,1): error C2447: “{”: 缺少函数标题(是否是老式的形式表?)
+C:\Program Files\Microsoft Visual Studio\2022\Professional\VC\Tools\MSVC\14.34.31933\include\ctime(22,13): error C2039: "clock_t": 不是 "`global namespace'" 的成员
+C:\Program Files\Microsoft Visual Studio\2022\Professional\VC\Tools\MSVC\14.34.31933\include\ctime(22,1): error C2873: “clock_t”: 符号不能用在 using 声明中
+C:\Program Files\Microsoft Visual Studio\2022\Professional\VC\Tools\MSVC\14.34.31933\include\ctime(26,13): error C2039: "asctime": 不是 "`global namespace'" 的成员
+C:\Program Files\Microsoft Visual Studio\2022\Professional\VC\Tools\MSVC\14.34.31933\include\ctime(26,1): error C2873: “asctime”: 符号不能用在 using 声明中
+C:\Program Files\Microsoft Visual Studio\2022\Professional\VC\Tools\MSVC\14.34.31933\include\ctime(27,13): error C2039: "clock": 不是 "`global namespace'" 的成员
+C:\Program Files\Microsoft Visual Studio\2022\Professional\VC\Tools\MSVC\14.34.31933\include\ctime(27,1): error C2873: “clock”: 符号不能用在 using 声明中
+C:\Program Files\Microsoft Visual Studio\2022\Professional\VC\Tools\MSVC\14.34.31933\include\ctime(28,13): error C2039: "ctime": 不是 "`global namespace'" 的成员
+C:\Program Files\Microsoft Visual Studio\2022\Professional\VC\Tools\MSVC\14.34.31933\include\ctime(28,1): error C2873: “ctime”: 符号不能用在 using 声明中
+C:\Program Files\Microsoft Visual Studio\2022\Professional\VC\Tools\MSVC\14.34.31933\include\ctime(29,13): error C2039: "difftime": 不是 "`global namespace'" 的成员
+C:\Program Files\Microsoft Visual Studio\2022\Professional\VC\Tools\MSVC\14.34.31933\include\ctime(29,1): error C2873: “difftime”: 符号不能用在 using 声明中
+C:\Program Files\Microsoft Visual Studio\2022\Professional\VC\Tools\MSVC\14.34.31933\include\ctime(30,13): error C2039: "gmtime": 不是 "`global namespace'" 的成员
+C:\Program Files\Microsoft Visual Studio\2022\Professional\VC\Tools\MSVC\14.34.31933\include\ctime(30,1): error C2873: “gmtime”: 符号不能用在 using 声明中
+C:\Program Files\Microsoft Visual Studio\2022\Professional\VC\Tools\MSVC\14.34.31933\include\ctime(31,13): error C2039: "localtime": 不是 "`global namespace'" 的成员
+C:\Program Files\Microsoft Visual Studio\2022\Professional\VC\Tools\MSVC\14.34.31933\include\ctime(31,1): error C2873: “localtime”: 符号不能用在 using 声明中
+C:\Program Files\Microsoft Visual Studio\2022\Professional\VC\Tools\MSVC\14.34.31933\include\ctime(32,13): error C2039: "mktime": 不是 "`global namespace'" 的成员
+C:\Program Files\Microsoft Visual Studio\2022\Professional\VC\Tools\MSVC\14.34.31933\include\ctime(32,1): error C2873: “mktime”: 符号不能用在 using 声明中
+C:\Program Files\Microsoft Visual Studio\2022\Professional\VC\Tools\MSVC\14.34.31933\include\ctime(33,13): error C2039: "strftime": 不是 "`global namespace'" 的成员
+C:\Program Files\Microsoft Visual Studio\2022\Professional\VC\Tools\MSVC\14.34.31933\include\ctime(33,1): error C2873: “strftime”: 符号不能用在 using 声明中
+C:\Program Files\Microsoft Visual Studio\2022\Professional\VC\Tools\MSVC\14.34.31933\include\ctime(34,13): error C2039: "time": 不是 "`global namespace'" 的成员
+C:\Program Files\Microsoft Visual Studio\2022\Professional\VC\Tools\MSVC\14.34.31933\include\ctime(34,1): error C2873: “time”: 符号不能用在 using 声明中
+C:\Program Files\Microsoft Visual Studio\2022\Professional\VC\Tools\MSVC\14.34.31933\include\ctime(36,13): error C2039: "timespec": 不是 "`global namespace'" 的成员
+C:\Program Files\Microsoft Visual Studio\2022\Professional\VC\Tools\MSVC\14.34.31933\include\ctime(36,1): error C2873: “timespec”: 符号不能用在 using 声明中
+C:\Program Files\Microsoft Visual Studio\2022\Professional\VC\Tools\MSVC\14.34.31933\include\ctime(37,13): error C2039: "timespec_get": 不是 "`global namespace'" 的成员
+C:\Program Files\Microsoft Visual Studio\2022\Professional\VC\Tools\MSVC\14.34.31933\include\ctime(37,1): error C2873: “timespec_get”: 符号不能用在 using 声明中
+C:\Users\Administrator\source\repos\DaemonApps\LicHper\Rendering\D3D12WatermarkRenderer.h(1,1): warning C4819: 该文件包含不能在当前代码页(936)中表示的字符。请将该文件保存为 Unicode 格式以防止数据丢失
+C:\Users\Administrator\source\repos\DaemonApps\LicHper\Rendering\D3D12WatermarkRenderer.h(16,1): error C2059: 语法错误:“public”
+C:\Users\Administrator\source\repos\DaemonApps\LicHper\Rendering\D3D12WatermarkRenderer.h(17,29): error C4430: 缺少类型说明符 - 假定为 int。注意: C++ 不支持默认 int
+C:\Users\Administrator\source\repos\DaemonApps\LicHper\Rendering\D3D12WatermarkRenderer.h(18,28): error C2588: “::~D3D12WatermarkRenderer”: 非法的全局 析构函数
+C:\Users\Administrator\source\repos\DaemonApps\LicHper\Rendering\D3D12WatermarkRenderer.h(18,30): error C4430: 缺少类型说明符 - 假定为 int。注意: C++ 不支持默认 int
+C:\Users\Administrator\source\repos\DaemonApps\LicHper\Rendering\D3D12WatermarkRenderer.h(39,41): error C2065: “m_showLicenseWindow”: 未声明的标识符
+C:\Users\Administrator\source\repos\DaemonApps\LicHper\Rendering\D3D12WatermarkRenderer.h(40,41): error C2270: “IsLicenseWindowVisible”: 非成员函数上不允许修饰符
+C:\Users\Administrator\source\repos\DaemonApps\LicHper\Rendering\D3D12WatermarkRenderer.h(40,50): error C2065: “m_showLicenseWindow”: 未声明的标识符
+C:\Users\Administrator\source\repos\DaemonApps\LicHper\Rendering\D3D12WatermarkRenderer.h(44,1): error C2059: 语法错误:“private”
+C:\Users\Administrator\source\repos\DaemonApps\LicHper\Rendering\D3D12WatermarkRenderer.h(73,38): error C2065: “MAX_BACK_BUFFERS”: 未声明的标识符
+C:\Users\Administrator\source\repos\DaemonApps\LicHper\Rendering\D3D12WatermarkRenderer.h(74,46): error C2065: “MAX_BACK_BUFFERS”: 未声明的标识符
+C:\Users\Administrator\source\repos\DaemonApps\LicHper\Rendering\D3D12WatermarkRenderer.h(95,1): error C2059: 语法错误:“}”
+C:\Users\Administrator\source\repos\DaemonApps\LicHper\Rendering\D3D12WatermarkRenderer.h(95,1): error C2143: 语法错误: 缺少“;”(在“}”的前面)
+C:\Users\Administrator\source\repos\DaemonApps\LicHper\Hooks\DXGIHook.h(1,1): warning C4819: 该文件包含不能在当前代码页(936)中表示的字符。请将该文件保存为 Unicode 格式以防止数据丢失
+C:\Users\Administrator\source\repos\DaemonApps\LicHper\Hooks\DXGIHook.h(11,19): error C2143: 语法错误: 缺少“;”(在“{”的前面)
+C:\Users\Administrator\source\repos\DaemonApps\LicHper\Hooks\DXGIHook.h(11,19): error C2447: “{”: 缺少函数标题(是否是老式的形式表?)
+C:\Users\Administrator\source\repos\DaemonApps\LicHper\Rendering\HookRenderer.h(17,1): error C2059: 语法错误:“public”
+C:\Users\Administrator\source\repos\DaemonApps\LicHper\Rendering\HookRenderer.h(18,19): error C4430: 缺少类型说明符 - 假定为 int。注意: C++ 不支持默认 int
+C:\Users\Administrator\source\repos\DaemonApps\LicHper\Rendering\HookRenderer.h(19,26): error C2588: “::~HookRenderer”: 非法的全局 析构函数
+C:\Users\Administrator\source\repos\DaemonApps\LicHper\Rendering\HookRenderer.h(19,14): error C2575: “HookRenderer”: 只有成员函数和基可以是虚拟的
+C:\Users\Administrator\source\repos\DaemonApps\LicHper\Rendering\HookRenderer.h(19,28): error C4430: 缺少类型说明符 - 假定为 int。注意: C++ 不支持默认 int
+C:\Users\Administrator\source\repos\DaemonApps\LicHper\Rendering\HookRenderer.h(22,44): error C3158: “Initialize”:“override”只能应用于虚成员函数
+C:\Users\Administrator\source\repos\DaemonApps\LicHper\Rendering\HookRenderer.h(22,10): error C2575: “Initialize”: 只有成员函数和基可以是虚拟的
+C:\Users\Administrator\source\repos\DaemonApps\LicHper\Rendering\HookRenderer.h(23,62): error C3158: “UpdateConfig”:“override”只能应用于虚成员函数
+C:\Users\Administrator\source\repos\DaemonApps\LicHper\Rendering\HookRenderer.h(23,10): error C2575: “UpdateConfig”: 只有成员函数和基可以是虚拟的
+C:\Users\Administrator\source\repos\DaemonApps\LicHper\Rendering\HookRenderer.h(24,34): error C3158: “RunRenderLoop”:“override”只能应用于虚成员函数
+C:\Users\Administrator\source\repos\DaemonApps\LicHper\Rendering\HookRenderer.h(24,10): error C2575: “RunRenderLoop”: 只有成员函数和基可以是虚拟的
+C:\Users\Administrator\source\repos\DaemonApps\LicHper\Rendering\HookRenderer.h(25,29): error C3158: “Shutdown”:“override”只能应用于虚成员函数
+C:\Users\Administrator\source\repos\DaemonApps\LicHper\Rendering\HookRenderer.h(25,10): error C2575: “Shutdown”: 只有成员函数和基可以是虚拟的
+C:\Users\Administrator\source\repos\DaemonApps\LicHper\Rendering\HookRenderer.h(26,41): error C2270: “GetMode”: 非成员函数上不允许修饰符
+C:\Users\Administrator\source\repos\DaemonApps\LicHper\Rendering\HookRenderer.h(26,41): error C3158: “LicHper::GetMode”:“override”只能应用于虚成员函数
+C:\Users\Administrator\source\repos\DaemonApps\LicHper\Rendering\HookRenderer.h(27,37): error C2270: “IsRunning”: 非成员函数上不允许修饰符
+C:\Users\Administrator\source\repos\DaemonApps\LicHper\Rendering\HookRenderer.h(27,37): error C3158: “LicHper::IsRunning”:“override”只能应用于虚成员函数
+C:\Users\Administrator\source\repos\DaemonApps\LicHper\Rendering\HookRenderer.h(27,46): error C2065: “m_running”: 未声明的标识符
+C:\Users\Administrator\source\repos\DaemonApps\LicHper\Rendering\HookRenderer.h(28,10): error C2182: “SetExitCallback”: “void” 这一使用无效
+C:\Users\Administrator\source\repos\DaemonApps\LicHper\Rendering\HookRenderer.h(28,10): error C2374: “LicHper::SetExitCallback”: 重定义；多次初始化
+C:\Users\Administrator\source\repos\DaemonApps\LicHper\Rendering\IWatermarkRenderer.h(39,18): message : 参见“LicHper::SetExitCallback”的声明
+C:\Users\Administrator\source\repos\DaemonApps\LicHper\Rendering\HookRenderer.h(28,26): error C2065: “ExitCallback”: 未声明的标识符
+C:\Users\Administrator\source\repos\DaemonApps\LicHper\Rendering\HookRenderer.h(28,39): error C2146: 语法错误: 缺少“)”(在标识符“callback”的前面)
+C:\Users\Administrator\source\repos\DaemonApps\LicHper\Rendering\HookRenderer.h(28,58): error C2143: 语法错误: 缺少“;”(在“{”的前面)
+C:\Users\Administrator\source\repos\DaemonApps\LicHper\Rendering\HookRenderer.h(28,58): error C2447: “{”: 缺少函数标题(是否是老式的形式表?)
+C:\Users\Administrator\source\repos\DaemonApps\LicHper\Rendering\HookRenderer.h(29,66): error C3158: “SetFallbackCallback”:“override”只能应用于虚成员函数
+C:\Users\Administrator\source\repos\DaemonApps\LicHper\Rendering\HookRenderer.h(29,10): error C2575: “SetFallbackCallback”: 只有成员函数和基可以是虚拟的
+C:\Users\Administrator\source\repos\DaemonApps\LicHper\Rendering\HookRenderer.h(29,68): error C2065: “m_fallbackCallback”: 未声明的标识符
+C:\Users\Administrator\source\repos\DaemonApps\LicHper\Rendering\HookRenderer.h(30,41): error C2270: “NeedsFallback”: 非成员函数上不允许修饰符
+C:\Users\Administrator\source\repos\DaemonApps\LicHper\Rendering\HookRenderer.h(30,41): error C3158: “LicHper::NeedsFallback”:“override”只能应用于虚成员函数
+C:\Users\Administrator\source\repos\DaemonApps\LicHper\Rendering\HookRenderer.h(30,50): error C2065: “m_needsFallback”: 未声明的标识符
+C:\Users\Administrator\source\repos\DaemonApps\LicHper\Rendering\HookRenderer.h(35,1): error C2059: 语法错误:“private”
+C:\Users\Administrator\source\repos\DaemonApps\LicHper\Rendering\HookRenderer.h(38,16): error C2086: “std::mutex LicHper::m_configMutex”: 重定义
+C:\Users\Administrator\source\repos\DaemonApps\LicHper\Rendering\D3D12WatermarkRenderer.h(85,16): message : 参见“LicHper::m_configMutex”的声明
+C:\Users\Administrator\source\repos\DaemonApps\LicHper\Rendering\HookRenderer.h(43,33): error C4430: 缺少类型说明符 - 假定为 int。注意: C++ 不支持默认 int
+C:\Users\Administrator\source\repos\DaemonApps\LicHper\Rendering\HookRenderer.h(43,18): error C2146: 语法错误: 缺少“;”(在标识符“m_exitCallback”的前面)
+C:\Users\Administrator\source\repos\DaemonApps\LicHper\Rendering\HookRenderer.h(62,52): error C2086: “std::chrono::steady_clock::time_point LicHper::m_startTime”: 重定义
+C:\Users\Administrator\source\repos\DaemonApps\LicHper\Rendering\D3D12WatermarkRenderer.h(88,52): message : 参见“LicHper::m_startTime”的声明
+C:\Users\Administrator\source\repos\DaemonApps\LicHper\Rendering\HookRenderer.h(77,24): error C2143: 语法错误: 缺少“;”(在“*”的前面)
+C:\Users\Administrator\source\repos\DaemonApps\LicHper\Rendering\HookRenderer.h(77,24): error C4430: 缺少类型说明符 - 假定为 int。注意: C++ 不支持默认 int
+C:\Users\Administrator\source\repos\DaemonApps\LicHper\Rendering\HookRenderer.h(77,12): error C2365: “LicHper::HookRenderer”: 重定义；以前的定义是“函数”
+C:\Users\Administrator\source\repos\DaemonApps\LicHper\Rendering\HookRenderer.h(18,5): message : 参见“LicHper::HookRenderer”的声明
+C:\Users\Administrator\source\repos\DaemonApps\LicHper\Rendering\HookRenderer.h(77,36): error C4430: 缺少类型说明符 - 假定为 int。注意: C++ 不支持默认 int
+C:\Users\Administrator\source\repos\DaemonApps\LicHper\Rendering\HookRenderer.h(92,1): error C2059: 语法错误:“}”
+C:\Users\Administrator\source\repos\DaemonApps\LicHper\Rendering\HookRenderer.h(92,1): error C2143: 语法错误: 缺少“;”(在“}”的前面)
+C:\Users\Administrator\source\repos\DaemonApps\LicHper\Rendering\Logger.h(1,1): warning C4819: 该文件包含不能在当前代码页(936)中表示的字符。请将该文件保存为 Unicode 格式以防止数据丢失
+C:\Users\Administrator\source\repos\DaemonApps\LicHper\Rendering\Logger.h(4,10): fatal  error C1083: 无法打开包括文件: “spdlog/spdlog.h”: No such file or directory
+  OverlayRenderer.cpp
+C:\Users\Administrator\source\repos\DaemonApps\LicHper\Rendering\OverlayRenderer.cpp(1,1): warning C4819: 该文件包含不能在当前代码页(936)中表示的字符。请将该文件保存为 Unicode 格式以防止数据丢失
+C:\Users\Administrator\source\repos\DaemonApps\LicHper\Rendering\OverlayRenderer.h(1,1): warning C4819: 该文件包含不能在当前代码页(936)中表示的字符。请将该文件保存为 Unicode 格式以防止数据丢失
+C:\Users\Administrator\source\repos\DaemonApps\LicHper\Rendering\IWatermarkRenderer.h(1,1): warning C4819: 该文件包含不能在当前代码页(936)中表示的字符。请将该文件保存为 Unicode 格式以防止数据丢失
+C:\Users\Administrator\source\repos\DaemonApps\LicHper\Rendering\WatermarkConfig.h(1,1): warning C4819: 该文件包含不能在当前代码页(936)中表示的字符。请将该文件保存为 Unicode 格式以防止数据丢失
+C:\Users\Administrator\source\repos\DaemonApps\LicHper\Rendering\IWatermarkRenderer.h(18,1): error C2059: 语法错误:“public”
+C:\Users\Administrator\source\repos\DaemonApps\LicHper\Rendering\IWatermarkRenderer.h(19,32): error C2588: “::~IWatermarkRenderer”: 非法的全局 析构函数
+C:\Users\Administrator\source\repos\DaemonApps\LicHper\Rendering\IWatermarkRenderer.h(19,14): error C2575: “IWatermarkRenderer”: 只有成员函数和基可以是虚拟的
+C:\Users\Administrator\source\repos\DaemonApps\LicHper\Rendering\IWatermarkRenderer.h(19,35): error C4430: 缺少类型说明符 - 假定为 int。注意: C++ 不支持默认 int
+C:\Users\Administrator\source\repos\DaemonApps\LicHper\Rendering\IWatermarkRenderer.h(19,14): error C2610: “int LicHper::IWatermarkRenderer(void)”: 不是可默认为的特殊成员函数或比较运算符
+C:\Users\Administrator\source\repos\DaemonApps\LicHper\Rendering\IWatermarkRenderer.h(26,18): error C2575: “UpdateConfig”: 只有成员函数和基可以是虚拟的
+C:\Users\Administrator\source\repos\DaemonApps\LicHper\Rendering\IWatermarkRenderer.h(26,64): error C2059: 语法错误:“常数”
+C:\Users\Administrator\source\repos\DaemonApps\LicHper\Rendering\IWatermarkRenderer.h(29,18): error C2575: “RunRenderLoop”: 只有成员函数和基可以是虚拟的
+C:\Users\Administrator\source\repos\DaemonApps\LicHper\Rendering\IWatermarkRenderer.h(29,36): error C2059: 语法错误:“常数”
+C:\Users\Administrator\source\repos\DaemonApps\LicHper\Rendering\IWatermarkRenderer.h(34,40): error C2270: “GetMode”: 非成员函数上不允许修饰符
+C:\Users\Administrator\source\repos\DaemonApps\LicHper\Rendering\IWatermarkRenderer.h(34,42): error C2059: 语法错误:“常数”
+C:\Users\Administrator\source\repos\DaemonApps\LicHper\Rendering\IWatermarkRenderer.h(39,18): error C2182: “SetExitCallback”: “void” 这一使用无效
+C:\Users\Administrator\source\repos\DaemonApps\LicHper\Rendering\IWatermarkRenderer.h(39,47): error C2433: “SetExitCallback”: 不允许在数据声明中使用“virtual”
+C:\Users\Administrator\source\repos\DaemonApps\LicHper\Rendering\IWatermarkRenderer.h(39,34): error C2065: “ExitCallback”: 未声明的标识符
+C:\Users\Administrator\source\repos\DaemonApps\LicHper\Rendering\IWatermarkRenderer.h(39,47): error C2146: 语法错误: 缺少“)”(在标识符“callback”的前面)
+C:\Users\Administrator\source\repos\DaemonApps\LicHper\Rendering\IWatermarkRenderer.h(43,18): error C2575: “SetFallbackCallback”: 只有成员函数和基可以是虚拟的
+C:\Users\Administrator\source\repos\DaemonApps\LicHper\Rendering\IWatermarkRenderer.h(48,1): error C2059: 语法错误:“}”
+C:\Users\Administrator\source\repos\DaemonApps\LicHper\Rendering\IWatermarkRenderer.h(48,1): error C2143: 语法错误: 缺少“;”(在“}”的前面)
+C:\Program Files (x86)\Windows Kits\10\Include\10.0.26100.0\ucrt\time.h(19,1): error C2143: 语法错误: 缺少“;”(在“{”的前面)
+C:\Program Files (x86)\Windows Kits\10\Include\10.0.26100.0\ucrt\time.h(19,1): error C2447: “{”: 缺少函数标题(是否是老式的形式表?)
+C:\Program Files\Microsoft Visual Studio\2022\Professional\VC\Tools\MSVC\14.34.31933\include\ctime(22,13): error C2039: "clock_t": 不是 "`global namespace'" 的成员
+C:\Program Files\Microsoft Visual Studio\2022\Professional\VC\Tools\MSVC\14.34.31933\include\ctime(22,1): error C2873: “clock_t”: 符号不能用在 using 声明中
+C:\Program Files\Microsoft Visual Studio\2022\Professional\VC\Tools\MSVC\14.34.31933\include\ctime(26,13): error C2039: "asctime": 不是 "`global namespace'" 的成员
+C:\Program Files\Microsoft Visual Studio\2022\Professional\VC\Tools\MSVC\14.34.31933\include\ctime(26,1): error C2873: “asctime”: 符号不能用在 using 声明中
+C:\Program Files\Microsoft Visual Studio\2022\Professional\VC\Tools\MSVC\14.34.31933\include\ctime(27,13): error C2039: "clock": 不是 "`global namespace'" 的成员
+C:\Program Files\Microsoft Visual Studio\2022\Professional\VC\Tools\MSVC\14.34.31933\include\ctime(27,1): error C2873: “clock”: 符号不能用在 using 声明中
+C:\Program Files\Microsoft Visual Studio\2022\Professional\VC\Tools\MSVC\14.34.31933\include\ctime(28,13): error C2039: "ctime": 不是 "`global namespace'" 的成员
+C:\Program Files\Microsoft Visual Studio\2022\Professional\VC\Tools\MSVC\14.34.31933\include\ctime(28,1): error C2873: “ctime”: 符号不能用在 using 声明中
+C:\Program Files\Microsoft Visual Studio\2022\Professional\VC\Tools\MSVC\14.34.31933\include\ctime(29,13): error C2039: "difftime": 不是 "`global namespace'" 的成员
+C:\Program Files\Microsoft Visual Studio\2022\Professional\VC\Tools\MSVC\14.34.31933\include\ctime(29,1): error C2873: “difftime”: 符号不能用在 using 声明中
+C:\Program Files\Microsoft Visual Studio\2022\Professional\VC\Tools\MSVC\14.34.31933\include\ctime(30,13): error C2039: "gmtime": 不是 "`global namespace'" 的成员
+C:\Program Files\Microsoft Visual Studio\2022\Professional\VC\Tools\MSVC\14.34.31933\include\ctime(30,1): error C2873: “gmtime”: 符号不能用在 using 声明中
+C:\Program Files\Microsoft Visual Studio\2022\Professional\VC\Tools\MSVC\14.34.31933\include\ctime(31,13): error C2039: "localtime": 不是 "`global namespace'" 的成员
+C:\Program Files\Microsoft Visual Studio\2022\Professional\VC\Tools\MSVC\14.34.31933\include\ctime(31,1): error C2873: “localtime”: 符号不能用在 using 声明中
+C:\Program Files\Microsoft Visual Studio\2022\Professional\VC\Tools\MSVC\14.34.31933\include\ctime(32,13): error C2039: "mktime": 不是 "`global namespace'" 的成员
+C:\Program Files\Microsoft Visual Studio\2022\Professional\VC\Tools\MSVC\14.34.31933\include\ctime(32,1): error C2873: “mktime”: 符号不能用在 using 声明中
+C:\Program Files\Microsoft Visual Studio\2022\Professional\VC\Tools\MSVC\14.34.31933\include\ctime(33,13): error C2039: "strftime": 不是 "`global namespace'" 的成员
+C:\Program Files\Microsoft Visual Studio\2022\Professional\VC\Tools\MSVC\14.34.31933\include\ctime(33,1): error C2873: “strftime”: 符号不能用在 using 声明中
+C:\Program Files\Microsoft Visual Studio\2022\Professional\VC\Tools\MSVC\14.34.31933\include\ctime(34,13): error C2039: "time": 不是 "`global namespace'" 的成员
+C:\Program Files\Microsoft Visual Studio\2022\Professional\VC\Tools\MSVC\14.34.31933\include\ctime(34,1): error C2873: “time”: 符号不能用在 using 声明中
+C:\Program Files\Microsoft Visual Studio\2022\Professional\VC\Tools\MSVC\14.34.31933\include\ctime(36,13): error C2039: "timespec": 不是 "`global namespace'" 的成员
+C:\Program Files\Microsoft Visual Studio\2022\Professional\VC\Tools\MSVC\14.34.31933\include\ctime(36,1): error C2873: “timespec”: 符号不能用在 using 声明中
+C:\Program Files\Microsoft Visual Studio\2022\Professional\VC\Tools\MSVC\14.34.31933\include\ctime(37,13): error C2039: "timespec_get": 不是 "`global namespace'" 的成员
+C:\Program Files\Microsoft Visual Studio\2022\Professional\VC\Tools\MSVC\14.34.31933\include\ctime(37,1): error C2873: “timespec_get”: 符号不能用在 using 声明中
+C:\Users\Administrator\source\repos\DaemonApps\LicHper\Rendering\OverlayRenderer.h(15,1): error C2059: 语法错误:“public”
+C:\Users\Administrator\source\repos\DaemonApps\LicHper\Rendering\OverlayRenderer.h(16,22): error C4430: 缺少类型说明符 - 假定为 int。注意: C++ 不支持默认 int
+C:\Users\Administrator\source\repos\DaemonApps\LicHper\Rendering\OverlayRenderer.h(17,29): error C2588: “::~OverlayRenderer”: 非法的全局 析构函数
+C:\Users\Administrator\source\repos\DaemonApps\LicHper\Rendering\OverlayRenderer.h(17,14): error C2575: “OverlayRenderer”: 只有成员函数和基可以是虚拟的
+C:\Users\Administrator\source\repos\DaemonApps\LicHper\Rendering\OverlayRenderer.h(17,31): error C4430: 缺少类型说明符 - 假定为 int。注意: C++ 不支持默认 int
+C:\Users\Administrator\source\repos\DaemonApps\LicHper\Rendering\OverlayRenderer.h(20,44): error C3158: “Initialize”:“override”只能应用于虚成员函数
+C:\Users\Administrator\source\repos\DaemonApps\LicHper\Rendering\OverlayRenderer.h(20,10): error C2575: “Initialize”: 只有成员函数和基可以是虚拟的
+C:\Users\Administrator\source\repos\DaemonApps\LicHper\Rendering\OverlayRenderer.h(21,62): error C3158: “UpdateConfig”:“override”只能应用于虚成员函数
+C:\Users\Administrator\source\repos\DaemonApps\LicHper\Rendering\OverlayRenderer.h(21,10): error C2575: “UpdateConfig”: 只有成员函数和基可以是虚拟的
+C:\Users\Administrator\source\repos\DaemonApps\LicHper\Rendering\OverlayRenderer.h(22,34): error C3158: “RunRenderLoop”:“override”只能应用于虚成员函数
+C:\Users\Administrator\source\repos\DaemonApps\LicHper\Rendering\OverlayRenderer.h(22,10): error C2575: “RunRenderLoop”: 只有成员函数和基可以是虚拟的
+C:\Users\Administrator\source\repos\DaemonApps\LicHper\Rendering\OverlayRenderer.h(23,29): error C3158: “Shutdown”:“override”只能应用于虚成员函数
+C:\Users\Administrator\source\repos\DaemonApps\LicHper\Rendering\OverlayRenderer.h(23,10): error C2575: “Shutdown”: 只有成员函数和基可以是虚拟的
+C:\Users\Administrator\source\repos\DaemonApps\LicHper\Rendering\OverlayRenderer.h(24,41): error C2270: “GetMode”: 非成员函数上不允许修饰符
+C:\Users\Administrator\source\repos\DaemonApps\LicHper\Rendering\OverlayRenderer.h(24,41): error C3158: “LicHper::GetMode”:“override”只能应用于虚成员函数
+C:\Users\Administrator\source\repos\DaemonApps\LicHper\Rendering\OverlayRenderer.h(25,37): error C2270: “IsRunning”: 非成员函数上不允许修饰符
+C:\Users\Administrator\source\repos\DaemonApps\LicHper\Rendering\OverlayRenderer.h(25,37): error C3158: “LicHper::IsRunning”:“override”只能应用于虚成员函数
+C:\Users\Administrator\source\repos\DaemonApps\LicHper\Rendering\OverlayRenderer.h(25,46): error C2065: “m_running”: 未声明的标识符
+C:\Users\Administrator\source\repos\DaemonApps\LicHper\Rendering\OverlayRenderer.h(26,10): error C2182: “SetExitCallback”: “void” 这一使用无效
+C:\Users\Administrator\source\repos\DaemonApps\LicHper\Rendering\OverlayRenderer.h(26,10): error C2374: “LicHper::SetExitCallback”: 重定义；多次初始化
+C:\Users\Administrator\source\repos\DaemonApps\LicHper\Rendering\IWatermarkRenderer.h(39,18): message : 参见“LicHper::SetExitCallback”的声明
+C:\Users\Administrator\source\repos\DaemonApps\LicHper\Rendering\OverlayRenderer.h(26,26): error C2065: “ExitCallback”: 未声明的标识符
+C:\Users\Administrator\source\repos\DaemonApps\LicHper\Rendering\OverlayRenderer.h(26,39): error C2146: 语法错误: 缺少“)”(在标识符“callback”的前面)
+C:\Users\Administrator\source\repos\DaemonApps\LicHper\Rendering\OverlayRenderer.h(26,58): error C2143: 语法错误: 缺少“;”(在“{”的前面)
+C:\Users\Administrator\source\repos\DaemonApps\LicHper\Rendering\OverlayRenderer.h(26,58): error C2447: “{”: 缺少函数标题(是否是老式的形式表?)
+C:\Users\Administrator\source\repos\DaemonApps\LicHper\Rendering\OverlayRenderer.h(29,51): error C2270: “GetDeviceContext”: 非成员函数上不允许修饰符
+C:\Users\Administrator\source\repos\DaemonApps\LicHper\Rendering\OverlayRenderer.h(29,60): error C2065: “m_pd3dDeviceContext”: 未声明的标识符
+C:\Users\Administrator\source\repos\DaemonApps\LicHper\Rendering\OverlayRenderer.h(31,1): error C2059: 语法错误:“private”
+C:\Users\Administrator\source\repos\DaemonApps\LicHper\Rendering\OverlayRenderer.h(51,33): error C4430: 缺少类型说明符 - 假定为 int。注意: C++ 不支持默认 int
+C:\Users\Administrator\source\repos\DaemonApps\LicHper\Rendering\OverlayRenderer.h(51,18): error C2146: 语法错误: 缺少“;”(在标识符“m_exitCallback”的前面)
+C:\Users\Administrator\source\repos\DaemonApps\LicHper\Rendering\OverlayRenderer.h(69,27): error C2143: 语法错误: 缺少“;”(在“*”的前面)
+C:\Users\Administrator\source\repos\DaemonApps\LicHper\Rendering\OverlayRenderer.h(69,27): error C4430: 缺少类型说明符 - 假定为 int。注意: C++ 不支持默认 int
+C:\Users\Administrator\source\repos\DaemonApps\LicHper\Rendering\OverlayRenderer.h(69,12): error C2365: “LicHper::OverlayRenderer”: 重定义；以前的定义是“函数”
+C:\Users\Administrator\source\repos\DaemonApps\LicHper\Rendering\OverlayRenderer.h(16,5): message : 参见“LicHper::OverlayRenderer”的声明
+C:\Users\Administrator\source\repos\DaemonApps\LicHper\Rendering\OverlayRenderer.h(69,39): error C4430: 缺少类型说明符 - 假定为 int。注意: C++ 不支持默认 int
+C:\Users\Administrator\source\repos\DaemonApps\LicHper\Rendering\OverlayRenderer.h(72,1): error C2059: 语法错误:“}”
+C:\Users\Administrator\source\repos\DaemonApps\LicHper\Rendering\OverlayRenderer.h(72,1): error C2143: 语法错误: 缺少“;”(在“}”的前面)
+C:\Users\Administrator\source\repos\DaemonApps\LicHper\Rendering\Logger.h(1,1): warning C4819: 该文件包含不能在当前代码页(936)中表示的字符。请将该文件保存为 Unicode 格式以防止数据丢失
+C:\Users\Administrator\source\repos\DaemonApps\LicHper\Rendering\Logger.h(4,10): fatal  error C1083: 无法打开包括文件: “spdlog/spdlog.h”: No such file or directory
+  RenderManager.cpp
+C:\Users\Administrator\source\repos\DaemonApps\LicHper\Rendering\RenderManager.cpp(1,1): warning C4819: 该文件包含不能在当前代码页(936)中表示的字符。请将该文件保存为 Unicode 格式以防止数据丢失
+C:\Users\Administrator\source\repos\DaemonApps\LicHper\Rendering\RenderManager.h(1,1): warning C4819: 该文件包含不能在当前代码页(936)中表示的字符。请将该文件保存为 Unicode 格式以防止数据丢失
+C:\Users\Administrator\source\repos\DaemonApps\LicHper\Rendering\IWatermarkRenderer.h(1,1): warning C4819: 该文件包含不能在当前代码页(936)中表示的字符。请将该文件保存为 Unicode 格式以防止数据丢失
+C:\Users\Administrator\source\repos\DaemonApps\LicHper\Rendering\WatermarkConfig.h(1,1): warning C4819: 该文件包含不能在当前代码页(936)中表示的字符。请将该文件保存为 Unicode 格式以防止数据丢失
+C:\Users\Administrator\source\repos\DaemonApps\LicHper\Rendering\IWatermarkRenderer.h(18,1): error C2059: 语法错误:“public”
+C:\Users\Administrator\source\repos\DaemonApps\LicHper\Rendering\IWatermarkRenderer.h(19,32): error C2588: “::~IWatermarkRenderer”: 非法的全局 析构函数
+C:\Users\Administrator\source\repos\DaemonApps\LicHper\Rendering\IWatermarkRenderer.h(19,14): error C2575: “IWatermarkRenderer”: 只有成员函数和基可以是虚拟的
+C:\Users\Administrator\source\repos\DaemonApps\LicHper\Rendering\IWatermarkRenderer.h(19,35): error C4430: 缺少类型说明符 - 假定为 int。注意: C++ 不支持默认 int
+C:\Users\Administrator\source\repos\DaemonApps\LicHper\Rendering\IWatermarkRenderer.h(19,14): error C2610: “int LicHper::IWatermarkRenderer(void)”: 不是可默认为的特殊成员函数或比较运算符
+C:\Users\Administrator\source\repos\DaemonApps\LicHper\Rendering\IWatermarkRenderer.h(26,18): error C2575: “UpdateConfig”: 只有成员函数和基可以是虚拟的
+C:\Users\Administrator\source\repos\DaemonApps\LicHper\Rendering\IWatermarkRenderer.h(26,64): error C2059: 语法错误:“常数”
+C:\Users\Administrator\source\repos\DaemonApps\LicHper\Rendering\IWatermarkRenderer.h(29,18): error C2575: “RunRenderLoop”: 只有成员函数和基可以是虚拟的
+C:\Users\Administrator\source\repos\DaemonApps\LicHper\Rendering\IWatermarkRenderer.h(29,36): error C2059: 语法错误:“常数”
+C:\Users\Administrator\source\repos\DaemonApps\LicHper\Rendering\IWatermarkRenderer.h(34,40): error C2270: “GetMode”: 非成员函数上不允许修饰符
+C:\Users\Administrator\source\repos\DaemonApps\LicHper\Rendering\IWatermarkRenderer.h(34,42): error C2059: 语法错误:“常数”
+C:\Users\Administrator\source\repos\DaemonApps\LicHper\Rendering\IWatermarkRenderer.h(39,18): error C2182: “SetExitCallback”: “void” 这一使用无效
+C:\Users\Administrator\source\repos\DaemonApps\LicHper\Rendering\IWatermarkRenderer.h(39,47): error C2433: “SetExitCallback”: 不允许在数据声明中使用“virtual”
+C:\Users\Administrator\source\repos\DaemonApps\LicHper\Rendering\IWatermarkRenderer.h(39,34): error C2065: “ExitCallback”: 未声明的标识符
+C:\Users\Administrator\source\repos\DaemonApps\LicHper\Rendering\IWatermarkRenderer.h(39,47): error C2146: 语法错误: 缺少“)”(在标识符“callback”的前面)
+C:\Users\Administrator\source\repos\DaemonApps\LicHper\Rendering\IWatermarkRenderer.h(43,18): error C2575: “SetFallbackCallback”: 只有成员函数和基可以是虚拟的
+C:\Users\Administrator\source\repos\DaemonApps\LicHper\Rendering\IWatermarkRenderer.h(48,1): error C2059: 语法错误:“}”
+C:\Users\Administrator\source\repos\DaemonApps\LicHper\Rendering\IWatermarkRenderer.h(48,1): error C2143: 语法错误: 缺少“;”(在“}”的前面)
+C:\Users\Administrator\source\repos\DaemonApps\LicHper\Rendering\RenderManager.h(62,10): error C2923: "std::unique_ptr": "LicHper::IWatermarkRenderer" 不是参数 "_Ty" 的有效 模板 类型参数
+C:\Users\Administrator\source\repos\DaemonApps\LicHper\Rendering\IWatermarkRenderer.h(19,14): message : 参见“LicHper::IWatermarkRenderer”的声明
+C:\Users\Administrator\source\repos\DaemonApps\LicHper\Rendering\RenderManager.h(62,10): error C2976: “std::unique_ptr'”: 模板 参数太少
+C:\Program Files\Microsoft Visual Studio\2022\Professional\VC\Tools\MSVC\14.34.31933\include\memory(3139,1): message : 参见“std::unique_ptr”的声明
+C:\Users\Administrator\source\repos\DaemonApps\LicHper\Rendering\RenderManager.h(62,41): error C2955: “std::unique_ptr”: 使用 类 模板 需要 模板 参数列表
+C:\Program Files\Microsoft Visual Studio\2022\Professional\VC\Tools\MSVC\14.34.31933\include\memory(3139,1): message : 参见“std::unique_ptr”的声明
+C:\Users\Administrator\source\repos\DaemonApps\LicHper\Rendering\OverlayRenderer.h(1,1): warning C4819: 该文件包含不能在当前代码页(936)中表示的字符。请将该文件保存为 Unicode 格式以防止数据丢失
+C:\Users\Administrator\source\repos\DaemonApps\LicHper\Rendering\OverlayRenderer.h(15,1): error C2059: 语法错误:“public”
+C:\Users\Administrator\source\repos\DaemonApps\LicHper\Rendering\OverlayRenderer.h(16,22): error C4430: 缺少类型说明符 - 假定为 int。注意: C++ 不支持默认 int
+C:\Users\Administrator\source\repos\DaemonApps\LicHper\Rendering\OverlayRenderer.h(17,29): error C2588: “::~OverlayRenderer”: 非法的全局 析构函数
+C:\Users\Administrator\source\repos\DaemonApps\LicHper\Rendering\OverlayRenderer.h(17,14): error C2575: “OverlayRenderer”: 只有成员函数和基可以是虚拟的
+C:\Users\Administrator\source\repos\DaemonApps\LicHper\Rendering\OverlayRenderer.h(17,31): error C4430: 缺少类型说明符 - 假定为 int。注意: C++ 不支持默认 int
+C:\Users\Administrator\source\repos\DaemonApps\LicHper\Rendering\OverlayRenderer.h(20,44): error C3158: “Initialize”:“override”只能应用于虚成员函数
+C:\Users\Administrator\source\repos\DaemonApps\LicHper\Rendering\OverlayRenderer.h(20,10): error C2575: “Initialize”: 只有成员函数和基可以是虚拟的
+C:\Users\Administrator\source\repos\DaemonApps\LicHper\Rendering\OverlayRenderer.h(21,62): error C3158: “UpdateConfig”:“override”只能应用于虚成员函数
+C:\Users\Administrator\source\repos\DaemonApps\LicHper\Rendering\OverlayRenderer.h(21,10): error C2575: “UpdateConfig”: 只有成员函数和基可以是虚拟的
+C:\Users\Administrator\source\repos\DaemonApps\LicHper\Rendering\OverlayRenderer.h(22,34): error C3158: “RunRenderLoop”:“override”只能应用于虚成员函数
+C:\Users\Administrator\source\repos\DaemonApps\LicHper\Rendering\OverlayRenderer.h(22,10): error C2575: “RunRenderLoop”: 只有成员函数和基可以是虚拟的
+C:\Users\Administrator\source\repos\DaemonApps\LicHper\Rendering\OverlayRenderer.h(23,29): error C3158: “Shutdown”:“override”只能应用于虚成员函数
+C:\Users\Administrator\source\repos\DaemonApps\LicHper\Rendering\OverlayRenderer.h(23,10): error C2575: “Shutdown”: 只有成员函数和基可以是虚拟的
+C:\Users\Administrator\source\repos\DaemonApps\LicHper\Rendering\OverlayRenderer.h(24,41): error C2270: “GetMode”: 非成员函数上不允许修饰符
+C:\Users\Administrator\source\repos\DaemonApps\LicHper\Rendering\OverlayRenderer.h(24,41): error C3158: “LicHper::GetMode”:“override”只能应用于虚成员函数
+C:\Users\Administrator\source\repos\DaemonApps\LicHper\Rendering\OverlayRenderer.h(25,37): error C2270: “IsRunning”: 非成员函数上不允许修饰符
+C:\Users\Administrator\source\repos\DaemonApps\LicHper\Rendering\OverlayRenderer.h(25,37): error C3158: “LicHper::IsRunning”:“override”只能应用于虚成员函数
+C:\Users\Administrator\source\repos\DaemonApps\LicHper\Rendering\OverlayRenderer.h(25,46): error C2065: “m_running”: 未声明的标识符
+C:\Users\Administrator\source\repos\DaemonApps\LicHper\Rendering\OverlayRenderer.h(26,10): error C2182: “SetExitCallback”: “void” 这一使用无效
+C:\Users\Administrator\source\repos\DaemonApps\LicHper\Rendering\OverlayRenderer.h(26,10): error C2374: “LicHper::SetExitCallback”: 重定义；多次初始化
+C:\Users\Administrator\source\repos\DaemonApps\LicHper\Rendering\IWatermarkRenderer.h(39,18): message : 参见“LicHper::SetExitCallback”的声明
+C:\Users\Administrator\source\repos\DaemonApps\LicHper\Rendering\OverlayRenderer.h(26,26): error C2065: “ExitCallback”: 未声明的标识符
+C:\Users\Administrator\source\repos\DaemonApps\LicHper\Rendering\OverlayRenderer.h(26,39): error C2146: 语法错误: 缺少“)”(在标识符“callback”的前面)
+C:\Users\Administrator\source\repos\DaemonApps\LicHper\Rendering\OverlayRenderer.h(26,58): error C2143: 语法错误: 缺少“;”(在“{”的前面)
+C:\Users\Administrator\source\repos\DaemonApps\LicHper\Rendering\OverlayRenderer.h(26,58): error C2447: “{”: 缺少函数标题(是否是老式的形式表?)
+C:\Users\Administrator\source\repos\DaemonApps\LicHper\Rendering\OverlayRenderer.h(29,51): error C2270: “GetDeviceContext”: 非成员函数上不允许修饰符
+C:\Users\Administrator\source\repos\DaemonApps\LicHper\Rendering\OverlayRenderer.h(29,60): error C2065: “m_pd3dDeviceContext”: 未声明的标识符
+C:\Users\Administrator\source\repos\DaemonApps\LicHper\Rendering\OverlayRenderer.h(31,1): error C2059: 语法错误:“private”
+C:\Users\Administrator\source\repos\DaemonApps\LicHper\Rendering\OverlayRenderer.h(51,33): error C4430: 缺少类型说明符 - 假定为 int。注意: C++ 不支持默认 int
+C:\Users\Administrator\source\repos\DaemonApps\LicHper\Rendering\OverlayRenderer.h(51,18): error C2146: 语法错误: 缺少“;”(在标识符“m_exitCallback”的前面)
+C:\Users\Administrator\source\repos\DaemonApps\LicHper\Rendering\OverlayRenderer.h(69,27): error C2143: 语法错误: 缺少“;”(在“*”的前面)
+C:\Users\Administrator\source\repos\DaemonApps\LicHper\Rendering\OverlayRenderer.h(69,27): error C4430: 缺少类型说明符 - 假定为 int。注意: C++ 不支持默认 int
+C:\Users\Administrator\source\repos\DaemonApps\LicHper\Rendering\OverlayRenderer.h(69,12): error C2365: “LicHper::OverlayRenderer”: 重定义；以前的定义是“函数”
+C:\Users\Administrator\source\repos\DaemonApps\LicHper\Rendering\OverlayRenderer.h(16,5): message : 参见“LicHper::OverlayRenderer”的声明
+C:\Users\Administrator\source\repos\DaemonApps\LicHper\Rendering\OverlayRenderer.h(69,39): error C4430: 缺少类型说明符 - 假定为 int。注意: C++ 不支持默认 int
+C:\Users\Administrator\source\repos\DaemonApps\LicHper\Rendering\OverlayRenderer.h(72,1): error C2059: 语法错误:“}”
+C:\Users\Administrator\source\repos\DaemonApps\LicHper\Rendering\OverlayRenderer.h(72,1): error C2143: 语法错误: 缺少“;”(在“}”的前面)
+C:\Users\Administrator\source\repos\DaemonApps\LicHper\Rendering\HookRenderer.h(1,1): warning C4819: 该文件包含不能在当前代码页(936)中表示的字符。请将该文件保存为 Unicode 格式以防止数据丢失
+C:\Users\Administrator\source\repos\DaemonApps\LicHper\Rendering\D3D12WatermarkRenderer.h(1,1): warning C4819: 该文件包含不能在当前代码页(936)中表示的字符。请将该文件保存为 Unicode 格式以防止数据丢失
+C:\Users\Administrator\source\repos\DaemonApps\LicHper\Rendering\D3D12WatermarkRenderer.h(16,1): error C2059: 语法错误:“public”
+C:\Users\Administrator\source\repos\DaemonApps\LicHper\Rendering\D3D12WatermarkRenderer.h(17,29): error C4430: 缺少类型说明符 - 假定为 int。注意: C++ 不支持默认 int
+C:\Users\Administrator\source\repos\DaemonApps\LicHper\Rendering\D3D12WatermarkRenderer.h(18,28): error C2588: “::~D3D12WatermarkRenderer”: 非法的全局 析构函数
+C:\Users\Administrator\source\repos\DaemonApps\LicHper\Rendering\D3D12WatermarkRenderer.h(18,30): error C4430: 缺少类型说明符 - 假定为 int。注意: C++ 不支持默认 int
+C:\Users\Administrator\source\repos\DaemonApps\LicHper\Rendering\D3D12WatermarkRenderer.h(40,41): error C2270: “IsLicenseWindowVisible”: 非成员函数上不允许修饰符
+C:\Users\Administrator\source\repos\DaemonApps\LicHper\Rendering\D3D12WatermarkRenderer.h(44,1): error C2059: 语法错误:“private”
+C:\Users\Administrator\source\repos\DaemonApps\LicHper\Rendering\D3D12WatermarkRenderer.h(73,38): error C2065: “MAX_BACK_BUFFERS”: 未声明的标识符
+C:\Users\Administrator\source\repos\DaemonApps\LicHper\Rendering\D3D12WatermarkRenderer.h(74,46): error C2065: “MAX_BACK_BUFFERS”: 未声明的标识符
+C:\Users\Administrator\source\repos\DaemonApps\LicHper\Rendering\D3D12WatermarkRenderer.h(88,52): error C2086: “std::chrono::steady_clock::time_point LicHper::m_startTime”: 重定义
+C:\Users\Administrator\source\repos\DaemonApps\LicHper\Rendering\OverlayRenderer.h(55,52): message : 参见“LicHper::m_startTime”的声明
+C:\Users\Administrator\source\repos\DaemonApps\LicHper\Rendering\D3D12WatermarkRenderer.h(91,10): error C2374: “LicHper::m_showLicenseWindow”: 重定义；多次初始化
+C:\Users\Administrator\source\repos\DaemonApps\LicHper\Rendering\OverlayRenderer.h(52,10): message : 参见“LicHper::m_showLicenseWindow”的声明
+C:\Users\Administrator\source\repos\DaemonApps\LicHper\Rendering\D3D12WatermarkRenderer.h(95,1): error C2059: 语法错误:“}”
+C:\Users\Administrator\source\repos\DaemonApps\LicHper\Rendering\D3D12WatermarkRenderer.h(95,1): error C2143: 语法错误: 缺少“;”(在“}”的前面)
+C:\Users\Administrator\source\repos\DaemonApps\LicHper\Hooks\DXGIHook.h(1,1): warning C4819: 该文件包含不能在当前代码页(936)中表示的字符。请将该文件保存为 Unicode 格式以防止数据丢失
+C:\Users\Administrator\source\repos\DaemonApps\LicHper\Hooks\DXGIHook.h(11,19): error C2143: 语法错误: 缺少“;”(在“{”的前面)
+C:\Users\Administrator\source\repos\DaemonApps\LicHper\Hooks\DXGIHook.h(11,19): error C2447: “{”: 缺少函数标题(是否是老式的形式表?)
+C:\Users\Administrator\source\repos\DaemonApps\LicHper\Rendering\HookRenderer.h(17,1): error C2059: 语法错误:“public”
+C:\Users\Administrator\source\repos\DaemonApps\LicHper\Rendering\HookRenderer.h(18,19): error C4430: 缺少类型说明符 - 假定为 int。注意: C++ 不支持默认 int
+C:\Users\Administrator\source\repos\DaemonApps\LicHper\Rendering\HookRenderer.h(19,26): error C2588: “::~HookRenderer”: 非法的全局 析构函数
+C:\Users\Administrator\source\repos\DaemonApps\LicHper\Rendering\HookRenderer.h(19,14): error C2575: “HookRenderer”: 只有成员函数和基可以是虚拟的
+C:\Users\Administrator\source\repos\DaemonApps\LicHper\Rendering\HookRenderer.h(19,28): error C4430: 缺少类型说明符 - 假定为 int。注意: C++ 不支持默认 int
+C:\Users\Administrator\source\repos\DaemonApps\LicHper\Rendering\HookRenderer.h(22,44): error C3158: “Initialize”:“override”只能应用于虚成员函数
+C:\Users\Administrator\source\repos\DaemonApps\LicHper\Rendering\HookRenderer.h(22,10): error C2575: “Initialize”: 只有成员函数和基可以是虚拟的
+C:\Users\Administrator\source\repos\DaemonApps\LicHper\Rendering\HookRenderer.h(23,62): error C3158: “UpdateConfig”:“override”只能应用于虚成员函数
+C:\Users\Administrator\source\repos\DaemonApps\LicHper\Rendering\HookRenderer.h(23,10): error C2575: “UpdateConfig”: 只有成员函数和基可以是虚拟的
+C:\Users\Administrator\source\repos\DaemonApps\LicHper\Rendering\HookRenderer.h(24,34): error C3158: “RunRenderLoop”:“override”只能应用于虚成员函数
+C:\Users\Administrator\source\repos\DaemonApps\LicHper\Rendering\HookRenderer.h(24,10): error C2575: “RunRenderLoop”: 只有成员函数和基可以是虚拟的
+C:\Users\Administrator\source\repos\DaemonApps\LicHper\Rendering\HookRenderer.h(25,29): error C3158: “Shutdown”:“override”只能应用于虚成员函数
+C:\Users\Administrator\source\repos\DaemonApps\LicHper\Rendering\HookRenderer.h(25,10): error C2575: “Shutdown”: 只有成员函数和基可以是虚拟的
+C:\Users\Administrator\source\repos\DaemonApps\LicHper\Rendering\HookRenderer.h(26,41): error C2270: “GetMode”: 非成员函数上不允许修饰符
+C:\Users\Administrator\source\repos\DaemonApps\LicHper\Rendering\HookRenderer.h(26,41): error C3158: “LicHper::GetMode”:“override”只能应用于虚成员函数
+C:\Users\Administrator\source\repos\DaemonApps\LicHper\Rendering\HookRenderer.h(27,37): error C2270: “IsRunning”: 非成员函数上不允许修饰符
+C:\Users\Administrator\source\repos\DaemonApps\LicHper\Rendering\HookRenderer.h(27,37): error C3158: “LicHper::IsRunning”:“override”只能应用于虚成员函数
+C:\Users\Administrator\source\repos\DaemonApps\LicHper\Rendering\HookRenderer.h(27,46): error C2065: “m_running”: 未声明的标识符
+C:\Users\Administrator\source\repos\DaemonApps\LicHper\Rendering\HookRenderer.h(28,10): error C2182: “SetExitCallback”: “void” 这一使用无效
+C:\Users\Administrator\source\repos\DaemonApps\LicHper\Rendering\HookRenderer.h(28,10): error C2374: “LicHper::SetExitCallback”: 重定义；多次初始化
+C:\Users\Administrator\source\repos\DaemonApps\LicHper\Rendering\IWatermarkRenderer.h(39,18): message : 参见“LicHper::SetExitCallback”的声明
+C:\Users\Administrator\source\repos\DaemonApps\LicHper\Rendering\HookRenderer.h(28,39): error C2146: 语法错误: 缺少“)”(在标识符“callback”的前面)
+C:\Users\Administrator\source\repos\DaemonApps\LicHper\Rendering\HookRenderer.h(28,58): error C2143: 语法错误: 缺少“;”(在“{”的前面)
+C:\Users\Administrator\source\repos\DaemonApps\LicHper\Rendering\HookRenderer.h(28,58): error C2447: “{”: 缺少函数标题(是否是老式的形式表?)
+C:\Users\Administrator\source\repos\DaemonApps\LicHper\Rendering\HookRenderer.h(29,66): error C3158: “SetFallbackCallback”:“override”只能应用于虚成员函数
+C:\Users\Administrator\source\repos\DaemonApps\LicHper\Rendering\HookRenderer.h(29,10): error C2575: “SetFallbackCallback”: 只有成员函数和基可以是虚拟的
+C:\Users\Administrator\source\repos\DaemonApps\LicHper\Rendering\HookRenderer.h(29,68): error C2065: “m_fallbackCallback”: 未声明的标识符
+C:\Users\Administrator\source\repos\DaemonApps\LicHper\Rendering\HookRenderer.h(30,41): error C2270: “NeedsFallback”: 非成员函数上不允许修饰符
+C:\Users\Administrator\source\repos\DaemonApps\LicHper\Rendering\HookRenderer.h(30,41): error C3158: “LicHper::NeedsFallback”:“override”只能应用于虚成员函数
+C:\Users\Administrator\source\repos\DaemonApps\LicHper\Rendering\HookRenderer.h(30,50): error C2065: “m_needsFallback”: 未声明的标识符
+C:\Users\Administrator\source\repos\DaemonApps\LicHper\Rendering\HookRenderer.h(35,1): error C2059: 语法错误:“private”
+C:\Users\Administrator\source\repos\DaemonApps\LicHper\Rendering\HookRenderer.h(37,21): error C2086: “LicHper::WatermarkConfig LicHper::m_config”: 重定义
+C:\Users\Administrator\source\repos\DaemonApps\LicHper\Rendering\OverlayRenderer.h(47,21): message : 参见“LicHper::m_config”的声明
+C:\Users\Administrator\source\repos\DaemonApps\LicHper\Rendering\HookRenderer.h(38,16): error C2086: “std::mutex LicHper::m_configMutex”: 重定义
+C:\Users\Administrator\source\repos\DaemonApps\LicHper\Rendering\D3D12WatermarkRenderer.h(85,16): message : 参见“LicHper::m_configMutex”的声明
+C:\Users\Administrator\source\repos\DaemonApps\LicHper\Rendering\HookRenderer.h(41,23): error C2371: “LicHper::m_initialized”: 重定义；不同的基类型
+C:\Users\Administrator\source\repos\DaemonApps\LicHper\Rendering\OverlayRenderer.h(50,10): message : 参见“LicHper::m_initialized”的声明
+C:\Users\Administrator\source\repos\DaemonApps\LicHper\Rendering\HookRenderer.h(43,33): error C4430: 缺少类型说明符 - 假定为 int。注意: C++ 不支持默认 int
+C:\Users\Administrator\source\repos\DaemonApps\LicHper\Rendering\HookRenderer.h(43,5): error C2086: “int LicHper::ExitCallback”: 重定义
+C:\Users\Administrator\source\repos\DaemonApps\LicHper\Rendering\OverlayRenderer.h(51,5): message : 参见“LicHper::ExitCallback”的声明
+C:\Users\Administrator\source\repos\DaemonApps\LicHper\Rendering\HookRenderer.h(43,18): error C2146: 语法错误: 缺少“;”(在标识符“m_exitCallback”的前面)
+C:\Users\Administrator\source\repos\DaemonApps\LicHper\Rendering\HookRenderer.h(47,10): error C2374: “LicHper::m_hwndHost”: 重定义；多次初始化
+C:\Users\Administrator\source\repos\DaemonApps\LicHper\Rendering\OverlayRenderer.h(43,10): message : 参见“LicHper::m_hwndHost”的声明
+C:\Users\Administrator\source\repos\DaemonApps\LicHper\Rendering\HookRenderer.h(51,40): error C2086: “std::unique_ptr<LicHper::WatermarkRenderer,std::default_delete<LicHper::WatermarkRenderer>> LicHper::m_watermarkRenderer”: 重定义
+C:\Users\Administrator\source\repos\DaemonApps\LicHper\Rendering\OverlayRenderer.h(39,40): message : 参见“LicHper::m_watermarkRenderer”的声明
+C:\Users\Administrator\source\repos\DaemonApps\LicHper\Rendering\HookRenderer.h(62,52): error C2086: “std::chrono::steady_clock::time_point LicHper::m_startTime”: 重定义
+C:\Users\Administrator\source\repos\DaemonApps\LicHper\Rendering\OverlayRenderer.h(55,52): message : 参见“LicHper::m_startTime”的声明
+C:\Users\Administrator\source\repos\DaemonApps\LicHper\Rendering\HookRenderer.h(77,24): error C2143: 语法错误: 缺少“;”(在“*”的前面)
+C:\Users\Administrator\source\repos\DaemonApps\LicHper\Rendering\HookRenderer.h(77,24): error C4430: 缺少类型说明符 - 假定为 int。注意: C++ 不支持默认 int
+C:\Users\Administrator\source\repos\DaemonApps\LicHper\Rendering\HookRenderer.h(77,12): error C2365: “LicHper::HookRenderer”: 重定义；以前的定义是“函数”
+C:\Users\Administrator\source\repos\DaemonApps\LicHper\Rendering\HookRenderer.h(18,5): message : 参见“LicHper::HookRenderer”的声明
+C:\Users\Administrator\source\repos\DaemonApps\LicHper\Rendering\HookRenderer.h(77,36): error C4430: 缺少类型说明符 - 假定为 int。注意: C++ 不支持默认 int
+C:\Users\Administrator\source\repos\DaemonApps\LicHper\Rendering\HookRenderer.h(77,26): error C2086: “int *LicHper::s_instance”: 重定义
+C:\Users\Administrator\source\repos\DaemonApps\LicHper\Rendering\OverlayRenderer.h(69,29): message : 参见“LicHper::s_instance”的声明
+C:\Users\Administrator\source\repos\DaemonApps\LicHper\Rendering\HookRenderer.h(77,36): fatal  error C1003: 错误计数超过 100；正在停止编译
+  WatermarkRenderer.cpp
+C:\Users\Administrator\source\repos\DaemonApps\LicHper\Rendering\WatermarkRenderer.cpp(1,1): warning C4819: 该文件包含不能在当前代码页(936)中表示的字符。请将该文件保存为 Unicode 格式以防止数据丢失
+C:\Users\Administrator\source\repos\DaemonApps\LicHper\Rendering\WatermarkConfig.h(1,1): warning C4819: 该文件包含不能在当前代码页(936)中表示的字符。请将该文件保存为 Unicode 格式以防止数据丢失
+C:\Users\Administrator\source\repos\DaemonApps\LicHper\Rendering\Logger.h(1,1): warning C4819: 该文件包含不能在当前代码页(936)中表示的字符。请将该文件保存为 Unicode 格式以防止数据丢失
+C:\Users\Administrator\source\repos\DaemonApps\LicHper\Rendering\Logger.h(4,10): fatal  error C1083: 无法打开包括文件: “spdlog/spdlog.h”: No such file or directory
+  D3D12WatermarkRenderer.cpp
+C:\Users\Administrator\source\repos\DaemonApps\LicHper\Rendering\D3D12WatermarkRenderer.cpp(1,1): warning C4819: 该文件包含不能在当前代码页(936)中表示的字符。请将该文件保存为 Unicode 格式以防止数据丢失
+C:\Users\Administrator\source\repos\DaemonApps\LicHper\Rendering\D3D12WatermarkRenderer.h(1,1): warning C4819: 该文件包含不能在当前代码页(936)中表示的字符。请将该文件保存为 Unicode 格式以防止数据丢失
+C:\Users\Administrator\source\repos\DaemonApps\LicHper\Rendering\D3D12WatermarkRenderer.h(16,1): error C2059: 语法错误:“public”
+C:\Users\Administrator\source\repos\DaemonApps\LicHper\Rendering\D3D12WatermarkRenderer.h(17,29): error C4430: 缺少类型说明符 - 假定为 int。注意: C++ 不支持默认 int
+C:\Users\Administrator\source\repos\DaemonApps\LicHper\Rendering\D3D12WatermarkRenderer.h(18,28): error C2588: “::~D3D12WatermarkRenderer”: 非法的全局 析构函数
+C:\Users\Administrator\source\repos\DaemonApps\LicHper\Rendering\D3D12WatermarkRenderer.h(18,30): error C4430: 缺少类型说明符 - 假定为 int。注意: C++ 不支持默认 int
+C:\Users\Administrator\source\repos\DaemonApps\LicHper\Rendering\D3D12WatermarkRenderer.h(39,41): error C2065: “m_showLicenseWindow”: 未声明的标识符
+C:\Users\Administrator\source\repos\DaemonApps\LicHper\Rendering\D3D12WatermarkRenderer.h(40,41): error C2270: “IsLicenseWindowVisible”: 非成员函数上不允许修饰符
+C:\Users\Administrator\source\repos\DaemonApps\LicHper\Rendering\D3D12WatermarkRenderer.h(40,50): error C2065: “m_showLicenseWindow”: 未声明的标识符
+C:\Users\Administrator\source\repos\DaemonApps\LicHper\Rendering\D3D12WatermarkRenderer.h(44,1): error C2059: 语法错误:“private”
+C:\Users\Administrator\source\repos\DaemonApps\LicHper\Rendering\D3D12WatermarkRenderer.h(73,38): error C2065: “MAX_BACK_BUFFERS”: 未声明的标识符
+C:\Users\Administrator\source\repos\DaemonApps\LicHper\Rendering\D3D12WatermarkRenderer.h(74,46): error C2065: “MAX_BACK_BUFFERS”: 未声明的标识符
+C:\Users\Administrator\source\repos\DaemonApps\LicHper\Rendering\D3D12WatermarkRenderer.h(95,1): error C2059: 语法错误:“}”
+C:\Users\Administrator\source\repos\DaemonApps\LicHper\Rendering\D3D12WatermarkRenderer.h(95,1): error C2143: 语法错误: 缺少“;”(在“}”的前面)
+C:\Users\Administrator\source\repos\DaemonApps\LicHper\Rendering\WatermarkConfig.h(1,1): warning C4819: 该文件包含不能在当前代码页(936)中表示的字符。请将该文件保存为 Unicode 格式以防止数据丢失
+C:\Program Files (x86)\Windows Kits\10\Include\10.0.26100.0\ucrt\assert.h(17,1): error C2143: 语法错误: 缺少“;”(在“{”的前面)
+C:\Program Files (x86)\Windows Kits\10\Include\10.0.26100.0\ucrt\assert.h(17,1): error C2447: “{”: 缺少函数标题(是否是老式的形式表?)
+C:\Users\Administrator\source\repos\DaemonApps\LicHper\Rendering\Logger.h(1,1): warning C4819: 该文件包含不能在当前代码页(936)中表示的字符。请将该文件保存为 Unicode 格式以防止数据丢失
+C:\Users\Administrator\source\repos\DaemonApps\LicHper\Rendering\Logger.h(4,10): fatal  error C1083: 无法打开包括文件: “spdlog/spdlog.h”: No such file or directory
+  imgui_impl_dx12.cpp
+C:\Users\Administrator\source\repos\DaemonApps\LicHper\imgui\backends\imgui_impl_dx12.cpp(443,39): error C2338: static_assert failed: 'Can't pack descriptor handle into TexID, 32-bit not supported yet.'
   imgui_main.cpp
-C:\Users\Administrator\source\repos\DaemonApps\LicHper\imgui_main.cpp(281,86): warning C4244: “参数”: 从“int”转换到“float”，可能丢失数据
-C:\Users\Administrator\source\repos\DaemonApps\LicHper\imgui_main.cpp(378,65): warning C4244: “参数”: 从“int”转换到“float”，可能丢失数据
-C:\Users\Administrator\source\repos\DaemonApps\LicHper\imgui_main.cpp(378,51): warning C4244: “参数”: 从“int”转换到“float”，可能丢失数据
-  validator.cpp
-C:\Users\Administrator\source\repos\DaemonApps\LicHper\validator.cpp(164,39): warning C4101: “e”: 未引用的局部变量
-    正在创建库 C:\Users\Administrator\source\repos\DaemonApps\Release\LicHper.lib 和对象 C:\Users\Administrator\source\repos\DaemonApps\Release\LicHper.exp
-  正在生成代码
-  Previous IPDB not found, fall back to full compilation.
-  All 6518 functions were compiled because no usable IPDB/IOBJ from previous compilation was found.
-  已完成代码的生成
-cryptlibd.lib(cryptlib.obj) : warning LNK4099: 未找到 PDB“”(使用“cryptlibd.lib(cryptlib.obj)”或在“”中寻找)；正在链接对象，如同没有调试信息一样
-cryptlibd.lib(cpu.obj) : warning LNK4099: 未找到 PDB“”(使用“cryptlibd.lib(cpu.obj)”或在“”中寻找)；正在链接对象，如同没有调试信息一样
-cryptlibd.lib(integer.obj) : warning LNK4099: 未找到 PDB“”(使用“cryptlibd.lib(integer.obj)”或在“”中寻找)；正在链接对象，如同没有调试信息一样
-cryptlibd.lib(algparam.obj) : warning LNK4099: 未找到 PDB“”(使用“cryptlibd.lib(algparam.obj)”或在“”中寻找)；正在链接对象，如同没有调试信息一样
-cryptlibd.lib(allocate.obj) : warning LNK4099: 未找到 PDB“”(使用“cryptlibd.lib(allocate.obj)”或在“”中寻找)；正在链接对象，如同没有调试信息一样
-cryptlibd.lib(asn.obj) : warning LNK4099: 未找到 PDB“”(使用“cryptlibd.lib(asn.obj)”或在“”中寻找)；正在链接对象，如同没有调试信息一样
-cryptlibd.lib(base64.obj) : warning LNK4099: 未找到 PDB“”(使用“cryptlibd.lib(base64.obj)”或在“”中寻找)；正在链接对象，如同没有调试信息一样
-cryptlibd.lib(basecode.obj) : warning LNK4099: 未找到 PDB“”(使用“cryptlibd.lib(basecode.obj)”或在“”中寻找)；正在链接对象，如同没有调试信息一样
-cryptlibd.lib(des.obj) : warning LNK4099: 未找到 PDB“”(使用“cryptlibd.lib(des.obj)”或在“”中寻找)；正在链接对象，如同没有调试信息一样
-cryptlibd.lib(dessp.obj) : warning LNK4099: 未找到 PDB“”(使用“cryptlibd.lib(dessp.obj)”或在“”中寻找)；正在链接对象，如同没有调试信息一样
-cryptlibd.lib(dll.obj) : warning LNK4099: 未找到 PDB“”(使用“cryptlibd.lib(dll.obj)”或在“”中寻找)；正在链接对象，如同没有调试信息一样
-cryptlibd.lib(ec2n.obj) : warning LNK4099: 未找到 PDB“”(使用“cryptlibd.lib(ec2n.obj)”或在“”中寻找)；正在链接对象，如同没有调试信息一样
-cryptlibd.lib(ecp.obj) : warning LNK4099: 未找到 PDB“”(使用“cryptlibd.lib(ecp.obj)”或在“”中寻找)；正在链接对象，如同没有调试信息一样
-cryptlibd.lib(filters.obj) : warning LNK4099: 未找到 PDB“”(使用“cryptlibd.lib(filters.obj)”或在“”中寻找)；正在链接对象，如同没有调试信息一样
-cryptlibd.lib(fips140.obj) : warning LNK4099: 未找到 PDB“”(使用“cryptlibd.lib(fips140.obj)”或在“”中寻找)；正在链接对象，如同没有调试信息一样
-cryptlibd.lib(gf2n.obj) : warning LNK4099: 未找到 PDB“”(使用“cryptlibd.lib(gf2n.obj)”或在“”中寻找)；正在链接对象，如同没有调试信息一样
-cryptlibd.lib(gf2n_simd.obj) : warning LNK4099: 未找到 PDB“”(使用“cryptlibd.lib(gf2n_simd.obj)”或在“”中寻找)；正在链接对象，如同没有调试信息一样
-cryptlibd.lib(gfpcrypt.obj) : warning LNK4099: 未找到 PDB“”(使用“cryptlibd.lib(gfpcrypt.obj)”或在“”中寻找)；正在链接对象，如同没有调试信息一样
-cryptlibd.lib(hex.obj) : warning LNK4099: 未找到 PDB“”(使用“cryptlibd.lib(hex.obj)”或在“”中寻找)；正在链接对象，如同没有调试信息一样
-cryptlibd.lib(hmac.obj) : warning LNK4099: 未找到 PDB“”(使用“cryptlibd.lib(hmac.obj)”或在“”中寻找)；正在链接对象，如同没有调试信息一样
-cryptlibd.lib(hrtimer.obj) : warning LNK4099: 未找到 PDB“”(使用“cryptlibd.lib(hrtimer.obj)”或在“”中寻找)；正在链接对象，如同没有调试信息一样
-cryptlibd.lib(iterhash.obj) : warning LNK4099: 未找到 PDB“”(使用“cryptlibd.lib(iterhash.obj)”或在“”中寻找)；正在链接对象，如同没有调试信息一样
-cryptlibd.lib(misc.obj) : warning LNK4099: 未找到 PDB“”(使用“cryptlibd.lib(misc.obj)”或在“”中寻找)；正在链接对象，如同没有调试信息一样
-cryptlibd.lib(modes.obj) : warning LNK4099: 未找到 PDB“”(使用“cryptlibd.lib(modes.obj)”或在“”中寻找)；正在链接对象，如同没有调试信息一样
-cryptlibd.lib(mqueue.obj) : warning LNK4099: 未找到 PDB“”(使用“cryptlibd.lib(mqueue.obj)”或在“”中寻找)；正在链接对象，如同没有调试信息一样
-cryptlibd.lib(nbtheory.obj) : warning LNK4099: 未找到 PDB“”(使用“cryptlibd.lib(nbtheory.obj)”或在“”中寻找)；正在链接对象，如同没有调试信息一样
-cryptlibd.lib(osrng.obj) : warning LNK4099: 未找到 PDB“”(使用“cryptlibd.lib(osrng.obj)”或在“”中寻找)；正在链接对象，如同没有调试信息一样
-cryptlibd.lib(pch.obj) : warning LNK4099: 未找到 PDB“”(使用“cryptlibd.lib(pch.obj)”或在“”中寻找)；正在链接对象，如同没有调试信息一样
-cryptlibd.lib(primetab.obj) : warning LNK4099: 未找到 PDB“”(使用“cryptlibd.lib(primetab.obj)”或在“”中寻找)；正在链接对象，如同没有调试信息一样
-cryptlibd.lib(pubkey.obj) : warning LNK4099: 未找到 PDB“”(使用“cryptlibd.lib(pubkey.obj)”或在“”中寻找)；正在链接对象，如同没有调试信息一样
-cryptlibd.lib(queue.obj) : warning LNK4099: 未找到 PDB“”(使用“cryptlibd.lib(queue.obj)”或在“”中寻找)；正在链接对象，如同没有调试信息一样
-cryptlibd.lib(randpool.obj) : warning LNK4099: 未找到 PDB“”(使用“cryptlibd.lib(randpool.obj)”或在“”中寻找)；正在链接对象，如同没有调试信息一样
-cryptlibd.lib(rdtables.obj) : warning LNK4099: 未找到 PDB“”(使用“cryptlibd.lib(rdtables.obj)”或在“”中寻找)；正在链接对象，如同没有调试信息一样
-cryptlibd.lib(rijndael.obj) : warning LNK4099: 未找到 PDB“”(使用“cryptlibd.lib(rijndael.obj)”或在“”中寻找)；正在链接对象，如同没有调试信息一样
-cryptlibd.lib(rijndael_simd.obj) : warning LNK4099: 未找到 PDB“”(使用“cryptlibd.lib(rijndael_simd.obj)”或在“”中寻找)；正在链接对象，如同没有调试信息一样
-cryptlibd.lib(rng.obj) : warning LNK4099: 未找到 PDB“”(使用“cryptlibd.lib(rng.obj)”或在“”中寻找)；正在链接对象，如同没有调试信息一样
-cryptlibd.lib(sha.obj) : warning LNK4099: 未找到 PDB“”(使用“cryptlibd.lib(sha.obj)”或在“”中寻找)；正在链接对象，如同没有调试信息一样
-cryptlibd.lib(sha_simd.obj) : warning LNK4099: 未找到 PDB“”(使用“cryptlibd.lib(sha_simd.obj)”或在“”中寻找)；正在链接对象，如同没有调试信息一样
-  LicHper.vcxproj -> C:\Users\Administrator\source\repos\DaemonApps\Release\LicHper.dll
+C:\Users\Administrator\source\repos\DaemonApps\LicHper\imgui_main.cpp(1,1): warning C4819: 该文件包含不能在当前代码页(936)中表示的字符。请将该文件保存为 Unicode 格式以防止数据丢失
+C:\Users\Administrator\source\repos\DaemonApps\LicHper\Rendering\RenderManager.h(1,1): warning C4819: 该文件包含不能在当前代码页(936)中表示的字符。请将该文件保存为 Unicode 格式以防止数据丢失
+C:\Users\Administrator\source\repos\DaemonApps\LicHper\Rendering\IWatermarkRenderer.h(1,1): warning C4819: 该文件包含不能在当前代码页(936)中表示的字符。请将该文件保存为 Unicode 格式以防止数据丢失
+C:\Users\Administrator\source\repos\DaemonApps\LicHper\Rendering\WatermarkConfig.h(1,1): warning C4819: 该文件包含不能在当前代码页(936)中表示的字符。请将该文件保存为 Unicode 格式以防止数据丢失
+C:\Users\Administrator\source\repos\DaemonApps\LicHper\Rendering\IWatermarkRenderer.h(18,1): error C2059: 语法错误:“public”
+C:\Users\Administrator\source\repos\DaemonApps\LicHper\Rendering\IWatermarkRenderer.h(19,32): error C2588: “::~IWatermarkRenderer”: 非法的全局 析构函数
+C:\Users\Administrator\source\repos\DaemonApps\LicHper\Rendering\IWatermarkRenderer.h(19,14): error C2575: “IWatermarkRenderer”: 只有成员函数和基可以是虚拟的
+C:\Users\Administrator\source\repos\DaemonApps\LicHper\Rendering\IWatermarkRenderer.h(19,35): error C4430: 缺少类型说明符 - 假定为 int。注意: C++ 不支持默认 int
+C:\Users\Administrator\source\repos\DaemonApps\LicHper\Rendering\IWatermarkRenderer.h(19,14): error C2610: “int LicHper::IWatermarkRenderer(void)”: 不是可默认为的特殊成员函数或比较运算符
+C:\Users\Administrator\source\repos\DaemonApps\LicHper\Rendering\IWatermarkRenderer.h(26,18): error C2575: “UpdateConfig”: 只有成员函数和基可以是虚拟的
+C:\Users\Administrator\source\repos\DaemonApps\LicHper\Rendering\IWatermarkRenderer.h(26,64): error C2059: 语法错误:“常数”
+C:\Users\Administrator\source\repos\DaemonApps\LicHper\Rendering\IWatermarkRenderer.h(29,18): error C2575: “RunRenderLoop”: 只有成员函数和基可以是虚拟的
+C:\Users\Administrator\source\repos\DaemonApps\LicHper\Rendering\IWatermarkRenderer.h(29,36): error C2059: 语法错误:“常数”
+C:\Users\Administrator\source\repos\DaemonApps\LicHper\Rendering\IWatermarkRenderer.h(34,40): error C2270: “GetMode”: 非成员函数上不允许修饰符
+C:\Users\Administrator\source\repos\DaemonApps\LicHper\Rendering\IWatermarkRenderer.h(34,42): error C2059: 语法错误:“常数”
+C:\Users\Administrator\source\repos\DaemonApps\LicHper\Rendering\IWatermarkRenderer.h(39,18): error C2182: “SetExitCallback”: “void” 这一使用无效
+C:\Users\Administrator\source\repos\DaemonApps\LicHper\Rendering\IWatermarkRenderer.h(39,47): error C2433: “SetExitCallback”: 不允许在数据声明中使用“virtual”
+C:\Users\Administrator\source\repos\DaemonApps\LicHper\Rendering\IWatermarkRenderer.h(39,34): error C2065: “ExitCallback”: 未声明的标识符
+C:\Users\Administrator\source\repos\DaemonApps\LicHper\Rendering\IWatermarkRenderer.h(39,47): error C2146: 语法错误: 缺少“)”(在标识符“callback”的前面)
+C:\Users\Administrator\source\repos\DaemonApps\LicHper\Rendering\IWatermarkRenderer.h(43,18): error C2575: “SetFallbackCallback”: 只有成员函数和基可以是虚拟的
+C:\Users\Administrator\source\repos\DaemonApps\LicHper\Rendering\IWatermarkRenderer.h(48,1): error C2059: 语法错误:“}”
+C:\Users\Administrator\source\repos\DaemonApps\LicHper\Rendering\IWatermarkRenderer.h(48,1): error C2143: 语法错误: 缺少“;”(在“}”的前面)
+C:\Users\Administrator\source\repos\DaemonApps\LicHper\Rendering\RenderManager.h(62,10): error C2923: "std::unique_ptr": "LicHper::IWatermarkRenderer" 不是参数 "_Ty" 的有效 模板 类型参数
+C:\Users\Administrator\source\repos\DaemonApps\LicHper\Rendering\IWatermarkRenderer.h(19,14): message : 参见“LicHper::IWatermarkRenderer”的声明
+C:\Users\Administrator\source\repos\DaemonApps\LicHper\Rendering\RenderManager.h(62,10): error C2976: “std::unique_ptr'”: 模板 参数太少
+C:\Program Files\Microsoft Visual Studio\2022\Professional\VC\Tools\MSVC\14.34.31933\include\memory(3139,1): message : 参见“std::unique_ptr”的声明
+C:\Users\Administrator\source\repos\DaemonApps\LicHper\Rendering\RenderManager.h(62,41): error C2955: “std::unique_ptr”: 使用 类 模板 需要 模板 参数列表
+C:\Program Files\Microsoft Visual Studio\2022\Professional\VC\Tools\MSVC\14.34.31933\include\memory(3139,1): message : 参见“std::unique_ptr”的声明
+C:\Users\Administrator\source\repos\DaemonApps\LicHper\imgui_main.cpp(69,13): error C2039: "LoadConfig": 不是 "LicHper::RenderManager" 的成员
+C:\Users\Administrator\source\repos\DaemonApps\LicHper\Rendering\RenderManager.h(13,7): message : 参见“LicHper::RenderManager”的声明
+C:\Users\Administrator\source\repos\DaemonApps\LicHper\imgui_main.cpp(78,18): error C2039: "Initialize": 不是 "LicHper::RenderManager" 的成员
+C:\Users\Administrator\source\repos\DaemonApps\LicHper\Rendering\RenderManager.h(13,7): message : 参见“LicHper::RenderManager”的声明
+C:\Users\Administrator\source\repos\DaemonApps\LicHper\imgui_main.cpp(87,13): error C2039: "Shutdown": 不是 "LicHper::RenderManager" 的成员
+C:\Users\Administrator\source\repos\DaemonApps\LicHper\Rendering\RenderManager.h(13,7): message : 参见“LicHper::RenderManager”的声明
+C:\Users\Administrator\source\repos\DaemonApps\LicHper\imgui_main.cpp(109,13): error C2039: "LoadConfig": 不是 "LicHper::RenderManager" 的成员
+C:\Users\Administrator\source\repos\DaemonApps\LicHper\Rendering\RenderManager.h(13,7): message : 参见“LicHper::RenderManager”的声明
+C:\Users\Administrator\source\repos\DaemonApps\LicHper\imgui_main.cpp(130,18): error C2039: "Initialize": 不是 "LicHper::RenderManager" 的成员
+C:\Users\Administrator\source\repos\DaemonApps\LicHper\Rendering\RenderManager.h(13,7): message : 参见“LicHper::RenderManager”的声明
+C:\Users\Administrator\source\repos\DaemonApps\LicHper\imgui_main.cpp(139,13): error C2039: "Shutdown": 不是 "LicHper::RenderManager" 的成员
+C:\Users\Administrator\source\repos\DaemonApps\LicHper\Rendering\RenderManager.h(13,7): message : 参见“LicHper::RenderManager”的声明
+C:\Users\Administrator\source\repos\DaemonApps\LicHper\imgui_main.cpp(148,13): error C2039: "Shutdown": 不是 "LicHper::RenderManager" 的成员
+C:\Users\Administrator\source\repos\DaemonApps\LicHper\Rendering\RenderManager.h(13,7): message : 参见“LicHper::RenderManager”的声明

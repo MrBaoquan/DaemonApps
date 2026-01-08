@@ -9,7 +9,7 @@ namespace LicHper {
 // 水印配置结构
 struct WatermarkConfig {
     // 文字水印
-    std::string title = "{APPID} Demo Version";
+    std::string title = "{APPID} Demo Version";  // 默认值，仅在有图片水印时允许为空
     int fontSize = 80;
     ImVec4 color = ImVec4(1.0f, 0.4f, 0.4f, 1.0f);
     bool animate = true;
@@ -21,6 +21,7 @@ struct WatermarkConfig {
     std::string imageAlign = "top-center";
     int imagePaddingX = 50;
     int imagePaddingY = 50;
+    bool imageAnimate = false;  // 图片是否启用动画移动
     
     // 程序设置
     int timeout = 60;

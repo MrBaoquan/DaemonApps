@@ -497,3 +497,5 @@ Generated_Code/
 # User preference and temp files
 temp.txt
 *.tmp
+
+**/Release/

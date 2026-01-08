@@ -1,6 +1,6 @@
 using System;
 
-namespace DaemonKit.Core
+namespace DaemonKit.Models
 {
     /// <summary>
     /// 带层级信息的进程项（用于显示）

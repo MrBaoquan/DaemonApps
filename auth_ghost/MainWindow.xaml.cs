@@ -31,7 +31,6 @@ namespace auth_ghost
         {
             InitializeComponent();
             Validate("App");
-            // var _url = CloudDisk.FileSystem.PutObjectFromFile("F:\\Project Released Files\\UNIPlayer_Released\\UNIPlayer-master\\DaemonKit.exe");
             Validate("App");
         }
     }

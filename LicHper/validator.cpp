@@ -1,4 +1,6 @@
-﻿#include "validator.h"
+﻿#pragma execution_character_set("utf-8")
+
+#include "validator.h"
 
 // Crypto++ 加密库
 #include "cryptopp/include/aes.h"
@@ -40,6 +42,7 @@
 
 
 int initImgui();
+int initImguiWithMode(int mode);
 
 // 将时间转为字符串
 std::string time_to_string(const std::chrono::system_clock::time_point& tp) {
@@ -297,13 +300,32 @@ struct License {
 
 std::string BSTR2String(const BSTR bstr)
 {
-    _bstr_t t(bstr);
-	return (char*)t;
+    if (bstr == NULL) return "";
+    
+    int len = WideCharToMultiByte(CP_UTF8, 0, bstr, -1, NULL, 0, NULL, NULL);
+    if (len == 0) return "";
+    
+    char* str = new char[len];
+    WideCharToMultiByte(CP_UTF8, 0, bstr, -1, str, len, NULL, NULL);
+    
+    std::string result(str);
+    delete[] str;
+    return result;
 }
 
 BSTR string2BSTR(const std::string& str)
 {
-    return SysAllocString(_bstr_t(str.c_str()));
+    if (str.empty()) return SysAllocString(L"");
+    
+    int len = MultiByteToWideChar(CP_UTF8, 0, str.c_str(), -1, NULL, 0);
+    if (len == 0) return SysAllocString(L"");
+    
+    wchar_t* wstr = new wchar_t[len];
+    MultiByteToWideChar(CP_UTF8, 0, str.c_str(), -1, wstr, len);
+    
+    BSTR bstr = SysAllocString(wstr);
+    delete[] wstr;
+    return bstr;
 }  
 
 struct UserInfo {
@@ -329,6 +351,26 @@ struct UserInfo {
 };
 std::string GbkToUtf8(const std::string& gbkStr);
 std::string Utf8ToGbk(const std::string& utf8Str);
+
+// GBK 转 UTF-8
+std::string GbkToUtf8(const std::string& gbkStr) {
+    int len = MultiByteToWideChar(CP_ACP, 0, gbkStr.c_str(), -1, NULL, 0);
+    wchar_t* wstr = new wchar_t[len + 1];
+    memset(wstr, 0, len + 1);
+    MultiByteToWideChar(CP_ACP, 0, gbkStr.c_str(), -1, wstr, len);
+
+    len = WideCharToMultiByte(CP_UTF8, 0, wstr, -1, NULL, 0, NULL, NULL);
+    char* str = new char[len + 1];
+    memset(str, 0, len + 1);
+    WideCharToMultiByte(CP_UTF8, 0, wstr, -1, str, len, NULL, NULL);
+
+    std::string strTemp = str;
+    if (wstr) delete[] wstr;
+    if (str) delete[] str;
+
+    return strTemp;
+}
+
 UserInfo loadUser(const std::string& userLicense)
 {
     UserInfo _userInfo;
@@ -346,8 +388,7 @@ UserInfo loadUser(const std::string& userLicense)
         cereal::JSONInputArchive archive(ss);
         archive(_userInfo);
     }
-    _userInfo.username = Utf8ToGbk(_userInfo.username);
-    _userInfo.appid = Utf8ToGbk(_userInfo.appid);
+    // 数据已经是UTF-8格式，不需要转换
     return _userInfo;
 }
 
@@ -403,7 +444,7 @@ bool checkLogin()
 // 登录
 VALIDATOR_API BSTR __stdcall Login(BSTR userLicense){
     std::string _userLicense = BSTR2String(userLicense);
-    std::string errorMsg = "{value0: {error:\"无效许可证\"}}";
+    std::string errorMsg = "{\"value0\": {\"error\":\"无效许可证\"}}";
     // 如果_userLicense为空, 尝试使用本地缓存登录
     if (_userLicense == "")
     {
@@ -437,7 +478,7 @@ VALIDATOR_API BSTR __stdcall Login(BSTR userLicense){
         std::stringstream ss;
         {
             cereal::JSONOutputArchive archive(ss);
-            archive(_userInfo);
+            archive(cereal::make_nvp("value0", _userInfo));
         }
         _userInfoJsonString = ss.str();
     }
@@ -474,27 +515,38 @@ VALIDATOR_API int __stdcall Validate(BSTR AppID, int uiFlag)
     auto license = License::Load();
     auto machineCode = GetBiosUUID();
 
-    // 机器码不匹配
+    std::string _appID = BSTR2String(AppID);
+    g_appID = _appID;
+
+    // 机器码不匹配 - 显示水印并返回错误
     if (license.serial_number != machineCode)
     {
+        if(uiFlag == 0) {
+            std::thread th(initImgui);
+            th.detach();
+            std::this_thread::sleep_for(std::chrono::milliseconds(100));
+        }
         return 10001;
     }
 
-    std::string _appID = BSTR2String(AppID);
-    g_appID = _appID;
     auto _licenseData = license[_appID];
 
     bool _isNoLicense = _licenseData.expired_at == NO_LICENSE;
     bool _isExpired = string_to_time(_licenseData.expired_at) < std::chrono::system_clock::now();
+    
+    // 许可无效或已过期 - 显示水印
     if(_isExpired || _isNoLicense){
         if(uiFlag == 0) {
             // 在独立线程中运行水印渲染，避免阻塞调用线程
             std::thread th(initImgui);
             th.detach();
+            // 给线程足够的时间初始化（Release 构建优化）
+            std::this_thread::sleep_for(std::chrono::milliseconds(100));
         }
         return 10002;
     }
 
+    // 许可有效 - 更新验证时间
     _licenseData.last_verified_at = latestSystime(_licenseData.last_verified_at);
     license.data[_appID] = _licenseData;
     License::Save(license);

@@ -1,7 +1,7 @@
 using System;
 using System.Windows;
 using System.Windows.Input;
-using DaemonKit.Core;
+using DaemonKit.Models;
 using System.Collections.Generic;
 using System.Linq;
 
@@ -92,7 +92,7 @@ namespace DaemonKit
                     foreach (var item in TargetNodeComboBox.Items)
                     {
                         if (
-                            item is Core.ProcessItemWithLevel nodeWithLevel
+                            item is Models.ProcessItemWithLevel nodeWithLevel
                             && nodeWithLevel.Item == targetNode
                         )
                         {
@@ -228,7 +228,9 @@ namespace DaemonKit
 
                 if (isNodeLevelAction)
                 {
-                    if (TargetNodeComboBox.SelectedItem is Core.ProcessItemWithLevel nodeWithLevel)
+                    if (
+                        TargetNodeComboBox.SelectedItem is Models.ProcessItemWithLevel nodeWithLevel
+                    )
                     {
                         config.TargetNodeId = nodeWithLevel.Item.NodeId;
                         config.TargetNodeName = nodeWithLevel.Item.Name;
@@ -449,11 +451,11 @@ namespace DaemonKit
             }
         }
 
-        private List<Core.ProcessItemWithLevel> GetAllNodesWithLevel(ProcessItem root, int level)
+        private List<Models.ProcessItemWithLevel> GetAllNodesWithLevel(ProcessItem root, int level)
         {
-            var result = new List<Core.ProcessItemWithLevel>
+            var result = new List<Models.ProcessItemWithLevel>
             {
-                new Core.ProcessItemWithLevel(root, level)
+                new Models.ProcessItemWithLevel(root, level)
             };
             foreach (var child in root.Children)
             {

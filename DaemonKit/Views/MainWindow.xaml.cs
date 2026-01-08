@@ -18,7 +18,10 @@ using System.Windows.Input;
 using System.Windows.Interop;
 using System.Windows.Media;
 using DaemonKit.Core;
+using DaemonKit.Models;
+using DaemonKit.Utilities;
 using DaemonKit.PowerSaving;
+using DaemonKit.Services;
 using DNHper;
 using Hardware.Info;
 // using IWshRuntimeLibrary;
@@ -69,7 +72,12 @@ namespace DaemonKit
         Settings settingsWindow = null!;
         Schedule scheduleWindow = null!;
         DaemonTable _table = null!;
-        PowerSavingWindow powerSavingWindow = null!;
+
+        // 服务层
+        private PowerSavingService _powerSavingService = null!;
+        private IdleMonitorService _idleMonitorService = null!;
+        private NetworkBroadcastService _networkBroadcastService = null!;
+        private CrashDetectionService? _crashDetectionService;
 
         // 全局计划任务配置
         public static GlobalScheduleConfig GlobalSchedule { get; set; } = null!;
@@ -77,27 +85,6 @@ namespace DaemonKit
         // 程序启动时间
         private static DateTime appStartTime = DateTime.Now;
         private static bool isFirstStartToday = false;
-
-        private bool _idleActionTriggered;
-        private bool _idleAutoPowerSavingTriggered;
-
-        private TimeSpan IdleThreshold
-        {
-            get
-            {
-                var minutes = Math.Max(1, AppSettings?.IdleAutoActionThresholdMinutes ?? 5);
-                return TimeSpan.FromMinutes(minutes);
-            }
-        }
-
-        private TimeSpan IdlePowerSavingThreshold
-        {
-            get
-            {
-                var minutes = Math.Max(1, AppSettings?.IdleAutoPowerSavingThresholdMinutes ?? 5);
-                return TimeSpan.FromMinutes(minutes);
-            }
-        }
 
         // 单例管理 - 确保截屏窗口只有一个实例
         private static PickerOverlay? _activePickerOverlay = null;
@@ -108,6 +95,67 @@ namespace DaemonKit
         // 倒计时对话框单例与等待队列
         private CountdownConfirmDialog? _activeCountdownDialog;
         private readonly List<TaskCompletionSource<bool>> _countdownAwaiters = new();
+
+        #endregion
+
+        #region Initialization Methods
+
+        /// <summary>
+        /// 后台服务初始化（在窗口显示后异步执行）
+        /// </summary>
+        private async void InitializeBackgroundServices(DateTime startTime)
+        {
+            await System.Threading.Tasks.Task.Run(() =>
+            {
+                var bgStartTime = DateTime.Now;
+
+                // 异步获取硬件信息
+                Dispatcher.InvokeAsync(() => FetchHardwareInfo());
+
+                NLogger.Info($"后台初始化开始，窗口显示耗时: {(bgStartTime - startTime).TotalMilliseconds:F0}ms");
+            });
+
+            // 初始化新的任务调度引擎（使用全局配置）
+            var engineStartTime = DateTime.Now;
+            _scheduleTaskEngine = new ScheduleTaskEngine(rootProcessNode, GlobalSchedule)
+            {
+                ConfirmHandler = ConfirmSchedulePowerActionAsync,
+                PowerSavingViewModelProvider = () => _powerSavingService.ViewModel
+            };
+            _scheduleTaskEngine.TaskExecuting += (sender, context) =>
+            {
+                NLogger.Info($"执行任务: [{context.TaskConfig.Name}] - {context.TaskConfig.Action}");
+            };
+            _scheduleTaskEngine.TaskExecuted += (sender, context) =>
+            {
+                if (context.IsSuccess)
+                {
+                    NLogger.Info($"任务完成: {context.Result}");
+                }
+                else
+                {
+                    NLogger.Error($"任务失败: {context.ErrorMessage}");
+                }
+            };
+            NLogger.Info($"任务引擎初始化耗时: {(DateTime.Now - engineStartTime).TotalMilliseconds:F0}ms");
+
+            // 订阅全局计划任务启用状态变化，自动保存配置
+            GlobalSchedule
+                .WhenAnyValue(x => x.ScheduleTasksEnabled)
+                .Skip(1) // 跳过初始值
+                .ObserveOn(RxApp.MainThreadScheduler)
+                .Subscribe(enabled =>
+                {
+                    saveConfig();
+                    NLogger.Info($"计划任务已{(enabled ? "启用" : "禁用")}");
+                });
+
+            // 检查是否首次启动并启动计划任务监控
+            CheckFirstStartToday();
+            StartScheduleTaskMonitor();
+
+            NLogger.Info($"总启动耗时: {(DateTime.Now - startTime).TotalMilliseconds:F0}ms");
+        }
 
         #endregion
 
@@ -127,20 +175,15 @@ namespace DaemonKit
             processNodeForm = new ProcessNodeForm();
             settingsWindow = new Settings();
             scheduleWindow = new Schedule();
-
-            // PowerSavingWindow 需要等 AppSettings 加载后再初始化
-            // powerSavingWindow = new PowerSavingWindow();
-
-            // Set PowerSaving ViewModel reference in MainViewModel
-            // if (ViewModel != null && powerSavingWindow.DataContext is PowerSavingViewModel psvm)
-            // {
-            //     ViewModel.PowerSaving = psvm;
-            // }
-
             _table = new DaemonTable();
+
+            // 初始化服务层（在 AppSettings 加载后会调用 Initialize）
+            _powerSavingService = new PowerSavingService();
+            // _idleMonitorService 将在 loadConfig 后初始化
 
             this.WhenActivated(disposables =>
             {
+                var startTime = DateTime.Now;
                 DataContext = this.ViewModel;
 
                 Observable
@@ -155,7 +198,7 @@ namespace DaemonKit
                 NLogger.Info("DaemonKit 已启动");
                 Utils.ExecuteProgramsBeforeStart();
 
-                FetchHardwareInfo();
+                // 硬件信息获取改为后台异步加载，不阻塞主窗口
                 this.hardwareInfoBox
                     .Events()
                     .MouseDoubleClick.Subscribe(_contentLoaded =>
@@ -167,47 +210,13 @@ namespace DaemonKit
                 NLogger.Info("加载进程树..");
                 loadExtensions();
                 loadConfig();
-
-                // 初始化新的任务调度引擎（使用全局配置）
-                _scheduleTaskEngine = new ScheduleTaskEngine(rootProcessNode, GlobalSchedule)
-                {
-                    ConfirmHandler = ConfirmSchedulePowerActionAsync,
-                    PowerSavingViewModelProvider = () => powerSavingWindow?.DataContext
-                };
-                _scheduleTaskEngine.TaskExecuting += (sender, context) =>
-                {
-                    NLogger.Info(
-                        $"执行任务: [{context.TaskConfig.Name}] - {context.TaskConfig.Action}"
-                    );
-                };
-                _scheduleTaskEngine.TaskExecuted += (sender, context) =>
-                {
-                    if (context.IsSuccess)
-                    {
-                        NLogger.Info($"任务完成: {context.Result}");
-                    }
-                    else
-                    {
-                        NLogger.Error($"任务失败: {context.ErrorMessage}");
-                    }
-                };
-
-                // 订阅全局计划任务启用状态变化，自动保存配置
-                GlobalSchedule
-                    .WhenAnyValue(x => x.ScheduleTasksEnabled)
-                    .Skip(1) // 跳过初始值
-                    .ObserveOn(RxApp.MainThreadScheduler)
-                    .Subscribe(enabled =>
-                    {
-                        saveConfig();
-                        NLogger.Info($"计划任务已{(enabled ? "启用" : "禁用")}");
-                    });
-
-                // 检查是否首次启动并启动计划任务监控
-                CheckFirstStartToday();
-                StartScheduleTaskMonitor();
+                var configLoadTime = DateTime.Now;
+                NLogger.Info($"配置加载耗时: {(configLoadTime - startTime).TotalMilliseconds:F0}ms");
 
                 this.ProcessTree.Items.Add(rootProcessNode);
+
+                // 延迟非关键初始化到窗口显示后执行
+                this.Loaded += (s, e) => InitializeBackgroundServices(startTime);
 
                 ProcessItem _selectedTreeNode = rootProcessNode;
 
@@ -255,22 +264,19 @@ namespace DaemonKit
                             saveConfig();
                             Utils.SyncSettings();
 
-                            // 同步设置到 PowerSavingViewModel
-                            if (powerSavingWindow?.DataContext is PowerSavingViewModel psvm)
-                            {
-                                psvm.EnableIdleAutoPowerSaving =
-                                    AppSettings.EnableIdleAutoPowerSaving;
+                            // 同步设置到 PowerSavingService
+                            _powerSavingService.EnableIdleAutoPowerSaving =
+                                AppSettings.EnableIdleAutoPowerSaving;
 
-                                // 如果 EnableIdleAutoPowerSaving 状态改变，记录日志
-                                if (
-                                    oldEnableIdleAutoPowerSaving
-                                    != AppSettings.EnableIdleAutoPowerSaving
-                                )
-                                {
-                                    NLogger.Info(
-                                        $"空闲自动省电已{(AppSettings.EnableIdleAutoPowerSaving ? "启用" : "禁用")}"
-                                    );
-                                }
+                            // 如果 EnableIdleAutoPowerSaving 状态改变，记录日志
+                            if (
+                                oldEnableIdleAutoPowerSaving
+                                != AppSettings.EnableIdleAutoPowerSaving
+                            )
+                            {
+                                NLogger.Info(
+                                    $"空闲自动省电已{(AppSettings.EnableIdleAutoPowerSaving ? "启用" : "禁用")}"
+                                );
                             }
 
                             // 动态注册/注销快捷键
@@ -435,62 +441,20 @@ namespace DaemonKit
                     .ObserveOn(RxApp.MainThreadScheduler)
                     .Subscribe(_ =>
                     {
-                        // 如果窗口已关闭，需要重新创建
-                        if (powerSavingWindow.IsLoaded == false || powerSavingWindow.Parent != null)
+                        var powerSavingWindow = _powerSavingService.GetOrCreateWindow(AppSettings);
+
+                        // Update MainViewModel reference
+                        if (ViewModel != null)
                         {
-                            try
-                            {
-                                powerSavingWindow.Close();
-                            }
-                            catch { }
-                            powerSavingWindow = new PowerSavingWindow(AppSettings);
-                            if (powerSavingWindow.DataContext is PowerSavingViewModel vm)
-                            {
-                                // Update MainViewModel reference
-                                if (ViewModel != null)
-                                {
-                                    ViewModel.PowerSaving = vm;
-                                }
-
-                                // 定义保存配置的回调（只保存 AppSettings，避免频繁保存 treeview.xml）
-                                void SaveConfigCallback()
-                                {
-                                    vm.SaveSettings(AppSettings);
-                                    SaveAppSettingsOnly();
-                                }
-
-                                // 设置配置改变时的保存回调
-                                vm.OnConfigChanged = SaveConfigCallback;
-
-                                vm.PropertyChanged += (sender, args) =>
-                                {
-                                    // 监听所有关键属性变化，包括亮度、协议配置等
-                                    if (
-                                        args.PropertyName
-                                            == nameof(PowerSavingViewModel.DefaultNormalBrightness)
-                                        || args.PropertyName
-                                            == nameof(
-                                                PowerSavingViewModel.DefaultPowerSavingBrightness
-                                            )
-                                        || args.PropertyName
-                                            == nameof(PowerSavingViewModel.IsPowerSavingMode)
-                                    )
-                                    {
-                                        SaveConfigCallback();
-                                    }
-                                };
-                            }
-                            // 订阅关闭事件以保存设置
-                            powerSavingWindow.Closed += (s, e) =>
-                            {
-                                if (powerSavingWindow.DataContext is PowerSavingViewModel vm)
-                                {
-                                    vm.SaveSettings(AppSettings);
-                                    saveConfig();
-                                    DNHper.NLogger.Info("[PowerSaving] 设置已保存");
-                                }
-                            };
+                            ViewModel.PowerSaving = _powerSavingService.ViewModel;
                         }
+
+                        // 设置配置改变时的保存回调
+                        _powerSavingService.ViewModel.OnConfigChanged = () =>
+                        {
+                            _powerSavingService.SaveSettings(AppSettings);
+                            SaveAppSettingsOnly();
+                        };
 
                         powerSavingWindow.Show();
                         powerSavingWindow.Activate();
@@ -732,152 +696,23 @@ namespace DaemonKit
                         }
                     });
 
-                Observable
-                    .Interval(TimeSpan.FromSeconds(10))
-                    .ObserveOn(RxApp.MainThreadScheduler)
-                    .Subscribe(_ =>
-                    {
-                        var idleDuration = GetIdleDuration();
+                // 空闲监控已迁移到 IdleMonitorService，在 loadConfig 后启动
 
-                        // 处理空闲自动关闭桌面
-                        if (AppSettings.EnableIdleAutoAction)
-                        {
-                            var threshold = IdleThreshold;
-                            if (idleDuration >= threshold)
-                            {
-                                if (!_idleActionTriggered)
-                                {
-                                    HandleIdleTimeout();
-                                    _idleActionTriggered = true;
-                                }
-                            }
-                            else
-                            {
-                                _idleActionTriggered = false;
-                            }
-                        }
-                        else
-                        {
-                            _idleActionTriggered = false;
-                        }
+                // 网络广播和命令接收已迁移到 NetworkBroadcastService
+                _networkBroadcastService = new NetworkBroadcastService();
+                _networkBroadcastService.Start(rootProcessNode, AppSettings.DaemonInterval);
 
-                        // 处理空闲自动省电
-                        if (AppSettings.EnableIdleAutoPowerSaving)
-                        {
-                            var powerSavingThreshold = IdlePowerSavingThreshold;
-                            if (idleDuration >= powerSavingThreshold)
-                            {
-                                if (
-                                    !_idleAutoPowerSavingTriggered
-                                    && powerSavingWindow?.DataContext is PowerSavingViewModel psvm
-                                    && !psvm.IsPowerSavingMode
-                                )
-                                {
-                                    // 进入省电模式 - 调用Command执行实际亮度切换
-                                    psvm.ApplyPowerSavingCommand.Execute().Subscribe();
-                                    _idleAutoPowerSavingTriggered = true;
-                                    NLogger.Info(
-                                        $"空闲{powerSavingThreshold.TotalMinutes}分钟，自动进入省电模式"
-                                    );
-                                }
-                            }
-                            else
-                            {
-                                if (
-                                    _idleAutoPowerSavingTriggered
-                                    && powerSavingWindow?.DataContext is PowerSavingViewModel psvm2
-                                    && psvm2.IsPowerSavingMode
-                                )
-                                {
-                                    // 检测到用户活动，退出省电模式 - 调用Command执行实际亮度切换
-                                    psvm2.RestoreNormalCommand.Execute().Subscribe();
-                                    NLogger.Info("检测到用户活动，退出省电模式");
-                                }
-                                _idleAutoPowerSavingTriggered = false;
-                            }
-                        }
-                        else
-                        {
-                            _idleAutoPowerSavingTriggered = false;
-                        }
-                    });
-
-                // 广播设备信息
-                UdpClient _metaDataClient = new UdpClient();
-                MachineInfo _machineInfo = new MachineInfo();
-                _metaDataClient.EnableBroadcast = true;
-
-                // 守护检测
-                var _sendMsgDisposeable = Observable
-                    .Timer(
-                        TimeSpan.FromMilliseconds(AppSettings.DaemonInterval),
-                        TimeSpan.FromSeconds(3)
-                    )
-                    .Subscribe(_ =>
-                    {
-                        _machineInfo.Name = rootProcessNode.Name;
-                        var _ipList = HardwareInfo
-                            .GetLocalIPv4Addresses()
-                            .Aggregate(string.Empty, (_cur, _next) => _cur + _next);
-                        _machineInfo.IPs =
-                            new System.Collections.ObjectModel.ObservableCollection<string>(
-                                HardwareInfo
-                                    .GetLocalIPv4Addresses()
-                                    .Select(_ipAddress => _ipAddress.ToString())
-                            );
-                        _machineInfo.CPUs =
-                            new System.Collections.ObjectModel.ObservableCollection<string>(
-                                hardwareInfo.CpuList.Select(_cpu => _cpu.Name)
-                            );
-                        _machineInfo.GPUs =
-                            new System.Collections.ObjectModel.ObservableCollection<string>(
-                                hardwareInfo.VideoControllerList.Select(_ => _.Name)
-                            );
-                        _machineInfo.Memories =
-                            new System.Collections.ObjectModel.ObservableCollection<string>(
-                                hardwareInfo.MemoryList.Select(
-                                    _ => _.Manufacturer + _.PartNumber + _.Capacity.FormatBytes()
-                                )
-                            );
-                        var _data = Encoding.UTF8.GetBytes(
-                            JsonConvert.SerializeObject(_machineInfo)
-                        );
-
-                        _metaDataClient.Send(
-                            _data,
-                            _data.Count(),
-                            new System.Net.IPEndPoint(
-                                System.Net.IPAddress.Broadcast,
-                                CommonVars.MetaPort
-                            )
-                        );
-
-                        // crash进程检测
-                        if (AppSettings.CrashWindows != null)
-                        {
-                            var _crashWindows = AppSettings.CrashWindows
-                                .Split("|")
-                                .Select(_crashWindow => WinAPI.FindProcess(_crashWindow))
-                                .Where(_process => _process != default(Process))
-                                .ToList();
-
-                            if (rootProcessNode.IsRuning && _crashWindows.Count > 0)
-                            {
-                                _crashWindows.ForEach(_crashWindow =>
-                                {
-                                    _crashWindow.Kill();
-                                });
-                                NLogger.Info("检测到崩溃进程，尝试重启..");
-                                rootProcessNode.KillNode();
-                                rootProcessNode.RunNode();
-                            }
-                        }
-                    });
+                // 崩溃检测已迁移到 CrashDetectionService
+                if (!string.IsNullOrWhiteSpace(AppSettings.CrashWindows))
+                {
+                    _crashDetectionService = new CrashDetectionService();
+                    _crashDetectionService.Start(rootProcessNode, AppSettings.CrashWindows);
+                }
 
                 var _allChildNodes = rootProcessNode.AllChildren();
 
-                // 命令控制
-                var _recvCommandDisposable = onRecvCommand()
+                // 订阅网络命令流
+                var _recvCommandDisposable = _networkBroadcastService.CommandStream
                     .ObserveOn(RxApp.MainThreadScheduler)
                     .Subscribe(_command =>
                     {
@@ -950,10 +785,8 @@ namespace DaemonKit
                     .Closed.Subscribe(_ =>
                     {
                         _recvCommandDisposable.Dispose();
-                        _sendMsgDisposeable.Dispose();
-
-                        _metaDataClient.Close();
-                        _metaDataClient.Dispose();
+                        _networkBroadcastService?.Dispose();
+                        _crashDetectionService?.Dispose();
 
                         NLogger.Info("程序已退出,再见...");
                     });
@@ -1006,122 +839,6 @@ namespace DaemonKit
                     Modifiers = ModifierKeys.Control | ModifierKeys.Shift
                 }
             );
-        }
-
-        private IObservable<Command> onRecvCommand()
-        {
-            return Observable.Create<Command>(observer =>
-            {
-                var cts = new CancellationTokenSource();
-
-                UdpClient commandClient = null;
-                UdpClient heartbeatClient = null;
-
-                // 订阅取消时执行的清理操作
-                var disposable = Disposable.Create(() =>
-                {
-                    cts.Cancel();
-
-                    try
-                    {
-                        commandClient?.Close();
-                        heartbeatClient?.Close();
-                    }
-                    catch { }
-
-                    commandClient?.Dispose();
-                    heartbeatClient?.Dispose();
-
-                    cts.Dispose();
-                });
-
-                try
-                {
-                    // 初始化 UDP 客户端
-                    commandClient = new UdpClient(CommonVars.ControlPort);
-                    heartbeatClient = new UdpClient(CommonVars.HeartbeatPort);
-
-                    // 启动两个异步任务，接收数据并推送
-                    System.Threading.Tasks.Task.Run(
-                        async () =>
-                        {
-                            try
-                            {
-                                while (!cts.Token.IsCancellationRequested)
-                                {
-                                    var result = await commandClient
-                                        .ReceiveAsync()
-                                        .ConfigureAwait(false);
-                                    var cmdStr = Encoding.UTF8.GetString(result.Buffer);
-                                    var cmd = JsonConvert.DeserializeObject<Command>(cmdStr);
-
-                                    // 空值检查
-                                    if (cmd != null)
-                                    {
-                                        observer.OnNext(cmd);
-                                    }
-                                    else
-                                    {
-                                        NLogger.Warn("接收到无效的命令数据（反序列化为null）");
-                                    }
-                                }
-                            }
-                            catch (Exception ex)
-                            {
-                                // 不终止流，记录错误并继续
-                                if (!cts.Token.IsCancellationRequested)
-                                {
-                                    NLogger.Error($"接收控制命令异常: {ex.Message}");
-                                }
-                            }
-                        },
-                        cts.Token
-                    );
-
-                    System.Threading.Tasks.Task.Run(
-                        async () =>
-                        {
-                            try
-                            {
-                                while (!cts.Token.IsCancellationRequested)
-                                {
-                                    var result = await heartbeatClient
-                                        .ReceiveAsync()
-                                        .ConfigureAwait(false);
-                                    var cmdStr = Encoding.UTF8.GetString(result.Buffer);
-                                    var cmd = JsonConvert.DeserializeObject<Command>(cmdStr);
-
-                                    // 空值检查
-                                    if (cmd == null)
-                                    {
-                                        NLogger.Warn("接收到无效的心跳数据（反序列化为null）");
-                                        continue;
-                                    }
-
-                                    if (cmd.EventID != Command.HEARTBEAT)
-                                        continue;
-                                    observer.OnNext(cmd);
-                                }
-                            }
-                            catch (Exception ex)
-                            {
-                                // 不终止流，记录错误并继续
-                                if (!cts.Token.IsCancellationRequested)
-                                {
-                                    NLogger.Error($"接收心跳命令异常: {ex.Message}");
-                                }
-                            }
-                        },
-                        cts.Token
-                    );
-                }
-                catch (Exception ex)
-                {
-                    observer.OnError(ex);
-                }
-
-                return disposable;
-            });
         }
 
         #endregion
@@ -1513,16 +1230,17 @@ namespace DaemonKit
                 }
             }
 
-            // 初始化节能模式窗口（确保 AppSettings 已加载）
-            if (powerSavingWindow == null)
+            // 初始化服务层（确保 AppSettings 已加载）
+            _powerSavingService.Initialize(AppSettings);
+            _idleMonitorService = new IdleMonitorService(_powerSavingService, AppSettings);
+            _idleMonitorService.StartMonitoring();
+
+            if (ViewModel != null)
             {
-                powerSavingWindow = new PowerSavingWindow(AppSettings);
-                if (ViewModel != null && powerSavingWindow.DataContext is PowerSavingViewModel psvm)
-                {
-                    ViewModel.PowerSaving = psvm;
-                    NLogger.Info("节能模式窗口已初始化");
-                }
+                ViewModel.PowerSaving = _powerSavingService.ViewModel;
             }
+
+            NLogger.Info("服务层已初始化");
         }
 
         // 数据持久化
@@ -1934,53 +1652,7 @@ namespace DaemonKit
                     {
                         await _scheduleTaskEngine.CheckAndExecutePendingTasks();
                     }
-
-                    // 保留旧的任务检查以保证兼容性
-                    CheckAndExecuteScheduleTasks();
                 });
-        }
-
-        /// <summary>
-        /// 检查并执行计划任务
-        /// </summary>
-        private void CheckAndExecuteScheduleTasks()
-        {
-            var allItems = rootProcessNode
-                .AllChildren()
-                .Select(_ => _.ScheduleItems)
-                .SelectMany(_ => _)
-                .ToList();
-
-            foreach (var item in allItems)
-            {
-                if (!item.CanExecute())
-                    continue;
-
-                // 检查程序启动后的任务
-                if (item.Trigger == Core.TriggerType.OnAppStart)
-                {
-                    var elapsed = (DateTime.Now - appStartTime).TotalSeconds;
-                    if (elapsed >= item.DelaySeconds)
-                    {
-                        ExecuteScheduleTask(item);
-                    }
-                }
-                else if (item.Trigger == Core.TriggerType.OnAppStartOnce && isFirstStartToday)
-                {
-                    var elapsed = (DateTime.Now - appStartTime).TotalSeconds;
-                    if (elapsed >= item.DelaySeconds)
-                    {
-                        ExecuteScheduleTask(item);
-                    }
-                }
-                else if (item.Trigger == Core.TriggerType.Daily)
-                {
-                    if (item.CanExecute())
-                    {
-                        ExecuteScheduleTask(item);
-                    }
-                }
-            }
         }
 
         /// <summary>
@@ -2025,7 +1697,7 @@ namespace DaemonKit
         }
 
         /// <summary>
-        /// 执行关机任务
+        /// 执行关���任务
         /// </summary>
         private async System.Threading.Tasks.Task ExecuteShutdownTask()
         {
@@ -2131,7 +1803,7 @@ namespace DaemonKit
         }
 
         private async System.Threading.Tasks.Task<bool> ConfirmSchedulePowerActionAsync(
-            Core.ScheduleTaskAction action
+            Models.ScheduleTaskAction action
         )
         {
             if (!AppSettings.EnableCountdownConfirm)
@@ -2141,9 +1813,9 @@ namespace DaemonKit
 
             return action switch
             {
-                Core.ScheduleTaskAction.ShutdownSystem
+                Models.ScheduleTaskAction.ShutdownSystem
                     => await ShowCountdownConfirm("系统关机", "系统将在倒计时结束后关机"),
-                Core.ScheduleTaskAction.RestartSystem
+                Models.ScheduleTaskAction.RestartSystem
                     => await ShowCountdownConfirm("系统重启", "系统将在倒计时结束后重启"),
                 _ => true
             };
@@ -2184,46 +1856,7 @@ namespace DaemonKit
             }
         }
 
-        private TimeSpan GetIdleDuration()
-        {
-            var info = new LASTINPUTINFO { cbSize = (uint)Marshal.SizeOf<LASTINPUTINFO>() };
-            if (!GetLastInputInfo(ref info))
-            {
-                return TimeSpan.Zero;
-            }
-
-            var lastInputTick = info.dwTime;
-            var currentTick = (uint)Environment.TickCount;
-            var idleMilliseconds =
-                currentTick >= lastInputTick
-                    ? currentTick - lastInputTick
-                    : uint.MaxValue - lastInputTick + currentTick + 1;
-
-            return TimeSpan.FromMilliseconds(idleMilliseconds);
-        }
-
-        private void HandleIdleTimeout()
-        {
-            try
-            {
-                var desktopRunning = Process.GetProcessesByName("explorer").Any();
-                if (desktopRunning)
-                {
-                    WinAPI.OpenProcess("taskkill.exe", "/f /im explorer.exe");
-                    NLogger.Info("空闲超时，已关闭桌面进程");
-                }
-
-                if (!rootProcessNode.IsRuning)
-                {
-                    rootProcessNode.RunNode();
-                    NLogger.Info("空闲超时，已启动进程树");
-                }
-            }
-            catch (Exception ex)
-            {
-                NLogger.Error($"执行空闲超时操作失败: {ex.Message}");
-            }
-        }
+        // GetIdleDuration 和 HandleIdleTimeout 已迁移到 IdleMonitorService
 
         private void TriggerScreenshot()
         {

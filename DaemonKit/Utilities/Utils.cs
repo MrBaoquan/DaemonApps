@@ -12,7 +12,7 @@ using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Interop;
 
-namespace DaemonKit
+namespace DaemonKit.Utilities
 {
     internal class Utils
     {

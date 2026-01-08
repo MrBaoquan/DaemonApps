@@ -66,9 +66,6 @@ private:
     // 格式化倒计时
     std::string FormatCountdown(int seconds);
     
-    // 编码转换
-    static std::string GbkToUtf8(const std::string& gbkStr);
-    
     // 配置
     WatermarkConfig m_config;
     std::mutex m_configMutex;
@@ -78,15 +75,23 @@ private:
     ImFont* m_font = nullptr;
     ImFont* m_titleFont = nullptr;
     
+    // D3D11 设备（用于重新加载纹理）
+    ID3D11Device* m_pDevice = nullptr;
+    
     // 水印图片
     ID3D11ShaderResourceView* m_pWatermarkTexture = nullptr;
     int m_watermarkWidth = 0;
     int m_watermarkHeight = 0;
     bool m_hasWatermarkImage = false;
+    std::string m_currentImagePath;  // 当前加载的图片路径
     
     // 动画状态
     ImVec2 m_titlePosition = ImVec2(0, 0);
     ImVec2 m_titleVelocity = ImVec2(1, 1);
+    
+    // 图片动画状态
+    ImVec2 m_imagePosition = ImVec2(100, 100);
+    ImVec2 m_imageVelocity = ImVec2(1, 1);
     
     // 时间
     std::chrono::high_resolution_clock::time_point m_startTime;
