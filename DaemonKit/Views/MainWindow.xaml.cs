@@ -20,6 +20,7 @@ using System.Windows.Media;
 using DaemonKit.Core;
 using DaemonKit.Models;
 using DaemonKit.Utilities;
+using DaemonKit.Views;
 using DaemonKit.PowerSaving;
 using DaemonKit.Services;
 using DNHper;
@@ -1899,6 +1900,72 @@ namespace DaemonKit
             catch (Exception ex)
             {
                 NLogger.Error($"打开截图文件夹失败: {ex.Message}");
+            }
+        }
+
+        private void ExportConfig_Click(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                var exportDialog = new ExportDialog(rootProcessNode.Children) { Owner = this };
+                exportDialog.ShowDialog();
+            }
+            catch (Exception ex)
+            {
+                NLogger.Error($"打开导出对话框失败: {ex.Message}");
+                MessageBox.Show(
+                    $"打开导出对话框失败：{ex.Message}",
+                    "错误",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Error
+                );
+            }
+        }
+
+        private void ImportConfig_Click(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                var importDialog = new ImportDialog { Owner = this };
+                importDialog.ShowDialog();
+                if (importDialog.DialogResult == true)
+                {
+                    // 重新加载进程树
+                    try
+                    {
+                        loadConfig();
+                        NLogger.Info("导入后已重新加载进程树配置");
+                    }
+                    catch (Exception loadEx)
+                    {
+                        NLogger.Error($"重新加载进程树失败: {loadEx.Message}");
+                    }
+
+                    // 提示用户重启应用
+                    var restartResult = MessageBox.Show(
+                        "配置已导入成功，进程树已重新加载。\n\n建议重启应用以完整加载所有配置。是否立即重启？",
+                        "重启确认",
+                        MessageBoxButton.YesNo,
+                        MessageBoxImage.Question
+                    );
+
+                    if (restartResult == MessageBoxResult.Yes)
+                    {
+                        // 重启应用
+                        System.Windows.Forms.Application.Restart();
+                        Application.Current.Shutdown();
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                NLogger.Error($"打开导入对话框失败: {ex.Message}");
+                MessageBox.Show(
+                    $"打开导入对话框失败：{ex.Message}",
+                    "错误",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Error
+                );
             }
         }
 

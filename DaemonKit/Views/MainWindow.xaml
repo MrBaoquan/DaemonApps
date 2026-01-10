@@ -130,6 +130,13 @@
                                       Icon="{materialDesign:PackIcon Kind=FolderImage}"
                                       Click="OpenScreenshotFolder_Click"/>
                             <Separator/>
+                            <MenuItem Header="导出配置包"
+                                      Icon="{materialDesign:PackIcon Kind=Export}"
+                                      Click="ExportConfig_Click"/>
+                            <MenuItem Header="导入配置包"
+                                      Icon="{materialDesign:PackIcon Kind=Import}"
+                                      Click="ImportConfig_Click"/>
+                            <Separator/>
                             <MenuItem Icon="{materialDesign:PackIcon Kind=Settings}"
                                       Header="设置"
                                       Command="{Binding OpenSettings}"/>

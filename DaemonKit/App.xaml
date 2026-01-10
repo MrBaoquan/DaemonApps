@@ -4,6 +4,7 @@
              xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes"
              xmlns:reactiveui="http://reactiveui.net"
              xmlns:local="clr-namespace:DaemonKit"
+             xmlns:converters="clr-namespace:DaemonKit.Converters"
              xmlns:System="clr-namespace:System;assembly=System.Runtime"
              ShutdownMode="OnMainWindowClose"
              StartupUri="Views/MainWindow.xaml">
@@ -19,6 +20,11 @@
 
             <!-- Override MaterialDesign default font with Microsoft YaHei (微软雅黑) -->
             <FontFamily x:Key="MaterialDesignFont">Microsoft YaHei</FontFamily>
+
+            <!-- Converters -->
+            <converters:NotNullToVisibilityConverter x:Key="NotNullToVisibilityConverter"/>
+            <converters:GreaterThanZeroToVisibilityConverter x:Key="GreaterThanZeroToVisibilityConverter"/>
+            <BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter"/>
 
         </ResourceDictionary>
     </Application.Resources>
