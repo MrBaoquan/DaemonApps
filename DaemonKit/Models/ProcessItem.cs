@@ -43,53 +43,53 @@ namespace DaemonKit.Models
     {
         // 进程展示名
         [XmlAttribute]
-        public string Name = string.Empty;
+        public string Name { get; set; } = string.Empty;
 
         [XmlAttribute]
         // 进程路径
-        public string Path = string.Empty;
+        public string Path { get; set; } = string.Empty;
 
         [XmlAttribute]
-        public string Arguments = string.Empty;
+        public string Arguments { get; set; } = string.Empty;
 
         [XmlAttribute]
-        public bool RunAs = true;
+        public bool RunAs { get; set; } = true;
 
         [XmlAttribute]
-        public bool KeepTop = false;
+        public bool KeepTop { get; set; } = false;
 
         [XmlAttribute]
-        public bool NoDaemon = false;
+        public bool NoDaemon { get; set; } = false;
 
         [XmlAttribute]
-        public bool IsScript = false;
+        public bool IsScript { get; set; } = false;
 
         [XmlAttribute]
-        public bool MoveWindow = false;
+        public bool MoveWindow { get; set; } = false;
 
         [XmlAttribute]
-        public bool ResizeWindow = false;
+        public bool ResizeWindow { get; set; } = false;
 
         [XmlAttribute]
-        public bool MinimizedStartUp = false;
+        public bool MinimizedStartUp { get; set; } = false;
 
         [XmlAttribute]
-        public int Delay = 500;
+        public int Delay { get; set; } = 500;
 
         [XmlAttribute]
-        public bool Enable = true;
+        public bool Enable { get; set; } = true;
 
         [XmlAttribute]
-        public int PosX = 0;
+        public int PosX { get; set; } = 0;
 
         [XmlAttribute]
-        public int PosY = 0;
+        public int PosY { get; set; } = 0;
 
         [XmlAttribute]
-        public int Width = 0;
+        public int Width { get; set; } = 0;
 
         [XmlAttribute]
-        public int Height = 0;
+        public int Height { get; set; } = 0;
 
         [XmlElement("Schedule")]
         public List<TaskTrigger> Triggers = new List<TaskTrigger>();
@@ -99,6 +99,74 @@ namespace DaemonKit.Models
     {
         [XmlIgnore]
         public ProcessItem? Parent { get; set; }
+
+        [XmlIgnore]
+        private bool _isSelected;
+
+        /// <summary>
+        /// 是否选中（用于导出时的多选）
+        /// 选中子节点时会自动选中所有父节点（依赖链）
+        /// 取消选中时会自动取消所有子节点
+        /// </summary>
+        [XmlIgnore]
+        public bool IsSelected
+        {
+            get => _isSelected;
+            set
+            {
+                if (_isSelected != value)
+                {
+                    this.RaiseAndSetIfChanged(ref _isSelected, value);
+
+                    if (value)
+                    {
+                        // 选中时，强制选中所有父节点（依赖链）
+                        SelectAllParents();
+                    }
+                    else
+                    {
+                        // 取消选中时，递归取消所有子节点
+                        DeselectAllChildren();
+                    }
+                }
+            }
+        }
+
+        /// <summary>
+        /// 选中所有父节点
+        /// </summary>
+        private void SelectAllParents()
+        {
+            var parent = Parent;
+            while (parent != null && !parent.IsSuperRoot)
+            {
+                if (!parent._isSelected)
+                {
+                    parent._isSelected = true;
+                    parent.RaisePropertyChanged(nameof(IsSelected));
+                }
+                parent = parent.Parent;
+            }
+        }
+
+        /// <summary>
+        /// 取消选中所有子节点
+        /// </summary>
+        private void DeselectAllChildren()
+        {
+            if (Children == null)
+                return;
+
+            foreach (var child in Children)
+            {
+                if (child._isSelected)
+                {
+                    child._isSelected = false;
+                    child.RaisePropertyChanged(nameof(IsSelected));
+                    child.DeselectAllChildren();
+                }
+            }
+        }
 
         [XmlIgnore]
         public ProcessItem RootNode

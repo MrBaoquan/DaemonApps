@@ -79,6 +79,18 @@ namespace DaemonKit.Utilities
             get => Path.Combine(AppRoot, ".cache/schedule.xml");
         }
 
+        // 任务计划配置路径
+        public static string ScheduleConfigPath
+        {
+            get => Path.Combine(ConfigDir, "ScheduleConfig.xml");
+        }
+
+        // 快捷键配置路径
+        public static string HotkeyConfigPath
+        {
+            get => Path.Combine(ConfigDir, "HotkeyConfig.xml");
+        }
+
         // 拓展路径
         public static string ExtensionPath
         {

@@ -1,0 +1,274 @@
+<Window x:Class="DaemonKit.Views.ImportDialog"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes"
+        xmlns:conv="clr-namespace:DaemonKit.Converters"
+        Title="导入配置包"
+        Height="650"
+        Width="550"
+        WindowStartupLocation="CenterScreen"
+        ResizeMode="CanResize"
+        Background="{DynamicResource MaterialDesignPaper}"
+        TextElement.Foreground="{DynamicResource MaterialDesignBody}"
+        TextElement.FontWeight="Regular"
+        TextElement.FontSize="13"
+        TextOptions.TextFormattingMode="Ideal"
+        TextOptions.TextRenderingMode="Auto"
+        FontFamily="{DynamicResource MaterialDesignFont}">
+
+    <Window.Resources>
+        <conv:BooleanInverterConverter x:Key="InverseBooleanConverter"/>
+    </Window.Resources>
+
+    <ScrollViewer VerticalScrollBarVisibility="Auto"
+                  HorizontalScrollBarVisibility="Disabled">
+        <Grid Margin="20">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+            </Grid.RowDefinitions>
+
+            <!-- 标题 -->
+            <TextBlock Grid.Row="0"
+                       Text="导入配置包"
+                       Style="{StaticResource MaterialDesignHeadline5TextBlock}"
+                       Margin="0,0,0,20"/>
+
+            <!-- 文件选择 -->
+            <GroupBox Grid.Row="1"
+                      Header="选择配置包文件"
+                      Style="{StaticResource MaterialDesignCardGroupBox}"
+                      Margin="0,0,0,15">
+                <Grid Margin="10">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+                    <TextBox Grid.Column="0"
+                             Text="{Binding PackagePath, UpdateSourceTrigger=PropertyChanged}"
+                             IsReadOnly="True"
+                             Margin="0,0,10,0"
+                             materialDesign:HintAssist.Hint="选择 .dkit 文件..."/>
+                    <Button Grid.Column="1"
+                            Command="{Binding BrowseCommand}"
+                            Style="{StaticResource MaterialDesignRaisedButton}"
+                            Content="浏览"/>
+                </Grid>
+            </GroupBox>
+
+            <!-- 包信息 -->
+            <GroupBox Grid.Row="2"
+                      Header="包信息"
+                      Style="{StaticResource MaterialDesignCardGroupBox}"
+                      Margin="0,0,0,15"
+                      Visibility="{Binding Metadata, Converter={StaticResource NotNullToVisibilityConverter}}">
+                <StackPanel Margin="10">
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="100"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                        </Grid.RowDefinitions>
+
+                        <TextBlock Grid.Row="0"
+                                   Grid.Column="0"
+                                   Text="创建时间："
+                                   FontWeight="Medium"
+                                   Margin="0,5"/>
+                        <TextBlock Grid.Row="0"
+                                   Grid.Column="1"
+                                   Text="{Binding Metadata.CreatedAt, StringFormat={}{0:yyyy-MM-dd HH:mm:ss}}"
+                                   Margin="0,5"/>
+
+                        <TextBlock Grid.Row="1"
+                                   Grid.Column="0"
+                                   Text="计算机名："
+                                   FontWeight="Medium"
+                                   Margin="0,5"/>
+                        <TextBlock Grid.Row="1"
+                                   Grid.Column="1"
+                                   Text="{Binding Metadata.MachineName}"
+                                   Margin="0,5"/>
+
+                        <TextBlock Grid.Row="2"
+                                   Grid.Column="0"
+                                   Text="用户名："
+                                   FontWeight="Medium"
+                                   Margin="0,5"/>
+                        <TextBlock Grid.Row="2"
+                                   Grid.Column="1"
+                                   Text="{Binding Metadata.UserName}"
+                                   Margin="0,5"/>
+
+                        <TextBlock Grid.Row="3"
+                                   Grid.Column="0"
+                                   Text="配置文件："
+                                   FontWeight="Medium"
+                                   Margin="0,5"/>
+                        <TextBlock Grid.Row="3"
+                                   Grid.Column="1"
+                                   Text="{Binding Metadata.IncludedConfigs.Count, StringFormat={}{0} 个}"
+                                   Margin="0,5"/>
+
+                        <TextBlock Grid.Row="4"
+                                   Grid.Column="0"
+                                   Text="程序文件："
+                                   FontWeight="Medium"
+                                   Margin="0,5"/>
+                        <TextBlock Grid.Row="4"
+                                   Grid.Column="1"
+                                   Text="{Binding Metadata.IncludedPrograms.Count, StringFormat={}{0} 个}"
+                                   Margin="0,5"/>
+
+                        <TextBlock Grid.Row="5"
+                                   Grid.Column="0"
+                                   Text="说明："
+                                   FontWeight="Medium"
+                                   Margin="0,5"
+                                   VerticalAlignment="Top"/>
+                        <TextBlock Grid.Row="5"
+                                   Grid.Column="1"
+                                   Text="{Binding Metadata.Description}"
+                                   TextWrapping="Wrap"
+                                   Margin="0,5"/>
+                    </Grid>
+                </StackPanel>
+            </GroupBox>
+
+            <!-- 导入选项 -->
+            <GroupBox Grid.Row="3"
+                      Header="导入选项"
+                      Style="{StaticResource MaterialDesignCardGroupBox}"
+                      Margin="0,0,0,15">
+                <StackPanel Margin="10">
+                    <CheckBox Content="导入配置"
+                              IsChecked="{Binding ImportConfigs}"
+                              IsEnabled="{Binding HasConfigs}"
+                              Margin="0,5"/>
+                    <TextBlock Text="   导入任务计划、快捷键、全局调度等配置文件"
+                               FontSize="11"
+                               Foreground="{DynamicResource MaterialDesignBodyLight}"
+                               Margin="0,0,0,10"/>
+
+                    <CheckBox Content="导入进程"
+                              IsChecked="{Binding ImportProcesses}"
+                              IsEnabled="{Binding HasProcesses}"
+                              Margin="0,5"/>
+                    <TextBlock Text="   导入进程树和相关程序文件"
+                               FontSize="11"
+                               Foreground="{DynamicResource MaterialDesignBodyLight}"
+                               Margin="0,0,0,10"/>
+
+                    <!-- 进程树节点选择（仅在勾选“导入进程”时显示） -->
+                    <StackPanel Visibility="{Binding ImportProcesses, Converter={StaticResource BooleanToVisibilityConverter}}">
+                        <TextBlock Text="选择要导入的程序（空选表示导入全部）："
+                                   FontWeight="Medium"
+                                   Margin="0,10,0,5"/>
+                        <Border BorderBrush="{DynamicResource MaterialDesignDivider}"
+                                BorderThickness="1"
+                                CornerRadius="4"
+                                MaxHeight="250"
+                                Margin="0,5">
+                            <ScrollViewer VerticalScrollBarVisibility="Auto">
+                                <TreeView x:Name="ImportProcessTreeView"
+                                          ItemsSource="{Binding AvailableProcessTree}"
+                                          Background="Transparent"
+                                          BorderThickness="0"
+                                          Margin="5">
+                                    <TreeView.ItemContainerStyle>
+                                        <Style TargetType="TreeViewItem"
+                                               BasedOn="{StaticResource {x:Type TreeViewItem}}">
+                                            <Setter Property="IsExpanded"
+                                                    Value="True"/>
+                                        </Style>
+                                    </TreeView.ItemContainerStyle>
+                                    <TreeView.ItemTemplate>
+                                        <HierarchicalDataTemplate ItemsSource="{Binding Children}">
+                                            <StackPanel Orientation="Horizontal">
+                                                <CheckBox IsChecked="{Binding IsSelected, Mode=TwoWay}"
+                                                          Margin="0,0,5,0"/>
+                                                <materialDesign:PackIcon Kind="Application"
+                                                                         VerticalAlignment="Center"
+                                                                         Margin="0,0,5,0"/>
+                                                <TextBlock Text="{Binding MetaData.Name}"
+                                                           VerticalAlignment="Center"/>
+                                            </StackPanel>
+                                        </HierarchicalDataTemplate>
+                                    </TreeView.ItemTemplate>
+                                </TreeView>
+                            </ScrollViewer>
+                        </Border>
+
+                        <CheckBox Content="清空现有进程树后再导入"
+                                  IsChecked="{Binding ClearExistingTree}"
+                                  Margin="0,10,0,5"/>
+                        <TextBlock Text="   ⚠️ 警告：选中后将删除所有现有进程节点，仅保留导入的节点"
+                                   FontSize="11"
+                                   Foreground="{DynamicResource MaterialDesignValidationErrorBrush}"
+                                   Margin="0,0,0,10"/>
+
+                        <CheckBox Content="覆盖同名进程节点"
+                                  IsChecked="{Binding OverwriteConflicts}"
+                                  Margin="0,0,0,5"
+                                  IsEnabled="{Binding ClearExistingTree, Converter={StaticResource InverseBooleanConverter}}"/>
+                        <TextBlock Text="   选中时：导入的节点将替换现有的同名节点&#x0a;   未选中时：保留现有同名节点，跳过导入的同名节点"
+                                   FontSize="11"
+                                   Foreground="{DynamicResource MaterialDesignBodyLight}"
+                                   Margin="0,0,0,5"/>
+                    </StackPanel>
+                </StackPanel>
+            </GroupBox>
+
+            <!-- 进度显示 -->
+            <GroupBox Grid.Row="4"
+                      Header="导入进度"
+                      Style="{StaticResource MaterialDesignCardGroupBox}"
+                      Visibility="{Binding IsImporting, Converter={StaticResource BooleanToVisibilityConverter}}">
+                <StackPanel Margin="10">
+                    <TextBlock Text="{Binding StatusMessage}"
+                               Margin="0,0,0,10"
+                               FontWeight="Medium"/>
+                    <ProgressBar Value="{Binding ProgressPercentage}"
+                                 Maximum="100"
+                                 Height="8"
+                                 Margin="0,0,0,10"/>
+                    <TextBlock Text="{Binding ProgressPercentage, StringFormat={}{0:F1}%}"
+                               HorizontalAlignment="Center"
+                               Margin="0,0,0,5"/>
+                    <TextBlock Text="{Binding CurrentFile}"
+                               FontSize="11"
+                               Foreground="{DynamicResource MaterialDesignBodyLight}"
+                               TextTrimming="CharacterEllipsis"
+                               ToolTip="{Binding CurrentFile}"/>
+                </StackPanel>
+            </GroupBox>
+
+            <!-- 按钮 -->
+            <StackPanel Grid.Row="5"
+                        Orientation="Horizontal"
+                        HorizontalAlignment="Right"
+                        Margin="0,20,0,0">
+                <Button Content="导入"
+                        Command="{Binding ImportCommand}"
+                        Style="{StaticResource MaterialDesignRaisedButton}"
+                        Width="100"
+                        Margin="0,0,10,0"/>
+                <Button Content="取消"
+                        Command="{Binding CancelCommand}"
+                        Style="{StaticResource MaterialDesignOutlinedButton}"
+                        Width="100"/>
+            </StackPanel>
+        </Grid>
+    </ScrollViewer>
+</Window>
