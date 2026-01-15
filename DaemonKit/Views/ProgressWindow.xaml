@@ -1,0 +1,180 @@
+<Window x:Class="DaemonKit.Views.ProgressWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes"
+        xmlns:conv="clr-namespace:DaemonKit.Converters"
+        Title="包操作进度"
+        Height="400"
+        Width="550"
+        WindowStartupLocation="CenterScreen"
+        ResizeMode="NoResize"
+        Background="{DynamicResource MaterialDesignPaper}"
+        TextElement.Foreground="{DynamicResource MaterialDesignBody}"
+        TextElement.FontWeight="Regular"
+        TextElement.FontSize="13"
+        TextOptions.TextFormattingMode="Ideal"
+        TextOptions.TextRenderingMode="Auto"
+        FontFamily="{DynamicResource MaterialDesignFont}"
+        Topmost="True"
+        ShowInTaskbar="True">
+
+    <Window.Resources>
+        <conv:BoolToVisibilityConverter x:Key="BooleanToVisibilityConverter"/>
+    </Window.Resources>
+
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <!-- 标题栏 -->
+        <Border Grid.Row="0"
+                Background="{DynamicResource PrimaryHueMidBrush}"
+                Padding="20,15">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="*"/>
+                </Grid.ColumnDefinitions>
+                <materialDesign:PackIcon Grid.Column="0"
+                                         Kind="{Binding OperationIcon}"
+                                         Width="24"
+                                         Height="24"
+                                         Foreground="White"
+                                         VerticalAlignment="Center"
+                                         Margin="0,0,10,0"/>
+                <TextBlock Grid.Column="1"
+                           Text="{Binding OperationTitle}"
+                           FontSize="16"
+                           FontWeight="SemiBold"
+                           Foreground="White"
+                           VerticalAlignment="Center"/>
+            </Grid>
+        </Border>
+
+        <!-- 进度内容区 -->
+        <Border Grid.Row="1"
+                Padding="20">
+            <StackPanel>
+                <!-- 操作摘要 -->
+                <Border Background="#E3F2FD"
+                        BorderBrush="#2196F3"
+                        BorderThickness="1"
+                        CornerRadius="4"
+                        Padding="12"
+                        Margin="0,0,0,15">
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                        </Grid.RowDefinitions>
+
+                        <TextBlock Grid.Row="0"
+                                   Grid.Column="0"
+                                   Text="包路径："
+                                   FontWeight="Medium"
+                                   FontSize="12"
+                                   Margin="0,0,8,6"/>
+                        <TextBlock Grid.Row="0"
+                                   Grid.Column="1"
+                                   Text="{Binding PackagePath}"
+                                   TextWrapping="Wrap"
+                                   FontSize="12"
+                                   Margin="0,0,0,6"/>
+
+                        <TextBlock Grid.Row="1"
+                                   Grid.Column="0"
+                                   Text="操作内容："
+                                   FontWeight="Medium"
+                                   FontSize="12"
+                                   Margin="0,0,8,0"/>
+                        <TextBlock Grid.Row="1"
+                                   Grid.Column="1"
+                                   Text="{Binding OperationSummary}"
+                                   TextWrapping="Wrap"
+                                   FontSize="12"/>
+                    </Grid>
+                </Border>
+
+                <!-- 进度信息 -->
+                <TextBlock Text="{Binding StatusMessage}"
+                           FontWeight="SemiBold"
+                           FontSize="13"
+                           Margin="0,0,0,10"/>
+
+                <!-- 进度条 -->
+                <Border BorderBrush="#E0E0E0"
+                        BorderThickness="1"
+                        CornerRadius="4"
+                        Margin="0,0,0,10">
+                    <ProgressBar Value="{Binding ProgressPercentage}"
+                                 Maximum="100"
+                                 Height="20"
+                                 Style="{StaticResource MaterialDesignLinearProgressBar}"/>
+                </Border>
+
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Grid.Column="0"
+                               Text="{Binding ProgressPercentage, StringFormat={}{0:F1}%}"
+                               FontSize="12"
+                               FontWeight="Medium"
+                               Foreground="{DynamicResource PrimaryHueMidBrush}"
+                               Margin="0,0,10,0"/>
+                    <TextBlock Grid.Column="1"
+                               Text="{Binding CurrentFile}"
+                               FontSize="11"
+                               Foreground="{DynamicResource MaterialDesignBodyLight}"
+                               TextTrimming="CharacterEllipsis"
+                               ToolTip="{Binding CurrentFile}"/>
+                </Grid>
+            </StackPanel>
+        </Border>
+
+        <!-- 底部按钮 -->
+        <Border Grid.Row="2"
+                Background="White"
+                BorderBrush="#E0E0E0"
+                BorderThickness="0,1,0,0"
+                Padding="20,12">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+
+                <Button Grid.Column="0"
+                        Content="最小化"
+                        Style="{StaticResource MaterialDesignFlatButton}"
+                        Command="{Binding MinimizeCommand}"
+                        HorizontalAlignment="Left"
+                        ToolTip="最小化窗口，在主窗口查看进度"
+                        Visibility="{Binding IsCompleted, Converter={StaticResource BooleanToVisibilityConverter}, ConverterParameter=Inverse}"/>
+
+                <StackPanel Grid.Column="1"
+                            Orientation="Horizontal">
+                    <Button Content="取消"
+                            Style="{StaticResource MaterialDesignOutlinedButton}"
+                            Command="{Binding CancelCommand}"
+                            Width="100"
+                            Margin="0,0,10,0"
+                            Visibility="{Binding IsCompleted, Converter={StaticResource BooleanToVisibilityConverter}, ConverterParameter=Inverse}"/>
+                    <Button Content="完成"
+                            Style="{StaticResource MaterialDesignRaisedButton}"
+                            Command="{Binding CloseCommand}"
+                            Width="100"
+                            Visibility="{Binding IsCompleted, Converter={StaticResource BooleanToVisibilityConverter}}"/>
+                </StackPanel>
+            </Grid>
+        </Border>
+    </Grid>
+</Window>

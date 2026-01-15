@@ -23,6 +23,7 @@ namespace DaemonKit.Services
         public List<string> IncludedConfigs { get; set; } = new List<string>();
         public List<ProgramInfo> IncludedPrograms { get; set; } = new List<ProgramInfo>();
         public string Description { get; set; }
+        public string ProjectName { get; set; } // 导出的项目（根节点）名称
     }
 
     /// <summary>
@@ -100,7 +101,8 @@ namespace DaemonKit.Services
                     if (includeAllPrograms && processTree != null)
                     {
                         statusProgress?.Report("分析程序树...");
-                        var allPrograms = GetAllProgramsFromTree(processTree);
+                        // 只获取直接选中节点的程序，不递归子节点
+                        var allPrograms = GetProgramsFromNodes(processTree);
 
                         statusProgress?.Report($"导出 {allPrograms.Count} 个程序...");
                         programInfos = await ExportProgramFilesAsync(
@@ -113,6 +115,19 @@ namespace DaemonKit.Services
 
                     // 4. 创建元数据
                     statusProgress?.Report("生成元数据...");
+
+                    // 提取根节点名称（如果存在）
+                    string projectName = null;
+                    if (processTree != null)
+                    {
+                        var rootNode = processTree.FirstOrDefault(p => p.Parent == null);
+                        if (rootNode != null)
+                        {
+                            projectName = rootNode.MetaData?.Name ?? rootNode.Path;
+                            Logger.Info($"Extracted project name from root node: {projectName}");
+                        }
+                    }
+
                     var metadata = new PackageMetadata
                     {
                         CreatedAt = DateTime.Now,
@@ -120,7 +135,8 @@ namespace DaemonKit.Services
                         UserName = Environment.UserName,
                         IncludedConfigs = configList.Select(Path.GetFileName).ToList(),
                         IncludedPrograms = programInfos,
-                        Description = description
+                        Description = description,
+                        ProjectName = projectName
                     };
 
                     var metadataPath = Path.Combine(tempDir, MetadataFileName);
@@ -128,17 +144,40 @@ namespace DaemonKit.Services
                     File.WriteAllText(metadataPath, metadataJson);
 
                     // 5. 导出进程树配置（并转换为相对路径）
-                    // 方案B: 直接导出List<ProcessItem>，支持多节点选择
                     statusProgress?.Report("导出进程树配置...");
                     if (processTree != null && processTree.Any())
                     {
                         var processTreeList = processTree.ToList();
 
-                        // 创建树的深拷贝，进行路径转换
-                        var treeForExport = processTreeList
-                            .Select(CloneProcessItemWithRelativePaths)
-                            .Where(item => item != null)
-                            .ToList();
+                        // 创建虚拟根节点来包装导出的节点
+                        var virtualRoot = new ProcessItem
+                        {
+                            NodeId = Guid.NewGuid().ToString("N"),
+                            MetaData = new ProcessMetaData
+                            {
+                                Name = projectName ?? "[ 进程树 ]",
+                                Path = "" // 虚拟根节点没有路径
+                            },
+                            Children =
+                                new System.Collections.ObjectModel.ObservableCollection<ProcessItem>()
+                        };
+
+                        // 将导出的节点添加到虚拟根节点下
+                        foreach (var node in processTreeList)
+                        {
+                            var clonedNode = CloneProcessItemWithRelativePaths(node);
+                            if (clonedNode != null)
+                            {
+                                clonedNode.Parent = virtualRoot;
+                                virtualRoot.Children.Add(clonedNode);
+                            }
+                        }
+
+                        // 修剪未选中的节点（仅保留选中节点及其选中后代）
+                        PruneUnselected(virtualRoot);
+
+                        // 包装为列表导出（单个根节点）
+                        var treeForExport = new List<ProcessItem> { virtualRoot };
 
                         var treeFileName = Path.GetFileName(AppPathes.TreeViewDataPath);
                         var treeExportPath = Path.Combine(configsDir, treeFileName);
@@ -150,7 +189,7 @@ namespace DaemonKit.Services
                         {
                             treeSerializer.Serialize(stream, treeForExport);
                             Logger.Info(
-                                $"Process tree exported with relative paths: {treeForExport.Count} root nodes to {treeExportPath}"
+                                $"Process tree exported with virtual root: {treeForExport.Count} root nodes, {virtualRoot.Children.Count} children to {treeExportPath}"
                             );
                         }
                     }
@@ -181,6 +220,12 @@ namespace DaemonKit.Services
                         Logger.Warn(ex, "Failed to delete temp directory");
                     }
                 }
+            }
+            catch (OperationCanceledException)
+            {
+                Logger.Info("Export operation was cancelled by user");
+                statusProgress?.Report("导出已取消");
+                return false; // 返回失败，不再向上抛出异常
             }
             catch (Exception ex)
             {
@@ -248,6 +293,8 @@ namespace DaemonKit.Services
             IEnumerable<ProcessItem> selectedProcessNodes,
             bool clearExistingTree,
             bool overwriteConflicts = true, // 新增：冲突时是否覆盖
+            bool useImportedProjectName = false, // 新增：是否使用导入的项目名称
+            string importedProjectName = null, // 新增：导入的项目名称
             IProgress<string> statusProgress = null,
             IProgress<CompressionProgress> decompressionProgress = null,
             IProgress<FileCopyProgress> copyProgress = null,
@@ -358,7 +405,9 @@ namespace DaemonKit.Services
                             clearExistingTree,
                             overwriteConflicts, // 传递冲突覆盖策略
                             pathMappings,
-                            statusProgress
+                            statusProgress,
+                            useImportedProjectName,
+                            importedProjectName
                         );
                     }
                     else if (importProcesses)
@@ -383,6 +432,12 @@ namespace DaemonKit.Services
                         Logger.Warn(ex, "Failed to delete temp directory");
                     }
                 }
+            }
+            catch (OperationCanceledException)
+            {
+                Logger.Info("Import operation was cancelled by user");
+                statusProgress?.Report("导入已取消");
+                return false; // 返回失败，不再向上抛出异常
             }
             catch (Exception ex)
             {
@@ -528,6 +583,7 @@ namespace DaemonKit.Services
             {
                 NodeId = item.NodeId,
                 Parent = null, // 不保留父引用
+                IsSelected = item.IsSelected,
             };
 
             // 克隆MetaData
@@ -624,6 +680,32 @@ namespace DaemonKit.Services
         }
 
         /// <summary>
+        /// 修剪未选中的节点：只保留被选中或包含选中后代的节点
+        /// </summary>
+        private static bool PruneUnselected(ProcessItem node)
+        {
+            if (node == null)
+                return false;
+
+            if (node.Children != null && node.Children.Count > 0)
+            {
+                // 复制列表防止遍历修改问题
+                var children = node.Children.ToList();
+                foreach (var child in children)
+                {
+                    var keepChild = PruneUnselected(child);
+                    if (!keepChild)
+                    {
+                        node.Children.Remove(child);
+                    }
+                }
+            }
+
+            // 保留条件：自己被选中，或还有选中的后代
+            return node.IsSelected || (node.Children != null && node.Children.Count > 0);
+        }
+
+        /// <summary>
         /// 检测进程树中是否包含绝对路径
         /// </summary>
         public static List<ProcessItem> DetectAbsolutePathNodes(
@@ -707,7 +789,7 @@ namespace DaemonKit.Services
         }
 
         /// <summary>
-        /// 从进程树中获取所有程序路径
+        /// 从进程树中获取所有程序路径（递归所有子节点）
         /// </summary>
         private static List<string> GetAllProgramsFromTree(IEnumerable<ProcessItem> processTree)
         {
@@ -733,6 +815,37 @@ namespace DaemonKit.Services
             }
 
             TraverseTree(processTree);
+            return programs.Distinct().ToList();
+        }
+
+        /// <summary>
+        /// 获取指定节点的程序路径（只处理传入的节点本身）
+        /// </summary>
+        private static List<string> GetProgramsFromNodes(IEnumerable<ProcessItem> nodes)
+        {
+            var programs = new List<string>();
+
+            if (nodes == null)
+                return programs;
+
+            foreach (var node in nodes)
+            {
+                Logger.Debug(
+                    $"[GetProgramsFromNodes] Checking node: Name={node.Name}, NodePath={node.NodePath ?? "null"}"
+                );
+
+                if (!string.IsNullOrEmpty(node.NodePath) && File.Exists(node.NodePath))
+                {
+                    Logger.Debug($"[GetProgramsFromNodes] Adding program: {node.NodePath}");
+                    programs.Add(node.NodePath);
+                }
+                else if (!string.IsNullOrEmpty(node.NodePath))
+                {
+                    Logger.Warn($"[GetProgramsFromNodes] Program file not found: {node.NodePath}");
+                }
+            }
+
+            Logger.Info($"[GetProgramsFromNodes] Total programs collected: {programs.Count}");
             return programs.Distinct().ToList();
         }
 
@@ -1066,7 +1179,9 @@ namespace DaemonKit.Services
             bool clearExisting,
             bool overwriteConflicts,
             Dictionary<string, string> pathMappings,
-            IProgress<string> statusProgress
+            IProgress<string> statusProgress,
+            bool useImportedProjectName = false,
+            string importedProjectName = null
         )
         {
             try
@@ -1142,7 +1257,10 @@ namespace DaemonKit.Services
                         NodeId = Guid.NewGuid().ToString(),
                         MetaData = new ProcessMetaData
                         {
-                            Name = "[ 进程树 ]",
+                            Name =
+                                useImportedProjectName && !string.IsNullOrEmpty(importedProjectName)
+                                    ? importedProjectName
+                                    : "[ 进程树 ]",
                             Delay = 0,
                             Path = string.Empty,
                             Enable = true
@@ -1151,12 +1269,29 @@ namespace DaemonKit.Services
                             new System.Collections.ObjectModel.ObservableCollection<ProcessItem>()
                     };
 
+                    // 只导入根节点下的二级节点（根节点的Children），而不是导入根节点本身
                     if (importedNodeList != null)
                     {
-                        foreach (var node in importedNodeList)
+                        foreach (var importedRoot in importedNodeList)
                         {
-                            node.Parent = resultRootNode;
-                            resultRootNode.Children.Add(node);
+                            // 如果导入的是根节点，提取其子节点
+                            if (importedRoot.Parent == null && importedRoot.Children != null)
+                            {
+                                Logger.Info(
+                                    $"Extracting {importedRoot.Children.Count} children from imported root: {importedRoot.MetaData?.Name}"
+                                );
+                                foreach (var child in importedRoot.Children)
+                                {
+                                    child.Parent = resultRootNode;
+                                    resultRootNode.Children.Add(child);
+                                }
+                            }
+                            else
+                            {
+                                // 非根节点直接添加
+                                importedRoot.Parent = resultRootNode;
+                                resultRootNode.Children.Add(importedRoot);
+                            }
                         }
                     }
                 }
@@ -1167,43 +1302,67 @@ namespace DaemonKit.Services
                     Logger.Info($"Merge mode: overwriteConflicts={overwriteConflicts}");
                     resultRootNode = currentRootNode;
 
+                    // 更新根节点名称（如果用户选择使用导入的项目名称）
+                    if (useImportedProjectName && !string.IsNullOrEmpty(importedProjectName))
+                    {
+                        resultRootNode.MetaData.Name = importedProjectName;
+                        Logger.Info($"Updated root node name to: {importedProjectName}");
+                    }
+
                     if (resultRootNode.Children == null)
                         resultRootNode.Children =
                             new System.Collections.ObjectModel.ObservableCollection<ProcessItem>();
 
                     if (importedNodeList != null)
                     {
-                        foreach (var importedNode in importedNodeList)
+                        foreach (var importedRoot in importedNodeList)
                         {
-                            // 查找同名节点
-                            var existing = resultRootNode.Children.FirstOrDefault(
-                                c => c.MetaData?.Name == importedNode.MetaData?.Name
-                            );
-
-                            if (existing == null)
+                            // 如果导入的是根节点，只合并其二级子节点
+                            IEnumerable<ProcessItem> nodesToMerge;
+                            if (importedRoot.Parent == null && importedRoot.Children != null)
                             {
-                                // 新节点：直接添加
-                                importedNode.Parent = resultRootNode;
-                                resultRootNode.Children.Add(importedNode);
-                                Logger.Info($"Added new node: {importedNode.MetaData?.Name}");
-                            }
-                            else if (overwriteConflicts)
-                            {
-                                // 冲突节点 + 覆盖模式：替换
-                                var index = resultRootNode.Children.IndexOf(existing);
-                                resultRootNode.Children.RemoveAt(index);
-                                importedNode.Parent = resultRootNode;
-                                resultRootNode.Children.Insert(index, importedNode);
                                 Logger.Info(
-                                    $"Replaced existing node: {importedNode.MetaData?.Name}"
+                                    $"Extracting {importedRoot.Children.Count} children from imported root for merge: {importedRoot.MetaData?.Name}"
                                 );
+                                nodesToMerge = importedRoot.Children;
                             }
                             else
                             {
-                                // 冲突节点 + 保留模式：跳过
-                                Logger.Info(
-                                    $"Skipped existing node (no overwrite): {importedNode.MetaData?.Name}"
+                                nodesToMerge = new[] { importedRoot };
+                            }
+
+                            foreach (var importedNode in nodesToMerge)
+                            {
+                                // 查找同名节点
+                                var existing = resultRootNode.Children.FirstOrDefault(
+                                    c => c.MetaData?.Name == importedNode.MetaData?.Name
                                 );
+
+                                if (existing == null)
+                                {
+                                    // 新节点：直接添加
+                                    importedNode.Parent = resultRootNode;
+                                    resultRootNode.Children.Add(importedNode);
+                                    Logger.Info($"Added new node: {importedNode.MetaData?.Name}");
+                                }
+                                else if (overwriteConflicts)
+                                {
+                                    // 冲突节点 + 覆盖模式：替换
+                                    var index = resultRootNode.Children.IndexOf(existing);
+                                    resultRootNode.Children.RemoveAt(index);
+                                    importedNode.Parent = resultRootNode;
+                                    resultRootNode.Children.Insert(index, importedNode);
+                                    Logger.Info(
+                                        $"Replaced existing node: {importedNode.MetaData?.Name}"
+                                    );
+                                }
+                                else
+                                {
+                                    // 冲突节点 + 保留模式：跳过
+                                    Logger.Info(
+                                        $"Skipped existing node (no overwrite): {importedNode.MetaData?.Name}"
+                                    );
+                                }
                             }
                         }
                     }

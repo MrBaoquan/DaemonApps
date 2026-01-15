@@ -1,11 +1,14 @@
 using DaemonKit.Models;
 using DaemonKit.Services;
 using DaemonKit.Utilities;
+using DaemonKit.Views;
 using Microsoft.Win32;
+using NLog;
 using ReactiveUI;
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.IO;
 using System.Linq;
 using System.Reactive;
 using System.Reactive.Linq;
@@ -28,6 +31,8 @@ namespace DaemonKit.ViewModels
         private bool _hasProcesses; // 包内是否有进程树数据
         private bool _clearExistingTree;
         private bool _overwriteConflicts; // 新增：冲突时是否覆盖
+        private bool _useImportedProjectName; // 新增：是否使用导入的项目名称
+        private string _importedProjectName; // 新增：导入包中的项目名称
         private bool _isImporting;
         private double _progressPercentage;
         private string _statusMessage;
@@ -82,6 +87,18 @@ namespace DaemonKit.ViewModels
             set => this.RaiseAndSetIfChanged(ref _overwriteConflicts, value);
         }
 
+        public string ImportedProjectName
+        {
+            get => _importedProjectName;
+            set => this.RaiseAndSetIfChanged(ref _importedProjectName, value);
+        }
+
+        public bool UseImportedProjectName
+        {
+            get => _useImportedProjectName;
+            set => this.RaiseAndSetIfChanged(ref _useImportedProjectName, value);
+        }
+
         public ObservableCollection<ProcessItem> AvailableProcessTree
         {
             get => _availableProcessTree;
@@ -91,33 +108,54 @@ namespace DaemonKit.ViewModels
         public bool IsImporting
         {
             get => _isImporting;
-            set => this.RaiseAndSetIfChanged(ref _isImporting, value);
+            set
+            {
+                this.RaiseAndSetIfChanged(ref _isImporting, value);
+                SendProgressUpdate();
+            }
         }
 
         public double ProgressPercentage
         {
             get => _progressPercentage;
-            set => this.RaiseAndSetIfChanged(ref _progressPercentage, value);
+            set
+            {
+                this.RaiseAndSetIfChanged(ref _progressPercentage, value);
+                SendProgressUpdate();
+            }
         }
 
         public string StatusMessage
         {
             get => _statusMessage;
-            set => this.RaiseAndSetIfChanged(ref _statusMessage, value);
+            set
+            {
+                this.RaiseAndSetIfChanged(ref _statusMessage, value);
+                SendProgressUpdate();
+            }
         }
 
         public string CurrentFile
         {
             get => _currentFile;
-            set => this.RaiseAndSetIfChanged(ref _currentFile, value);
+            set
+            {
+                this.RaiseAndSetIfChanged(ref _currentFile, value);
+                SendProgressUpdate();
+            }
         }
 
         public ReactiveCommand<Unit, Unit> BrowseCommand { get; }
         public ReactiveCommand<Unit, Unit> ImportCommand { get; }
         public ReactiveCommand<Unit, Unit> CancelCommand { get; }
+        public ReactiveCommand<Unit, Unit> SelectAllCommand { get; }
+        public ReactiveCommand<Unit, Unit> ClearSelectionCommand { get; }
+        public ReactiveCommand<Unit, Unit> MinimizeCommand { get; }
+        public ReactiveCommand<Unit, Unit> CancelImportCommand { get; }
 
         private CancellationTokenSource _cancellationTokenSource;
         private Action<bool> _closeAction;
+        private Window _dialogWindow;
 
         public ImportDialogViewModel(Action<bool> closeAction)
         {
@@ -141,8 +179,49 @@ namespace DaemonKit.ViewModels
             CancelCommand = ReactiveCommand.Create(() =>
             {
                 _cancellationTokenSource?.Cancel();
-                _closeAction?.Invoke(false);
+                _dialogWindow?.Close();
             });
+
+            // 选择操作
+            SelectAllCommand = ReactiveCommand.Create(
+                () => SetSelection(AvailableProcessTree, true)
+            );
+            ClearSelectionCommand = ReactiveCommand.Create(
+                () => SetSelection(AvailableProcessTree, false)
+            );
+
+            // 最小化命令
+            MinimizeCommand = ReactiveCommand.Create(() =>
+            {
+                if (_dialogWindow != null)
+                {
+                    // 只隐藏窗口，不修改WindowState，避免DialogResult错误
+                    _dialogWindow.Hide();
+
+                    // 发送进度消息到主窗口
+                    ReactiveUI.MessageBus.Current.SendMessage(
+                        new PackageProgressInfo
+                        {
+                            OperationType = PackageOperationType.Import,
+                            IsActive = IsImporting,
+                            ProgressPercentage = ProgressPercentage,
+                            StatusMessage = StatusMessage,
+                            CurrentFile = CurrentFile,
+                            DialogInstance = _dialogWindow
+                        }
+                    );
+                }
+            });
+
+            // 取消安装命令
+            var canCancel = this.WhenAnyValue(x => x.IsImporting);
+            CancelImportCommand = ReactiveCommand.Create(
+                () =>
+                {
+                    _cancellationTokenSource?.Cancel();
+                },
+                canCancel
+            );
         }
 
         private async Task ExecuteBrowseAsync()
@@ -163,36 +242,67 @@ namespace DaemonKit.ViewModels
                     StatusMessage = "读取包信息...";
                     Metadata = await ExportImportService.ReadPackageMetadataAsync(PackagePath);
 
+                    // 提取项目名称
+                    ImportedProjectName = Metadata?.ProjectName;
+                    UseImportedProjectName = false; // 默认不勾选，保护现有项目
+
                     // 检测包内是否有配置文件和进程树
                     HasConfigs =
                         Metadata?.IncludedConfigs != null && Metadata.IncludedConfigs.Any();
                     HasProcesses =
                         Metadata?.IncludedPrograms != null && Metadata.IncludedPrograms.Any();
 
-                    // 设置默认勾选状态
-                    ImportConfigs = HasConfigs;
-                    ImportProcesses = false; // 默认不勾选进程导入
+                    // 设置默认勾选状态 - 根据包内容默认全选
+                    ImportConfigs = HasConfigs; // 有配置则默认选中
+                    ImportProcesses = HasProcesses; // 有程序则默认选中
 
                     // 读取包中的进程树数据（List<ProcessItem>）
                     if (HasProcesses)
                     {
-                        var nodeList = await ExportImportService.ReadProcessTreeFromPackageAsync(
-                            PackagePath
-                        );
-                        if (nodeList != null && nodeList.Any())
+                        try
                         {
-                            AvailableProcessTree.Clear();
-                            // 直接显示所有节点（支持多根节点）
-                            foreach (var node in nodeList)
+                            var nodeList =
+                                await ExportImportService.ReadProcessTreeFromPackageAsync(
+                                    PackagePath
+                                );
+                            if (nodeList != null && nodeList.Any())
                             {
-                                AvailableProcessTree.Add(node);
+                                AvailableProcessTree.Clear();
+
+                                // 导出的树应该只有一个虚拟根节点，其下包含实际的二级节点
+                                foreach (var rootNode in nodeList)
+                                {
+                                    AvailableProcessTree.Add(rootNode);
+
+                                    // 记录项目名称（来自虚拟根节点）
+                                    if (
+                                        rootNode.MetaData != null
+                                        && !string.IsNullOrEmpty(rootNode.MetaData.Name)
+                                    )
+                                    {
+                                        ImportedProjectName = rootNode.MetaData.Name;
+                                        NLog.LogManager
+                                            .GetCurrentClassLogger()
+                                            .Info($"Imported project name: {ImportedProjectName}");
+                                    }
+                                }
+
+                                // 默认全选进程树中的所有节点
+                                SetSelection(AvailableProcessTree, true);
+
+                                StatusMessage = $"已加载包信息";
                             }
-                            StatusMessage = $"已加载包信息";
+                            else
+                            {
+                                HasProcesses = false; // 实际没有进程树数据
+                                StatusMessage = "包中没有进程树数据";
+                            }
                         }
-                        else
+                        catch (Exception treeEx)
                         {
-                            HasProcesses = false; // 实际没有进程树数据
-                            StatusMessage = "包中没有进程树数据";
+                            NLog.LogManager.GetCurrentClassLogger().Error(treeEx, "读取进程树失败");
+                            HasProcesses = false;
+                            StatusMessage = $"读取进程树失败: {treeEx.Message}";
                         }
                     }
                     else
@@ -200,134 +310,250 @@ namespace DaemonKit.ViewModels
                         StatusMessage = "包中没有进程树数据";
                     }
                 }
+                catch (InvalidDataException ex)
+                {
+                    // ZIP格式错误
+                    NLog.LogManager.GetCurrentClassLogger().Error(ex, "无效的包文件格式");
+                    StatusMessage = "文件格式错误";
+                    MessageBox.Show(
+                        $"无效的包文件：{ex.Message}\n\n请选择正确的 .dkit 格式文件。",
+                        "文件格式错误",
+                        MessageBoxButton.OK,
+                        MessageBoxImage.Error
+                    );
+                    Metadata = null;
+                    HasConfigs = false;
+                    HasProcesses = false;
+                }
                 catch (Exception ex)
                 {
+                    NLog.LogManager.GetCurrentClassLogger().Error(ex, "读取包信息失败");
                     StatusMessage = $"读取包信息失败: {ex.Message}";
                     MessageBox.Show(
-                        $"无法读取包信息：{ex.Message}",
+                        $"无法读取包信息：{ex.Message}\n\n请确保：\n1. 文件是有效的 .dkit 包\n2. 文件未被其他程序占用\n3. 文件没有损坏",
                         "错误",
                         MessageBoxButton.OK,
                         MessageBoxImage.Error
                     );
                     Metadata = null;
+                    HasConfigs = false;
+                    HasProcesses = false;
                 }
             }
         }
 
         private async Task ExecuteImportAsync()
         {
-            if (string.IsNullOrEmpty(PackagePath) || !System.IO.File.Exists(PackagePath))
-            {
-                MessageBox.Show("请选择有效的配置包文件。", "提示", MessageBoxButton.OK, MessageBoxImage.Warning);
-                return;
-            }
-
-            // 确认对话框
-            var confirmMessage = "确定要导入选中的内容吗？";
-            if (ImportConfigs && ImportProcesses)
-            {
-                confirmMessage = "将导入配置文件和进程树，是否继续？";
-            }
-            else if (ImportConfigs)
-            {
-                confirmMessage = "将导入配置文件，是否继续？";
-            }
-            else if (ImportProcesses)
-            {
-                confirmMessage = "将导入进程树，是否继续？";
-            }
-            else
-            {
-                MessageBox.Show("请至少选择一项导入内容。", "提示", MessageBoxButton.OK, MessageBoxImage.Warning);
-                return;
-            }
-
-            var result = MessageBox.Show(
-                confirmMessage,
-                "确认导入",
-                MessageBoxButton.YesNo,
-                MessageBoxImage.Question
-            );
-            if (result != MessageBoxResult.Yes)
-                return;
-
+            ProgressWindow progressWindow = null;
             try
             {
-                IsImporting = true;
-                ProgressPercentage = 0;
-                StatusMessage = "准备导入...";
-                _cancellationTokenSource = new CancellationTokenSource();
-
-                // 创建进度回调
-                var statusProgress = new Progress<string>(msg => StatusMessage = msg);
-                var decompressionProgress = new Progress<CompressionProgress>(p =>
-                {
-                    ProgressPercentage = p.Percentage;
-                    CurrentFile = p.CurrentFile;
-                });
-                var copyProgress = new Progress<FileCopyProgress>(p =>
-                {
-                    ProgressPercentage = p.Percentage;
-                    CurrentFile = p.CurrentFile;
-                });
-
-                // 收集选中的进程节点
-                var selectedNodes = GetSelectedNodes(AvailableProcessTree);
-
-                // 执行导入（覆盖配置固定为true，AutoMovePrograms固定为true）
-                var success = await ExportImportService.ImportPackageAsync(
-                    PackagePath,
-                    ImportConfigs, // 是否导入配置
-                    ImportProcesses && selectedNodes != null && selectedNodes.Any(), // 是否导入进程
-                    selectedNodes,
-                    ClearExistingTree,
-                    OverwriteConflicts, // 传递冲突覆盖策略
-                    statusProgress,
-                    decompressionProgress,
-                    copyProgress,
-                    _cancellationTokenSource.Token
-                );
-
-                if (success)
+                if (string.IsNullOrEmpty(PackagePath) || !System.IO.File.Exists(PackagePath))
                 {
                     MessageBox.Show(
-                        "配置包导入成功！请重启应用以加载新配置。",
-                        "导入完成",
+                        "请选择有效的配置包文件。",
+                        "提示",
                         MessageBoxButton.OK,
-                        MessageBoxImage.Information
+                        MessageBoxImage.Warning
                     );
+                    return;
+                }
+
+                // 检查是否至少选择了一项导入内容
+                if (!ImportConfigs && !ImportProcesses)
+                {
+                    MessageBox.Show(
+                        "请至少选择一项导入内容。",
+                        "提示",
+                        MessageBoxButton.OK,
+                        MessageBoxImage.Warning
+                    );
+                    return;
+                }
+
+                try
+                {
+                    // 收集选中的进程节点
+                    var selectedNodes = GetSelectedNodes(AvailableProcessTree);
+
+                    // 检查根节点是否被选中
+                    bool isRootNodeSelected = false;
+                    if (AvailableProcessTree != null && AvailableProcessTree.Count > 0)
+                    {
+                        var rootNode = AvailableProcessTree.FirstOrDefault(p => p.Parent == null);
+                        isRootNodeSelected = rootNode?.IsSelected == true;
+                    }
+
+                    // 根节点选中 = 清空模式 + 同步项目名称
+                    bool clearMode = isRootNodeSelected;
+                    bool useProjectName =
+                        isRootNodeSelected && !string.IsNullOrEmpty(ImportedProjectName);
+
+                    // 生成摘要信息
+                    var summaryParts = new List<string>();
+                    if (ImportConfigs)
+                        summaryParts.Add("配置文件");
+                    if (ImportProcesses && selectedNodes != null && selectedNodes.Any())
+                        summaryParts.Add($"{selectedNodes.Count} 个程序");
+                    var summary = $"导入内容: {string.Join("、", summaryParts)}";
+
+                    // 创建进度窗口 ViewModel
+                    var progressViewModel = new ProgressWindowViewModel(PackageOperationType.Import)
+                    {
+                        PackagePath = PackagePath,
+                        OperationSummary = summary
+                    };
+
+                    // 创建并显示进度窗口
+                    progressWindow = new ProgressWindow(progressViewModel)
+                    {
+                        Owner = Application.Current.MainWindow
+                    };
+                    progressWindow.Show();
+
+                    // 关闭配置对话框
                     _closeAction?.Invoke(true);
+
+                    // 创建进度回调 - 发送消息到 MessageBus
+                    var statusProgress = new Progress<string>(msg =>
+                    {
+                        ReactiveUI.MessageBus.Current.SendMessage(
+                            new PackageProgressInfo
+                            {
+                                IsActive = true,
+                                OperationType = PackageOperationType.Import,
+                                StatusMessage = msg,
+                                DialogInstance = progressWindow
+                            }
+                        );
+                    });
+
+                    var decompressionProgress = new Progress<CompressionProgress>(p =>
+                    {
+                        ReactiveUI.MessageBus.Current.SendMessage(
+                            new PackageProgressInfo
+                            {
+                                IsActive = true,
+                                OperationType = PackageOperationType.Import,
+                                ProgressPercentage = p.Percentage,
+                                StatusMessage = "解压文件中...",
+                                CurrentFile = p.CurrentFile,
+                                DialogInstance = progressWindow
+                            }
+                        );
+                    });
+
+                    var copyProgress = new Progress<FileCopyProgress>(p =>
+                    {
+                        ReactiveUI.MessageBus.Current.SendMessage(
+                            new PackageProgressInfo
+                            {
+                                IsActive = true,
+                                OperationType = PackageOperationType.Import,
+                                ProgressPercentage = p.Percentage,
+                                StatusMessage = "复制文件中...",
+                                CurrentFile = p.CurrentFile,
+                                DialogInstance = progressWindow
+                            }
+                        );
+                    });
+
+                    // 执行导入（覆盖模式固定为true）
+                    var success = await ExportImportService.ImportPackageAsync(
+                        PackagePath,
+                        ImportConfigs, // 是否导入配置
+                        ImportProcesses && selectedNodes != null && selectedNodes.Any(), // 是否导入进程
+                        selectedNodes,
+                        clearMode, // 根节点选中时清空
+                        true, // 覆盖模式固定为true
+                        useProjectName, // 根据根节点选择状态决定是否使用导入的项目名称
+                        ImportedProjectName, // 传递导入的项目名称
+                        statusProgress,
+                        decompressionProgress,
+                        copyProgress,
+                        progressViewModel.CancellationToken
+                    );
+
+                    if (success)
+                    {
+                        ReactiveUI.MessageBus.Current.SendMessage(
+                            new PackageProgressInfo
+                            {
+                                IsActive = false,
+                                OperationType = PackageOperationType.Import,
+                                StatusMessage = "导入完成！请重启应用以加载新配置",
+                                ProgressPercentage = 100,
+                                DialogInstance = progressWindow
+                            }
+                        );
+                    }
+                    else
+                    {
+                        ReactiveUI.MessageBus.Current.SendMessage(
+                            new PackageProgressInfo
+                            {
+                                IsActive = false,
+                                OperationType = PackageOperationType.Import,
+                                StatusMessage = "导入失败，请查看日志",
+                                DialogInstance = progressWindow
+                            }
+                        );
+                    }
                 }
-                else
+                catch (OperationCanceledException)
                 {
-                    MessageBox.Show(
-                        "配置包导入失败，请查看日志了解详情。",
-                        "导入失败",
-                        MessageBoxButton.OK,
-                        MessageBoxImage.Error
+                    NLog.LogManager.GetCurrentClassLogger().Info("导入操作被用户取消");
+
+                    ReactiveUI.MessageBus.Current.SendMessage(
+                        new PackageProgressInfo
+                        {
+                            IsActive = false,
+                            OperationType = PackageOperationType.Import,
+                            StatusMessage = "导入已取消",
+                            DialogInstance = progressWindow
+                        }
+                    );
+                }
+                catch (Exception ex)
+                {
+                    var errorMessage = ex.Message;
+
+                    // 对常见错误提供友好提示
+                    if (ex is IOException ioEx && ioEx.HResult == unchecked((int)0x80070020))
+                    {
+                        errorMessage =
+                            $"文件被占用，无法访问。请关闭可能正在使用该文件的程序（如压缩软件、文件管理器等）后重试。\n详细信息：{ex.Message}";
+                    }
+                    else if (ex is UnauthorizedAccessException)
+                    {
+                        errorMessage = $"没有访问权限。请确保对目标位置有写入权限，或尝试以管理员身份运行程序。\n详细信息：{ex.Message}";
+                    }
+
+                    NLog.LogManager.GetCurrentClassLogger().Error(ex, "导入软件包时发生未处理的异常");
+
+                    ReactiveUI.MessageBus.Current.SendMessage(
+                        new PackageProgressInfo
+                        {
+                            IsActive = false,
+                            OperationType = PackageOperationType.Import,
+                            StatusMessage = $"导入失败: {errorMessage}",
+                            DialogInstance = progressWindow
+                        }
                     );
                 }
             }
-            catch (OperationCanceledException)
+            catch (Exception outerEx)
             {
-                StatusMessage = "导入已取消";
-                MessageBox.Show("导入操作已取消。", "取消", MessageBoxButton.OK, MessageBoxImage.Information);
-            }
-            catch (Exception ex)
-            {
-                StatusMessage = $"导入失败: {ex.Message}";
-                MessageBox.Show(
-                    $"导入失败：{ex.Message}",
-                    "错误",
-                    MessageBoxButton.OK,
-                    MessageBoxImage.Error
+                // 最外层异常捕获，防止程序崩溃
+                NLog.LogManager.GetCurrentClassLogger().Fatal(outerEx, "导入操作发生严重错误");
+                ReactiveUI.MessageBus.Current.SendMessage(
+                    new PackageProgressInfo
+                    {
+                        IsActive = false,
+                        OperationType = PackageOperationType.Import,
+                        StatusMessage = $"严重错误: {outerEx.Message}",
+                        DialogInstance = progressWindow
+                    }
                 );
-            }
-            finally
-            {
-                IsImporting = false;
-                _cancellationTokenSource?.Dispose();
-                _cancellationTokenSource = null;
             }
         }
 
@@ -347,9 +573,27 @@ namespace DaemonKit.ViewModels
                 {
                     if (item.IsSelected)
                     {
-                        // 添加选中的节点（包括其所有子树）
-                        selected.Add(item);
-                        // 不再递归子节点，因为子树已经包含在父节点中
+                        // 跳过虚拟根节点（没有程序文件的根节点），继续递归其子节点
+                        bool isVirtualRoot =
+                            item.Parent == null
+                            && (
+                                string.IsNullOrEmpty(item.MetaData?.Path)
+                                || !System.IO.File.Exists(item.NodePath)
+                            );
+
+                        if (isVirtualRoot)
+                        {
+                            // 虚拟根节点：递归收集其选中的子节点
+                            if (item.Children != null && item.Children.Count > 0)
+                            {
+                                CollectSelected(item.Children);
+                            }
+                        }
+                        else
+                        {
+                            // 实际节点：添加它
+                            selected.Add(item);
+                        }
                     }
                     else if (item.Children != null && item.Children.Count > 0)
                     {
@@ -361,6 +605,60 @@ namespace DaemonKit.ViewModels
 
             CollectSelected(nodes);
             return selected;
+        }
+
+        private void SetSelection(IEnumerable<ProcessItem> nodes, bool selected)
+        {
+            if (nodes == null)
+                return;
+
+            foreach (var item in nodes)
+            {
+                item.IsSelected = selected;
+                if (item.Children != null && item.Children.Count > 0)
+                {
+                    SetSelection(item.Children, selected);
+                }
+            }
+        }
+
+        /// <summary>
+        /// 设置对话框窗口引用（用于最小化）
+        /// </summary>
+        public void SetDialogWindow(Window window)
+        {
+            _dialogWindow = window;
+
+            // 处理窗口关闭事件：如果正在安装，视为最小化
+            _dialogWindow.Closing += (s, e) =>
+            {
+                if (IsImporting)
+                {
+                    e.Cancel = true;
+                    MinimizeCommand.Execute().Subscribe();
+                }
+            };
+        }
+
+        /// <summary>
+        /// 发送进度更新到主窗口
+        /// </summary>
+        private void SendProgressUpdate()
+        {
+            if (_dialogWindow != null && IsImporting)
+            {
+                ReactiveUI.MessageBus.Current.SendMessage(
+                    new PackageProgressInfo
+                    {
+                        OperationType = PackageOperationType.Import,
+                        IsActive = IsImporting,
+                        ProgressPercentage = ProgressPercentage,
+                        StatusMessage = StatusMessage,
+                        CurrentFile = CurrentFile,
+                        DialogInstance = _dialogWindow
+                    }
+                );
+            }
         }
     }
 }
