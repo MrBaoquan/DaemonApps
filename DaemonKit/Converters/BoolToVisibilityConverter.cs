@@ -7,24 +7,37 @@ namespace DaemonKit.Converters;
 
 /// <summary>
 /// 将布尔值转换为 Visibility (true -> Visible, false -> Collapsed)
+/// 支持 ConverterParameter="Inverse" 反转逻辑
 /// </summary>
 public class BoolToVisibilityConverter : IValueConverter
 {
     public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
     {
-        if (value is bool boolValue)
+        bool boolValue = value is bool b && b;
+
+        // 检查是否需要反转
+        bool inverse =
+            parameter?.ToString()?.Equals("Inverse", StringComparison.OrdinalIgnoreCase) == true;
+
+        if (inverse)
         {
-            return boolValue ? Visibility.Visible : Visibility.Collapsed;
+            return boolValue ? Visibility.Collapsed : Visibility.Visible;
         }
-        return Visibility.Collapsed;
+
+        return boolValue ? Visibility.Visible : Visibility.Collapsed;
     }
 
     public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
     {
+        bool inverse =
+            parameter?.ToString()?.Equals("Inverse", StringComparison.OrdinalIgnoreCase) == true;
+
         if (value is Visibility visibility)
         {
-            return visibility == Visibility.Visible;
+            bool result = visibility == Visibility.Visible;
+            return inverse ? !result : result;
         }
+
         return false;
     }
 }

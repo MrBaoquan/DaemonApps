@@ -130,10 +130,10 @@
                                       Icon="{materialDesign:PackIcon Kind=FolderImage}"
                                       Click="OpenScreenshotFolder_Click"/>
                             <Separator/>
-                            <MenuItem Header="导出配置包"
+                            <MenuItem Header="导出软件包"
                                       Icon="{materialDesign:PackIcon Kind=Export}"
                                       Click="ExportConfig_Click"/>
-                            <MenuItem Header="导入配置包"
+                            <MenuItem Header="导入软件包"
                                       Icon="{materialDesign:PackIcon Kind=Import}"
                                       Click="ImportConfig_Click"/>
                             <Separator/>
@@ -360,6 +360,7 @@
                     <StatusBar x:Name="statusbar"
                                Background="Transparent"
                                VerticalAlignment="Center">
+
                         <StatusBarItem Margin="4,0,0,0"
                                        ToolTipService.ShowOnDisabled="True">
                             <StatusBarItem.Style>
@@ -442,6 +443,39 @@
                                 </materialDesign:PackIcon.Style>
                             </materialDesign:PackIcon>
                         </StatusBarItem>
+
+                        <!-- 软件包操作进度指示器（放在省电图标右侧） -->
+                        <StatusBarItem x:Name="PackageProgressItem"
+                                       Visibility="Collapsed"
+                                       Margin="4,0,0,0">
+                            <Button x:Name="PackageProgressButton"
+                                    Style="{StaticResource MaterialDesignFlatButton}"
+                                    Height="28"
+                                    Padding="8,4"
+                                    Click="PackageProgressButton_Click"
+                                    ToolTip="点击展开进度面板">
+                                <StackPanel Orientation="Horizontal">
+                                    <materialDesign:PackIcon Kind="Package"
+                                                             Width="16"
+                                                             Height="16"
+                                                             VerticalAlignment="Center"
+                                                             Foreground="#2196F3"
+                                                             Margin="0,0,6,0"/>
+                                    <TextBlock x:Name="PackageProgressText"
+                                               Text="正在打包..."
+                                               FontSize="12"
+                                               VerticalAlignment="Center"
+                                               Margin="0,0,6,0"/>
+                                    <TextBlock x:Name="PackageProgressPercentage"
+                                               Text="0%"
+                                               FontSize="12"
+                                               FontWeight="Medium"
+                                               Foreground="#2196F3"
+                                               VerticalAlignment="Center"/>
+                                </StackPanel>
+                            </Button>
+                        </StatusBarItem>
+
                         <StatusBarItem DockPanel.Dock="Right"
                                        HorizontalAlignment="Right"
                                        Margin="0,0,12,0">

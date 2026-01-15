@@ -24,6 +24,7 @@
             <!-- Converters -->
             <converters:NotNullToVisibilityConverter x:Key="NotNullToVisibilityConverter"/>
             <converters:GreaterThanZeroToVisibilityConverter x:Key="GreaterThanZeroToVisibilityConverter"/>
+            <converters:BooleanInverterConverter x:Key="InverseBooleanConverter"/>
             <BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter"/>
 
         </ResourceDictionary>

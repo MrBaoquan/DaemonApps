@@ -33,11 +33,44 @@ namespace DaemonKit.Services
         private ProcessItem? _rootProcessNode;
         private int _broadcastInterval = 3000; // 默认3秒
 
+        private volatile bool _hardwareInfoReady = false;
+        private Action? _hardwareInfoReadyCallback;
+
         public NetworkBroadcastService()
         {
             _hardwareInfo = new HardwareInfo();
-            _hardwareInfo.RefreshAll();
             _machineInfo = new MachineInfo();
+
+            // 异步预热硬件信息，避免阻塞主线程启动
+            System.Threading.Tasks.Task.Run(() =>
+            {
+                try
+                {
+                    _hardwareInfo.RefreshAll();
+                    _hardwareInfoReady = true;
+                    NLogger.Info("[Network] 硬件信息预热完成");
+
+                    // 通知主窗口更新显示
+                    _hardwareInfoReadyCallback?.Invoke();
+                }
+                catch (Exception ex)
+                {
+                    NLogger.Warn($"[Network] 硬件信息预热失败: {ex.Message}");
+                }
+            });
+        }
+
+        /// <summary>
+        /// 设置硬件信息就绪时的回调
+        /// </summary>
+        public void SetHardwareInfoReadyCallback(Action callback)
+        {
+            _hardwareInfoReadyCallback = callback;
+            // 如果已经就绪，立即调用
+            if (_hardwareInfoReady)
+            {
+                callback?.Invoke();
+            }
         }
 
         /// <summary>
@@ -100,19 +133,24 @@ namespace DaemonKit.Services
                 HardwareInfo.GetLocalIPv4Addresses().Select(ip => ip.ToString())
             );
 
-            _machineInfo.CPUs = new System.Collections.ObjectModel.ObservableCollection<string>(
-                _hardwareInfo.CpuList.Select(cpu => cpu.Name)
-            );
+            // 若硬件信息尚未准备好，跳过昂贵的采集以避免阻塞
+            if (_hardwareInfoReady)
+            {
+                _machineInfo.CPUs = new System.Collections.ObjectModel.ObservableCollection<string>(
+                    _hardwareInfo.CpuList.Select(cpu => cpu.Name)
+                );
 
-            _machineInfo.GPUs = new System.Collections.ObjectModel.ObservableCollection<string>(
-                _hardwareInfo.VideoControllerList.Select(gpu => gpu.Name)
-            );
+                _machineInfo.GPUs = new System.Collections.ObjectModel.ObservableCollection<string>(
+                    _hardwareInfo.VideoControllerList.Select(gpu => gpu.Name)
+                );
 
-            _machineInfo.Memories = new System.Collections.ObjectModel.ObservableCollection<string>(
-                _hardwareInfo.MemoryList.Select(
-                    mem => mem.Manufacturer + mem.PartNumber + mem.Capacity.FormatBytes()
-                )
-            );
+                _machineInfo.Memories =
+                    new System.Collections.ObjectModel.ObservableCollection<string>(
+                        _hardwareInfo.MemoryList.Select(
+                            mem => mem.Manufacturer + mem.PartNumber + mem.Capacity.FormatBytes()
+                        )
+                    );
+            }
         }
 
         /// <summary>

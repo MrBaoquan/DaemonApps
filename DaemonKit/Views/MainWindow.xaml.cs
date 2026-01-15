@@ -97,6 +97,10 @@ namespace DaemonKit
         private CountdownConfirmDialog? _activeCountdownDialog;
         private readonly List<TaskCompletionSource<bool>> _countdownAwaiters = new();
 
+        // 导入导出全局互斥锁 - 确保同时只有一个在进行
+        private static bool _isExporting = false;
+        private static bool _isImporting = false;
+
         #endregion
 
         #region Initialization Methods
@@ -181,6 +185,12 @@ namespace DaemonKit
             // 初始化服务层（在 AppSettings 加载后会调用 Initialize）
             _powerSavingService = new PowerSavingService();
             // _idleMonitorService 将在 loadConfig 后初始化
+
+            // 订阅软件包操作进度消息
+            ReactiveUI.MessageBus.Current
+                .Listen<PackageProgressInfo>()
+                .ObserveOn(RxApp.MainThreadScheduler)
+                .Subscribe(OnPackageProgressUpdate);
 
             this.WhenActivated(disposables =>
             {
@@ -702,6 +712,12 @@ namespace DaemonKit
                 // 网络广播和命令接收已迁移到 NetworkBroadcastService
                 _networkBroadcastService = new NetworkBroadcastService();
                 _networkBroadcastService.Start(rootProcessNode, AppSettings.DaemonInterval);
+
+                // 设置硬件信息就绪回调，自动更新硬件信息显示
+                _networkBroadcastService.SetHardwareInfoReadyCallback(() =>
+                {
+                    Dispatcher.InvokeAsync(() => FetchHardwareInfo());
+                });
 
                 // 崩溃检测已迁移到 CrashDetectionService
                 if (!string.IsNullOrWhiteSpace(AppSettings.CrashWindows))
@@ -1907,11 +1923,43 @@ namespace DaemonKit
         {
             try
             {
-                var exportDialog = new ExportDialog(rootProcessNode.Children) { Owner = this };
+                // 检查是否已有导入/导出在进行
+                if (_isImporting)
+                {
+                    MessageBox.Show(
+                        "导入正在进行中，请等待导入完成后再进行导出",
+                        "提示",
+                        MessageBoxButton.OK,
+                        MessageBoxImage.Information
+                    );
+                    return;
+                }
+
+                if (_isExporting)
+                {
+                    MessageBox.Show(
+                        "导出已在进行中，请等待完成",
+                        "提示",
+                        MessageBoxButton.OK,
+                        MessageBoxImage.Information
+                    );
+                    return;
+                }
+
+                // 传入包含根节点的列表，确保导出时能看到并选择根节点
+                var exportDialog = new ExportDialog(new[] { rootProcessNode }) { Owner = this };
+
+                // 设置导出标志
+                _isExporting = true;
+
                 exportDialog.ShowDialog();
+
+                // 导出完成，重置标志
+                _isExporting = false;
             }
             catch (Exception ex)
             {
+                _isExporting = false;
                 NLogger.Error($"打开导出对话框失败: {ex.Message}");
                 MessageBox.Show(
                     $"打开导出对话框失败：{ex.Message}",
@@ -1926,8 +1974,38 @@ namespace DaemonKit
         {
             try
             {
+                // 检查是否已有导入/导出在进行
+                if (_isExporting)
+                {
+                    MessageBox.Show(
+                        "导出正在进行中，请等待导出完成后再进行导入",
+                        "提示",
+                        MessageBoxButton.OK,
+                        MessageBoxImage.Information
+                    );
+                    return;
+                }
+
+                if (_isImporting)
+                {
+                    MessageBox.Show(
+                        "导入已在进行中，请等待完成",
+                        "提示",
+                        MessageBoxButton.OK,
+                        MessageBoxImage.Information
+                    );
+                    return;
+                }
+
+                // 设置导入标志
+                _isImporting = true;
+
                 var importDialog = new ImportDialog { Owner = this };
                 importDialog.ShowDialog();
+
+                // 导入完成，重置标志
+                _isImporting = false;
+
                 if (importDialog.DialogResult == true)
                 {
                     // 重新加载进程树
@@ -1936,29 +2014,21 @@ namespace DaemonKit
                         loadConfig();
                         NLogger.Info("导入后已重新加载进程树配置");
                     }
-                    catch (Exception loadEx)
+                    catch (Exception ex)
                     {
-                        NLogger.Error($"重新加载进程树失败: {loadEx.Message}");
-                    }
-
-                    // 提示用户重启应用
-                    var restartResult = MessageBox.Show(
-                        "配置已导入成功，进程树已重新加载。\n\n建议重启应用以完整加载所有配置。是否立即重启？",
-                        "重启确认",
-                        MessageBoxButton.YesNo,
-                        MessageBoxImage.Question
-                    );
-
-                    if (restartResult == MessageBoxResult.Yes)
-                    {
-                        // 重启应用
-                        System.Windows.Forms.Application.Restart();
-                        Application.Current.Shutdown();
+                        NLogger.Error($"导入后重新加载配置失败: {ex.Message}");
+                        MessageBox.Show(
+                            $"重新加载配置失败：{ex.Message}",
+                            "错误",
+                            MessageBoxButton.OK,
+                            MessageBoxImage.Error
+                        );
                     }
                 }
             }
             catch (Exception ex)
             {
+                _isImporting = false;
                 NLogger.Error($"打开导入对话框失败: {ex.Message}");
                 MessageBox.Show(
                     $"打开导入对话框失败：{ex.Message}",
@@ -1994,6 +2064,89 @@ namespace DaemonKit
                     }
                 }
             }
+        }
+
+        #endregion
+
+        #region 软件包操作进度处理
+
+        private Window _currentPackageDialog;
+
+        /// <summary>
+        /// 处理软件包操作进度更新
+        /// </summary>
+        private void OnPackageProgressUpdate(PackageProgressInfo progressInfo)
+        {
+            if (progressInfo.IsActive)
+            {
+                // 更新进度文本和百分比
+                PackageProgressText.Text =
+                    progressInfo.OperationType == PackageOperationType.Export
+                        ? "正在打包..."
+                        : "正在安装...";
+                PackageProgressPercentage.Text = $"{progressInfo.ProgressPercentage:F0}%";
+
+                // 更新对话框引用（如果提供）
+                if (progressInfo.DialogInstance != null)
+                {
+                    _currentPackageDialog = progressInfo.DialogInstance as Window;
+                }
+
+                // 如果有对话框引用且窗口是隐藏的，显示状态栏进度
+                if (_currentPackageDialog != null && !_currentPackageDialog.IsVisible)
+                {
+                    PackageProgressItem.Visibility = Visibility.Visible;
+                }
+            }
+            else
+            {
+                // 操作完成，隐藏进度并清空引用
+                PackageProgressItem.Visibility = Visibility.Collapsed;
+                _currentPackageDialog = null;
+            }
+        }
+
+        /// <summary>
+        /// 点击进度按钮唤起对话框
+        /// </summary>
+        private void PackageProgressButton_Click(object sender, RoutedEventArgs e)
+        {
+            if (_currentPackageDialog != null)
+            {
+                // 检查窗口是否已关闭（PresentationSource为null表示窗口已关闭）
+                if (System.Windows.PresentationSource.FromVisual(_currentPackageDialog) == null)
+                {
+                    // 窗口已关闭，清理状态栏
+                    HidePackageProgressInStatusBar();
+                    return;
+                }
+
+                // 显示窗口
+                _currentPackageDialog.Show();
+                _currentPackageDialog.WindowState = System.Windows.WindowState.Normal;
+                _currentPackageDialog.Activate();
+
+                // 禁用主窗口，恢复模态效果
+                this.IsEnabled = false;
+            }
+        }
+
+        /// <summary>
+        /// 显示状态栏进度指示器（用于进度窗口隐藏时）
+        /// </summary>
+        public void ShowPackageProgressInStatusBar()
+        {
+            // 直接设置为可见，因为隐藏时一定有活动的进度
+            PackageProgressItem.Visibility = Visibility.Visible;
+        }
+
+        /// <summary>
+        /// 隐藏状态栏软件包操作进度并清空引用
+        /// </summary>
+        public void HidePackageProgressInStatusBar()
+        {
+            PackageProgressItem.Visibility = Visibility.Collapsed;
+            _currentPackageDialog = null;
         }
 
         #endregion
