@@ -34,7 +34,8 @@ struct WatermarkConfig {
 
 // 颜色转换工具
 inline ImVec4 HexToColor(const std::string& hex) {
-    ImVec4 color(1.0f, 0.4f, 0.4f, 1.0f);
+    // 默认：#dc2626ff (220, 38, 38, 255 => 红色，完全不透明)
+    ImVec4 color(0.863f, 0.149f, 0.149f, 1.0f);
     if (hex.empty()) return color;
     
     std::string _hex = hex;

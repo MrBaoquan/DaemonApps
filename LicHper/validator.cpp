@@ -392,6 +392,9 @@ UserInfo loadUser(const std::string& userLicense)
     return _userInfo;
 }
 
+// 超级授权码标识（AppID为此值时跳过AppID验证）
+const std::string SUPER_LICENSE_APPID = "*";
+
 std::string g_appID;
 
 // 根据用户许可证对app进行授权
@@ -402,19 +405,29 @@ int RenewByLicense(const char* key) {
 		return 10001;   // 无效的许可证
 	}
 
-    if (user.appid != g_appID)
+    // 检查是否为超级授权码（AppID为"*"时跳过AppID验证）
+    bool isSuperLicense = (user.appid == SUPER_LICENSE_APPID);
+    
+    // 普通授权码需要验证AppID匹配
+    if (!isSuperLicense && user.appid != g_appID)
     {
 		return 10002;   // 无效的软件ID
 	}
 
     auto license = License::Load();
-	auto appInfo = license[user.appid];
+    
+    // 超级授权码使用当前软件的appID，普通授权码使用自身的appID
+    std::string targetAppID = isSuperLicense ? g_appID : user.appid;
+    
+	auto appInfo = license[targetAppID];
     appInfo.username = user.username;
     appInfo.expired_at = user.expired_at;
     appInfo.last_verified_at = latestSystime(appInfo.last_verified_at);
-    license.data[user.appid] = appInfo;
+    appInfo.appid = targetAppID;  // 确保使用正确的appID
+    
+    license.data[targetAppID] = appInfo;
     License::Save(license);
-	return Validate(string2BSTR(appInfo.appid));
+	return Validate(string2BSTR(targetAppID));
 }
 
 
@@ -444,7 +457,7 @@ bool checkLogin()
 // 登录
 VALIDATOR_API BSTR __stdcall Login(BSTR userLicense){
     std::string _userLicense = BSTR2String(userLicense);
-    std::string errorMsg = "{\"value0\": {\"error\":\"无效许可证\"}}";
+    std::string errorMsg = "{\"data\": {\"error\":\"无效许可证\"}}";
     // 如果_userLicense为空, 尝试使用本地缓存登录
     if (_userLicense == "")
     {
@@ -478,7 +491,7 @@ VALIDATOR_API BSTR __stdcall Login(BSTR userLicense){
         std::stringstream ss;
         {
             cereal::JSONOutputArchive archive(ss);
-            archive(cereal::make_nvp("value0", _userInfo));
+            archive(cereal::make_nvp("data", _userInfo));
         }
         _userInfoJsonString = ss.str();
     }

@@ -1,5 +1,7 @@
 {
-    "cSpell.words": ["mstsc"],
+    "cSpell.words": [
+        "mstsc"
+    ],
     "dotnet.defaultSolution": "DaemonApps.sln",
     "files.associations": {
         "*.cjson": "jsonc",
@@ -87,5 +89,6 @@
         "xtree": "cpp",
         "xutility": "cpp",
         "codecvt": "cpp"
-    }
+    },
+    "dotnet.preferCSharpExtension": true
 }

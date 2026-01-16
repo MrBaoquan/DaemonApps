@@ -171,12 +171,15 @@ bool RenderManager::LoadConfig(const std::string& iniPath) {
         path = GetUserFolder() + "\\.authrc.ini";
     }
     
-    LOG_INFO("Loading config from: {}", path);
+    LOG_INFO("=== LoadConfig START ===");
+    LOG_INFO("Config file path: {}", path);
+    LOG_INFO("File exists: {}", std::filesystem::exists(path) ? "YES" : "NO");
+    
     bool result = ParseIniConfig(path);
     if (result) {
         LOG_INFO("Config loaded successfully");
         LOG_INFO("  - Title: {}", m_config.title);
-        LOG_INFO("  - FontSize: {}", m_config.fontSize);
+        LOG_INFO("  - FontSize: {} (RAW VALUE FROM INI)", m_config.fontSize);
         LOG_INFO("  - Animate: {}", m_config.animate ? "true" : "false");
         LOG_INFO("  - ImagePath: {}", m_config.imagePath.empty() ? "(default)" : m_config.imagePath);
         LOG_INFO("  - ImageScale: {:.2f}", m_config.imageScale);
@@ -185,7 +188,9 @@ bool RenderManager::LoadConfig(const std::string& iniPath) {
         LOG_INFO("  - Timeout: {}s", m_config.timeout);
     } else {
         LOG_WARNING("Failed to load config, using defaults");
+        LOG_WARNING("Default fontSize: {}", m_config.fontSize);
     }
+    LOG_INFO("=== LoadConfig END ===");
     return result;
 }
 
@@ -280,9 +285,38 @@ bool RenderManager::ParseIniConfig(const std::string& iniPath) {
         file.read(ini);
     }
     
-    // 解析 watermark 节
-    if (ini.has("watermark")) {
-        auto& wm = ini["watermark"];
+    // 构建要查找的 section 名称：首先查找特定应用配置，再查找默认配置
+    std::string watermarkSection = "watermark:default";
+    std::string programSection = "program:default";
+    
+    // 如果存在特定应用配置，使用特定应用配置
+    std::string appWatermarkSection = "watermark:" + g_appID;
+    std::string appProgramSection = "program:" + g_appID;
+    
+    // 检查特定应用的水印配置是否存在
+    if (ini.has(appWatermarkSection)) {
+        watermarkSection = appWatermarkSection;
+    }
+    // 向后兼容：检查旧的 "watermark" 节（不带冒号的格式）
+    else if (ini.has("watermark")) {
+        watermarkSection = "watermark";
+    }
+    
+    // 检查特定应用的程序配置是否存在
+    if (ini.has(appProgramSection)) {
+        programSection = appProgramSection;
+    }
+    // 向后兼容：检查旧的 "program" 节
+    else if (ini.has("program")) {
+        programSection = "program";
+    }
+    
+    LOG_INFO("Loading watermark config from section: [{}]", watermarkSection);
+    LOG_INFO("Loading program config from section: [{}]", programSection);
+    
+    // 解析水印节
+    if (ini.has(watermarkSection)) {
+        auto& wm = ini[watermarkSection];
         
         // 标题
         if (wm.has("title")) {
@@ -291,7 +325,11 @@ bool RenderManager::ParseIniConfig(const std::string& iniPath) {
         
         // 字体大小
         if (wm.has("font_size")) {
-            m_config.fontSize = std::stoi(wm["font_size"]);
+            std::string fontSizeStr = wm["font_size"];
+            m_config.fontSize = std::stoi(fontSizeStr);
+            LOG_INFO("ParseIniConfig: font_size = '{}' -> parsed as {}", fontSizeStr, m_config.fontSize);
+        } else {
+            LOG_WARNING("ParseIniConfig: font_size NOT found in [{}], using default: {}", watermarkSection, m_config.fontSize);
         }
         
         // 颜色
@@ -339,9 +377,9 @@ bool RenderManager::ParseIniConfig(const std::string& iniPath) {
         }
     }
     
-    // 解析 program 节
-    if (ini.has("program")) {
-        auto& prog = ini["program"];
+    // 解析程序节
+    if (ini.has(programSection)) {
+        auto& prog = ini[programSection];
         
         // 超时时间
         if (prog.has("timeout")) {
@@ -386,22 +424,37 @@ void RenderManager::GenerateDefaultConfig(const std::string& iniPath) {
     mINI::INIFile file(iniPath);
     mINI::INIStructure ini;
     
-    ini["help"]["description"] = "\r\n {APPID} 为授权软件ID, 在显示时会被替换为真实ID, {COUNTDOWN}为程序退出倒计时 \n timeout_kill_self 超时是否关闭主进程 \n timeout_kill_other 为退出时同时关闭的进程列表, 多个进程用 | 分隔";
+    ini["help"]["description"] = " {APPID} 为授权软件ID, 在显示时会被替换为真实ID, {COUNTDOWN}为程序退出倒计时 \n timeout_kill_self 超时是否关闭主进程 \n timeout_kill_other 为退出时同时关闭的进程列表, 多个进程用 | 分隔 \n \n 配置说明: \n - [watermark:default] 为所有应用的默认水印配置 \n - [watermark:具体appid] 用来覆盖特定应用的水印配置 \n - [program:default] 为所有应用的默认程序配置 \n - [program:具体appid] 用来覆盖特定应用的程序配置";
     
-    ini["watermark"]["title"] = "{APPID} Demo Version";
-    ini["watermark"]["font_size"] = "80";
-    ini["watermark"]["color"] = "#FF6666";
-    ini["watermark"]["animate"] = "true";
-    ini["watermark"]["image_path"] = "";
-    ini["watermark"]["image_scale"] = "1";
-    ini["watermark"]["image_alpha"] = "0.8";
-    ini["watermark"]["image_align"] = "top-center";
-    ini["watermark"]["image_padding_x"] = "50";
-    ini["watermark"]["image_padding_y"] = "50";
+    // 默认水印配置
+    ini["watermark:default"]["title"] = "{APPID} Demo Version";
+    ini["watermark:default"]["font_size"] = "80";
+    ini["watermark:default"]["color"] = "#dc2626ff";
+    ini["watermark:default"]["animate"] = "true";
+    ini["watermark:default"]["image_path"] = "";
+    ini["watermark:default"]["image_scale"] = "1";
+    ini["watermark:default"]["image_alpha"] = "0.8";
+    ini["watermark:default"]["image_align"] = "top-center";
+    ini["watermark:default"]["image_padding_x"] = "50";
+    ini["watermark:default"]["image_padding_y"] = "50";
+    ini["watermark:default"]["image_animate"] = "false";
     
-    ini["program"]["timeout"] = "60";
-    ini["program"]["timeout_kill_self"] = "false";
-    ini["program"]["timeout_kill_other"] = "";
+    // 默认程序配置
+    ini["program:default"]["timeout"] = "60";
+    ini["program:default"]["timeout_kill_self"] = "false";
+    ini["program:default"]["timeout_kill_other"] = "";
+    
+    // 示例：应用 app001 的特定配置
+    ini["watermark:app001"]["title"] = "App001 - Unlicensed Version";
+    ini["watermark:app001"]["font_size"] = "100";
+    ini["watermark:app001"]["color"] = "#FF0000";
+    ini["watermark:app001"]["animate"] = "true";
+    ini["watermark:app001"]["image_path"] = "watermark_app001.png";
+    ini["watermark:app001"]["image_align"] = "bottom-right";
+    
+    ini["program:app001"]["timeout"] = "120";
+    ini["program:app001"]["timeout_kill_self"] = "true";
+    ini["program:app001"]["timeout_kill_other"] = "notepad.exe|calculator.exe";
     
     file.generate(ini, true);
 }
@@ -437,11 +490,22 @@ void RenderManager::ValidateConfig() {
     }
     
     // 验证字体大小
-    m_config.fontSize = std::clamp(m_config.fontSize, 36, 132);
+    int originalFontSize = m_config.fontSize;
+    // 使用精简字符范围后可支持更大字体（最大 300px）
+    m_config.fontSize = std::clamp(m_config.fontSize, 18, 300);
+    if (originalFontSize != m_config.fontSize) {
+        LOG_WARNING("ValidateConfig: fontSize clamped from {} to {}", originalFontSize, m_config.fontSize);
+    } else {
+        LOG_INFO("ValidateConfig: fontSize validated: {}", m_config.fontSize);
+    }
     
-    // 验证颜色透明度
-    if (m_config.color.w < 0.5f) {
-        m_config.color.w = 0.5f;
+    // 验证颜色透明度（允许更淡的水印，最低 15%）
+    if (m_config.color.w < 0.15f) {
+        LOG_WARNING("ValidateConfig: color alpha too low, clamping to 0.15");
+        m_config.color.w = 0.15f;
+    } else if (m_config.color.w > 1.0f) {
+        LOG_WARNING("ValidateConfig: color alpha too high, clamping to 1.0");
+        m_config.color.w = 1.0f;
     }
     
     // 验证图片缩放

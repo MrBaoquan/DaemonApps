@@ -1,4 +1,5 @@
-﻿using System.Runtime.InteropServices;
+﻿using System.Diagnostics;
+using System.Runtime.InteropServices;
 using System.Text;
 using System.Windows;
 using System.Windows.Controls;
@@ -30,8 +31,9 @@ namespace auth_ghost
         public MainWindow()
         {
             InitializeComponent();
-            Validate("App");
-            Validate("App");
+            string processName = Process.GetCurrentProcess().ProcessName;
+            Validate(processName);
+            Validate(processName);
         }
     }
 }

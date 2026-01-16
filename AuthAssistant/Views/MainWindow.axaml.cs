@@ -82,7 +82,8 @@ namespace AuthAssistant.Views
                             if (_selectedFile != null)
                             {
                                 var _path = _selectedFile.TryGetLocalPath();
-                                if (_path == null) return;
+                                if (_path == null)
+                                    return;
                                 var _licenseKey = System.IO.File.ReadAllText(_path, Encoding.UTF8);
                                 mainWindowViewModel.UserLicense = _licenseKey;
                                 mainWindowViewModel.LoginCommand.Execute(Unit.Default).Subscribe();
@@ -160,31 +161,17 @@ namespace AuthAssistant.Views
                 Action confirmRenew = async () =>
                 {
                     var _dialog = createRenewDialog("许可证续期");
-                    // 确认续费命令
-                    mainWindowViewModel.ConfirmRenewCommand
-                        .FirstOrDefaultAsync()
-                        .Subscribe(_ =>
-                        {
-                            // 将过期时间设置成ExpiredAt日期的23:59:59
-                            var _expiredAt = mainWindowViewModel.ExpiredAt.Date
-                                .AddDays(1)
-                                .AddSeconds(-1);
-
-                            LicHperInterface.Renew(
-                                mainWindowViewModel.AppID,
-                                _expiredAt.ToString("yyyy-MM-dd HH:mm:ss")
-                            );
-                            mainWindowViewModel.LoadLicenseInfos();
-                            _dialog.GetWindow().Close();
-                        });
-
+                    mainWindowViewModel.CloseDialogCallback = () => _dialog.GetWindow().Close();
                     await _dialog.ShowDialog(this);
+                    mainWindowViewModel.CloseDialogCallback = null;
                 };
 
                 mainWindowViewModel.GenerateCommand.Subscribe(async _ =>
                 {
                     var _dialog = createRenewDialog("生成许可证");
+                    mainWindowViewModel.CloseDialogCallback = () => _dialog.GetWindow().Close();
                     await _dialog.ShowDialog(this);
+                    mainWindowViewModel.CloseDialogCallback = null;
                 });
 
                 // 续费命令
@@ -262,8 +249,123 @@ namespace AuthAssistant.Views
                 mainWindowViewModel.LogoutCommand.Subscribe(_ =>
                 {
                     LicHperInterface.Logout();
-                    // reqLogin();
-                    Close();
+                    // 清除管理员状态
+                    mainWindowViewModel.CurrentLicense = null;
+                    mainWindowViewModel.IsAdminLogin = false;
+                    mainWindowViewModel.AdminPassword = string.Empty;
+                    mainWindowViewModel.UserLicense = string.Empty;
+                    // 重新显示登录对话框
+                    reqLogin();
+                });
+
+                // 颁发许可证文件（仅超级管理员）
+                mainWindowViewModel.IssueLicenseCommand.Subscribe(async _ =>
+                {
+                    var dialog = new IssueLicenseDialog();
+                    var result = await dialog.ShowDialog<bool>(this);
+                    if (result && dialog.IssuedLicense != null)
+                    {
+                        // 许可证已保存
+                    }
+                });
+
+                // 导入许可证文件
+                mainWindowViewModel.ImportLicenseCommand.Subscribe(async _ =>
+                {
+                    var files = await this.StorageProvider.OpenFilePickerAsync(
+                        new FilePickerOpenOptions()
+                        {
+                            Title = "选择许可证文件",
+                            AllowMultiple = false,
+                            FileTypeFilter = new[]
+                            {
+                                new FilePickerFileType("许可证文件") { Patterns = new[] { "*.lic" } }
+                            }
+                        }
+                    );
+
+                    var selectedFile = files.FirstOrDefault();
+                    if (selectedFile != null)
+                    {
+                        var path = selectedFile.TryGetLocalPath();
+                        if (path != null)
+                        {
+                            try
+                            {
+                                var encryptedContent = System.IO.File.ReadAllText(path);
+                                var license = mainWindowViewModel.ParseLicenseFile(
+                                    encryptedContent
+                                );
+                                if (license == null)
+                                {
+                                    await Views.MessageBox.Show(this, "许可证文件格式错误或已损坏");
+                                    return;
+                                }
+
+                                // 检查是否过期
+                                var expiredAt = DateTime.Parse(license.ExpiredAt);
+                                if (expiredAt < DateTime.Now)
+                                {
+                                    await Views.MessageBox.Show(this, "许可证已过期");
+                                    return;
+                                }
+
+                                mainWindowViewModel.SaveLicenseFileToLocal(license);
+                                await Views.MessageBox.Show(
+                                    this,
+                                    $"许可证导入成功！\n用户：{license.Username}\n有效期至：{license.ExpiredAt}"
+                                );
+                            }
+                            catch (Exception ex)
+                            {
+                                await Views.MessageBox.Show(this, $"导入失败：{ex.Message}");
+                            }
+                        }
+                    }
+                });
+
+                // 导出许可证文件
+                mainWindowViewModel.ExportLicenseCommand.Subscribe(async _ =>
+                {
+                    if (mainWindowViewModel.CurrentLicense == null)
+                    {
+                        await Views.MessageBox.Show(this, "当前没有可导出的许可证");
+                        return;
+                    }
+
+                    var file = await this.StorageProvider.SaveFilePickerAsync(
+                        new FilePickerSaveOptions()
+                        {
+                            Title = "保存许可证文件",
+                            DefaultExtension = "lic",
+                            SuggestedFileName =
+                                $"{mainWindowViewModel.CurrentLicense.Username}.lic",
+                            FileTypeChoices = new[]
+                            {
+                                new FilePickerFileType("许可证文件") { Patterns = new[] { "*.lic" } }
+                            }
+                        }
+                    );
+
+                    if (file != null)
+                    {
+                        var path = file.TryGetLocalPath();
+                        if (path != null)
+                        {
+                            try
+                            {
+                                var encryptedContent = mainWindowViewModel.GenerateLicenseFile(
+                                    mainWindowViewModel.CurrentLicense
+                                );
+                                System.IO.File.WriteAllText(path, encryptedContent);
+                                await Views.MessageBox.Show(this, $"许可证已导出到：\n{path}");
+                            }
+                            catch (Exception ex)
+                            {
+                                await Views.MessageBox.Show(this, $"导出失败：{ex.Message}");
+                            }
+                        }
+                    }
                 });
 
                 reqLogin();
