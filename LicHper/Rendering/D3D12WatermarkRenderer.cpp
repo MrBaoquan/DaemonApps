@@ -1,5 +1,6 @@
 #include "D3D12WatermarkRenderer.h"
 #include "WatermarkConfig.h"
+#include "ImGuiWatermarkCore.h"
 #include "Logger.h"
 #include "imgui.h"
 #include "imgui_impl_win32.h"
@@ -14,6 +15,7 @@ namespace LicHper {
 
 D3D12WatermarkRenderer::D3D12WatermarkRenderer() {
     m_pConfig = new WatermarkConfig();
+    m_watermarkCore = std::make_unique<ImGuiWatermarkCore>();
 }
 
 D3D12WatermarkRenderer::~D3D12WatermarkRenderer() {
@@ -74,9 +76,91 @@ bool D3D12WatermarkRenderer::Initialize(IDXGISwapChain* pSwapChain, ID3D12Device
     ImGui::CreateContext();
     ImGuiIO& io = ImGui::GetIO();
     io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
+    io.ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad;
     io.IniFilename = nullptr;  // 禁用配置文件
+    io.Fonts->Flags |= ImFontAtlasFlags_NoPowerOfTwoHeight;
+    
+    // 启用剪贴板支持
+    io.SetClipboardTextFn = [](void*, const char* text) {
+        int len = MultiByteToWideChar(CP_UTF8, 0, text, -1, NULL, 0);
+        if (len > 0) {
+            HGLOBAL hMem = GlobalAlloc(GMEM_MOVEABLE, len * sizeof(wchar_t));
+            if (hMem) {
+                wchar_t* w_text = (wchar_t*)GlobalLock(hMem);
+                MultiByteToWideChar(CP_UTF8, 0, text, -1, w_text, len);
+                GlobalUnlock(hMem);
+                if (OpenClipboard(NULL)) {
+                    EmptyClipboard();
+                    SetClipboardData(CF_UNICODETEXT, hMem);
+                    CloseClipboard();
+                }
+            }
+        }
+    };
+    
+    io.GetClipboardTextFn = [](void*) -> const char* {
+        static std::string clipboard_text;
+        clipboard_text.clear();
+        if (OpenClipboard(NULL)) {
+            HANDLE hMem = GetClipboardData(CF_UNICODETEXT);
+            if (hMem) {
+                const wchar_t* w_text = (const wchar_t*)GlobalLock(hMem);
+                if (w_text) {
+                    int len = WideCharToMultiByte(CP_UTF8, 0, w_text, -1, NULL, 0, NULL, NULL);
+                    if (len > 0) {
+                        clipboard_text.resize(len - 1);
+                        WideCharToMultiByte(CP_UTF8, 0, w_text, -1, (char*)clipboard_text.data(), len, NULL, NULL);
+                    }
+                }
+                GlobalUnlock(hMem);
+            }
+            CloseClipboard();
+        }
+        return clipboard_text.c_str();
+    };
     
     ImGui::StyleColorsDark();
+    
+    // 加载中文字体
+    ImFontConfig fontConfig;
+    fontConfig.OversampleH = 3;
+    fontConfig.OversampleV = 1;
+    fontConfig.PixelSnapH = false;
+    fontConfig.RasterizerMultiply = 1.3f;
+    
+    // UI 控件字体（固定 18px）
+    m_font = io.Fonts->AddFontFromFileTTF(
+        "c:\\Windows\\Fonts\\msyh.ttc", 18.0f, &fontConfig,
+        io.Fonts->GetGlyphRangesChineseSimplifiedCommon());
+    LOG_INFO("D3D12WatermarkRenderer: UI font loaded (fixed 18px)");
+    
+    // 水印文字字体（可变大小，使用精简字符范围）
+    int watermarkFontSize = 80;  // 默认值
+    {
+        std::lock_guard<std::mutex> lock(m_configMutex);
+        watermarkFontSize = std::clamp(m_pConfig->fontSize, 18, 300);
+    }
+    
+    ImFontConfig titleFontConfig;
+    titleFontConfig.OversampleH = 3;
+    titleFontConfig.OversampleV = 1;
+    titleFontConfig.PixelSnapH = false;
+    titleFontConfig.RasterizerMultiply = 1.3f;
+    
+    // 构建精简字符范围
+    m_watermarkGlyphRanges = ImGuiWatermarkCore::BuildWatermarkGlyphRanges(
+        m_pConfig->title, m_pConfig->appID);
+    
+    m_titleFont = io.Fonts->AddFontFromFileTTF(
+        "c:\\Windows\\Fonts\\msyh.ttc", (float)watermarkFontSize, &titleFontConfig,
+        m_watermarkGlyphRanges.data());
+    LOG_INFO("D3D12WatermarkRenderer: Watermark font loaded ({}px)", watermarkFontSize);
+    
+    // 设置字体到共享核心
+    if (m_watermarkCore) {
+        m_watermarkCore->SetUIFont(m_font);
+        m_watermarkCore->SetWatermarkFont(m_titleFont);
+    }
     
     // 初始化 ImGui Win32 后端
     ImGui_ImplWin32_Init(m_hWnd);
@@ -94,7 +178,7 @@ bool D3D12WatermarkRenderer::Initialize(IDXGISwapChain* pSwapChain, ID3D12Device
     m_imguiInitialized = true;
     m_initialized = true;
     
-    LOG_INFO("D3D12WatermarkRenderer: Initialized successfully");
+    LOG_INFO("D3D12WatermarkRenderer: Initialized successfully with Chinese font support");
     return true;
 }
 
@@ -268,6 +352,20 @@ void D3D12WatermarkRenderer::WaitForGpu() {
 void D3D12WatermarkRenderer::UpdateConfig(const WatermarkConfig& config) {
     std::lock_guard<std::mutex> lock(m_configMutex);
     *m_pConfig = config;
+    
+    // 同步到共享核心
+    if (m_watermarkCore) {
+        m_watermarkCore->UpdateConfig(config);
+    }
+}
+
+void D3D12WatermarkRenderer::SetStartTime(std::chrono::high_resolution_clock::time_point startTime) {
+    m_startTime = startTime;
+    
+    // 同步到共享核心
+    if (m_watermarkCore) {
+        m_watermarkCore->SetStartTime(startTime);
+    }
 }
 
 void D3D12WatermarkRenderer::OnResize(UINT width, UINT height) {
@@ -327,12 +425,15 @@ void D3D12WatermarkRenderer::Render(IDXGISwapChain* pSwapChain) {
     float windowWidth = io.DisplaySize.x;
     float windowHeight = io.DisplaySize.y;
     
-    // 渲染水印内容
-    RenderWatermarkContent(windowWidth, windowHeight);
-    
-    // 渲染授权窗口
-    if (m_showLicenseWindow) {
-        if (RenderLicenseWindow(windowWidth, windowHeight)) {
+    // 使用共享核心渲染水印内容
+    if (m_watermarkCore) {
+        m_watermarkCore->RenderWatermarkContent(windowWidth, windowHeight);
+        
+        // 渲染授权窗口（始终调用，按钮显示由内部控制）
+        if (m_watermarkCore->RenderLicenseWindow(m_showLicenseWindow, windowWidth, windowHeight,
+            [this]() { 
+                if (m_exitCallback) m_exitCallback(); 
+            })) {
             if (m_exitCallback) {
                 m_exitCallback();
             }
@@ -357,118 +458,6 @@ void D3D12WatermarkRenderer::Render(IDXGISwapChain* pSwapChain) {
     m_currentFenceValue++;
     m_fenceValues[backBufferIndex] = m_currentFenceValue;
     m_pCommandQueue->Signal(m_pFence, m_currentFenceValue);
-}
-
-void D3D12WatermarkRenderer::RenderWatermarkContent(float windowWidth, float windowHeight) {
-    std::lock_guard<std::mutex> lock(m_configMutex);
-    
-    // 设置透明窗口覆盖整个屏幕
-    ImGui::SetNextWindowPos(ImVec2(0, 0));
-    ImGui::SetNextWindowSize(ImVec2(windowWidth, windowHeight));
-    
-    ImGuiWindowFlags flags = ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize |
-        ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoScrollbar |
-        ImGuiWindowFlags_NoInputs | ImGuiWindowFlags_NoBackground |
-        ImGuiWindowFlags_NoBringToFrontOnFocus;
-    
-    ImGui::Begin("##Watermark", nullptr, flags);
-    
-    // 计算已运行时间
-    auto now = std::chrono::high_resolution_clock::now();
-    auto elapsed = std::chrono::duration_cast<std::chrono::seconds>(now - m_startTime);
-    
-    // 处理水印文本
-    std::string text = m_pConfig->title;
-    
-    // 替换 {APPID}
-    size_t pos = text.find("{APPID}");
-    if (pos != std::string::npos) {
-        text.replace(pos, 7, m_pConfig->appID);
-    }
-    
-    // 替换 {COUNTDOWN}
-    pos = text.find("{COUNTDOWN}");
-    if (pos != std::string::npos) {
-        int remain = m_pConfig->timeout - (int)elapsed.count();
-        if (remain < 0) remain = 0;
-        char countdown[32];
-        snprintf(countdown, sizeof(countdown), "%02d:%02d:%02d", 
-            remain / 3600, (remain % 3600) / 60, remain % 60);
-        text.replace(pos, 11, countdown);
-    }
-    
-    // 渲染水印文本
-    if (!text.empty()) {
-        // 确保颜色可见
-        ImVec4 color = m_pConfig->color;
-        if (color.w < 0.5f) color.w = 0.5f;
-        
-        ImU32 imColor = IM_COL32(
-            (int)(color.x * 255),
-            (int)(color.y * 255),
-            (int)(color.z * 255),
-            (int)(color.w * 255)
-        );
-        
-        ImVec2 textSize = ImGui::CalcTextSize(text.c_str());
-        
-        // 简单地在右上角显示
-        float posX = windowWidth - textSize.x - 50.0f;
-        float posY = 100.0f;
-        
-        ImDrawList* drawList = ImGui::GetWindowDrawList();
-        drawList->AddText(ImVec2(posX, posY), imColor, text.c_str());
-    }
-    
-    ImGui::End();
-}
-
-bool D3D12WatermarkRenderer::RenderLicenseWindow(float windowWidth, float windowHeight) {
-    bool shouldExit = false;
-    
-    // 计算窗口大小和位置
-    float winWidth = 350.0f;
-    float winHeight = 200.0f;
-    float winX = (windowWidth - winWidth) / 2.0f;
-    float winY = (windowHeight - winHeight) / 2.0f;
-    
-    ImGui::SetNextWindowPos(ImVec2(winX, winY), ImGuiCond_FirstUseEver);
-    ImGui::SetNextWindowSize(ImVec2(winWidth, winHeight), ImGuiCond_FirstUseEver);
-    
-    ImGuiWindowFlags flags = ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoResize;
-    
-    if (ImGui::Begin("License", &m_showLicenseWindow, flags)) {
-        ImGui::TextWrapped("This software is running in trial mode.");
-        ImGui::Spacing();
-        ImGui::Separator();
-        ImGui::Spacing();
-        
-        std::lock_guard<std::mutex> lock(m_configMutex);
-        ImGui::Text("App ID: %s", m_pConfig->appID.c_str());
-        
-        ImGui::Spacing();
-        ImGui::Separator();
-        ImGui::Spacing();
-        
-        // 按钮
-        float buttonWidth = 80.0f;
-        float spacing = 10.0f;
-        float totalWidth = buttonWidth * 2 + spacing;
-        float startX = (winWidth - totalWidth) / 2.0f;
-        
-        ImGui::SetCursorPosX(startX);
-        if (ImGui::Button("[=]", ImVec2(buttonWidth, 30))) {
-            m_showLicenseWindow = false;
-        }
-        
-        ImGui::SameLine(0, spacing);
-        if (ImGui::Button("[X]", ImVec2(buttonWidth, 30))) {
-            shouldExit = true;
-        }
-    }
-    ImGui::End();
-    
-    return shouldExit;
 }
 
 } // namespace LicHper
