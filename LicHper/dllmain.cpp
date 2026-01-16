@@ -7,6 +7,7 @@
 
 DWORD dwTargetProcessID = -1;
 std::vector<HWND> vecTargetWindows;
+HMODULE g_hDllModule = nullptr;  // DLL 模块句柄，用于 Hook
 
 BOOL CALLBACK EnumWindowsProc(HWND hwnd, LPARAM lParam)
 {
@@ -39,6 +40,8 @@ BOOL APIENTRY DllMain( HMODULE hModule,
     switch (ul_reason_for_call)
     {
     case DLL_PROCESS_ATTACH:
+        g_hDllModule = hModule;  // 保存 DLL 模块句柄
+        break;
     case DLL_THREAD_ATTACH:
     case DLL_THREAD_DETACH:
     case DLL_PROCESS_DETACH:

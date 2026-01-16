@@ -73,15 +73,23 @@
   </ImportGroup>
   <PropertyGroup Label="UserMacros" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
+    <OutDir>C:\Users\Administrator\source\repos\DaemonApps\Binaries\Win32\Debug\</OutDir>
+    <IntDir>$(ProjectDir)obj\Win32\Debug\</IntDir>
     <IncludePath>C:\Users\Administrator\source\repos\DaemonApps\LicHper\imgui;C:\Users\Administrator\source\repos\DaemonApps\LicHper\imgui\backends;C:\Users\Administrator\source\repos\DaemonApps\LicHper\cereal</IncludePath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
+    <OutDir>C:\Users\Administrator\source\repos\DaemonApps\Binaries\Win32\Release\</OutDir>
+    <IntDir>$(ProjectDir)obj\Win32\Release\</IntDir>
     <IncludePath>C:\Users\Administrator\source\repos\DaemonApps\LicHper\imgui;C:\Users\Administrator\source\repos\DaemonApps\LicHper\imgui\backends;C:\Users\Administrator\source\repos\DaemonApps\LicHper\cereal</IncludePath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <OutDir>C:\Users\Administrator\source\repos\DaemonApps\Binaries\Win64\Debug\</OutDir>
+    <IntDir>$(ProjectDir)obj\Win64\Debug\</IntDir>
     <IncludePath>C:\Users\Administrator\source\repos\DaemonApps\LicHper\imgui;C:\Users\Administrator\source\repos\DaemonApps\LicHper\imgui\backends;C:\Users\Administrator\source\repos\DaemonApps\LicHper\cereal;C:\Users\Administrator\source\repos\DaemonApps\LicHper\vcpkg\installed\x64-windows-static\include</IncludePath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <OutDir>C:\Users\Administrator\source\repos\DaemonApps\Binaries\Win64\Release\</OutDir>
+    <IntDir>$(ProjectDir)obj\Win64\Release\</IntDir>
     <IncludePath>C:\Users\Administrator\source\repos\DaemonApps\LicHper\imgui;C:\Users\Administrator\source\repos\DaemonApps\LicHper\imgui\backends;C:\Users\Administrator\source\repos\DaemonApps\LicHper\cereal;C:\Users\Administrator\source\repos\DaemonApps\LicHper\vcpkg\installed\x64-windows-static\include</IncludePath>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">

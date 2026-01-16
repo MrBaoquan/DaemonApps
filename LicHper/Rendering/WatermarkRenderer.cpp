@@ -11,6 +11,7 @@
 #include <filesystem>
 #include <algorithm>
 #include <cmath>
+#include <set>
 
 // 外部声明
 extern std::string g_appID;
@@ -18,6 +19,111 @@ std::string GetUserFolder();
 int RenewByLicense(const char* key);
 
 namespace LicHper {
+
+// 构建水印专用的精简字符范围（只包含水印文本需要的字符）
+// 这样可以支持更大的字体而不超出 GPU 纹理限制
+static std::vector<ImWchar> BuildWatermarkGlyphRanges(const std::string& title, const std::string& appID) {
+    std::set<ImWchar> chars;
+    
+    // 1. 基础 ASCII（数字、字母、常用符号，用于倒计时和 AppID）
+    for (ImWchar c = 0x0020; c <= 0x007E; ++c) {
+        chars.insert(c);
+    }
+    
+    // 2. 从 title 提取所有字符（支持 UTF-8 中文）
+    const char* p = title.c_str();
+    const char* end = p + title.size();
+    while (p < end) {
+        unsigned int c;
+        // 简单 UTF-8 解码
+        unsigned char byte = *p;
+        if ((byte & 0x80) == 0) {
+            c = byte;
+            p += 1;
+        } else if ((byte & 0xE0) == 0xC0) {
+            c = (byte & 0x1F) << 6;
+            if (p + 1 < end) c |= (p[1] & 0x3F);
+            p += 2;
+        } else if ((byte & 0xF0) == 0xE0) {
+            c = (byte & 0x0F) << 12;
+            if (p + 1 < end) c |= (p[1] & 0x3F) << 6;
+            if (p + 2 < end) c |= (p[2] & 0x3F);
+            p += 3;
+        } else if ((byte & 0xF8) == 0xF0) {
+            c = (byte & 0x07) << 18;
+            if (p + 1 < end) c |= (p[1] & 0x3F) << 12;
+            if (p + 2 < end) c |= (p[2] & 0x3F) << 6;
+            if (p + 3 < end) c |= (p[3] & 0x3F);
+            p += 4;
+        } else {
+            p += 1;
+            continue;
+        }
+        if (c > 0 && c <= 0xFFFF) {
+            chars.insert((ImWchar)c);
+        }
+    }
+    
+    // 3. 从 appID 提取字符
+    for (char c : appID) {
+        if (c > 0) chars.insert((ImWchar)(unsigned char)c);
+    }
+    
+    // 4. 添加常用替换文本字符（如 "Demo Version", "未授权" 等）
+    const char* extras[] = { "Demo", "Version", "未授权", "试用版", "样本" };
+    for (const char* extra : extras) {
+        const char* ep = extra;
+        const char* eend = ep + strlen(ep);
+        while (ep < eend) {
+            unsigned char byte = *ep;
+            unsigned int c;
+            if ((byte & 0x80) == 0) {
+                c = byte;
+                ep += 1;
+            } else if ((byte & 0xE0) == 0xC0) {
+                c = (byte & 0x1F) << 6;
+                if (ep + 1 < eend) c |= (ep[1] & 0x3F);
+                ep += 2;
+            } else if ((byte & 0xF0) == 0xE0) {
+                c = (byte & 0x0F) << 12;
+                if (ep + 1 < eend) c |= (ep[1] & 0x3F) << 6;
+                if (ep + 2 < eend) c |= (ep[2] & 0x3F);
+                ep += 3;
+            } else {
+                ep += 1;
+                continue;
+            }
+            if (c > 0 && c <= 0xFFFF) {
+                chars.insert((ImWchar)c);
+            }
+        }
+    }
+    
+    // 构建 ImGui 字符范围格式：[start, end, start, end, ..., 0]
+    std::vector<ImWchar> ranges;
+    ImWchar rangeStart = 0;
+    ImWchar rangeEnd = 0;
+    
+    for (ImWchar c : chars) {
+        if (rangeStart == 0) {
+            rangeStart = rangeEnd = c;
+        } else if (c == rangeEnd + 1) {
+            rangeEnd = c;
+        } else {
+            ranges.push_back(rangeStart);
+            ranges.push_back(rangeEnd);
+            rangeStart = rangeEnd = c;
+        }
+    }
+    if (rangeStart != 0) {
+        ranges.push_back(rangeStart);
+        ranges.push_back(rangeEnd);
+    }
+    ranges.push_back(0); // 终止符
+    
+    LOG_INFO("BuildWatermarkGlyphRanges: {} unique chars, {} ranges", chars.size(), (ranges.size() - 1) / 2);
+    return ranges;
+}
 
 WatermarkRenderer::~WatermarkRenderer() {
     CleanupImGui();
@@ -37,8 +143,50 @@ bool WatermarkRenderer::InitializeImGui(ID3D11Device* pDevice, ID3D11DeviceConte
     ImGui::CreateContext();
     ImGuiIO& io = ImGui::GetIO();
     io.IniFilename = nullptr;
+    
+    // 启用完整的输入支持
     io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
     io.ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad;
+    
+    // 启用剪贴板支持
+    io.SetClipboardTextFn = [](void*, const char* text) {
+        int len = MultiByteToWideChar(CP_UTF8, 0, text, -1, NULL, 0);
+        if (len > 0) {
+            HGLOBAL hMem = GlobalAlloc(GMEM_MOVEABLE, len * sizeof(wchar_t));
+            if (hMem) {
+                wchar_t* w_text = (wchar_t*)GlobalLock(hMem);
+                MultiByteToWideChar(CP_UTF8, 0, text, -1, w_text, len);
+                GlobalUnlock(hMem);
+                if (OpenClipboard(NULL)) {
+                    EmptyClipboard();
+                    SetClipboardData(CF_UNICODETEXT, hMem);
+                    CloseClipboard();
+                }
+            }
+        }
+    };
+    
+    io.GetClipboardTextFn = [](void*) -> const char* {
+        static std::string clipboard_text;
+        clipboard_text.clear();
+        if (OpenClipboard(NULL)) {
+            HANDLE hMem = GetClipboardData(CF_UNICODETEXT);
+            if (hMem) {
+                const wchar_t* w_text = (const wchar_t*)GlobalLock(hMem);
+                if (w_text) {
+                    int len = WideCharToMultiByte(CP_UTF8, 0, w_text, -1, NULL, 0, NULL, NULL);
+                    if (len > 0) {
+                        clipboard_text.resize(len - 1);
+                        WideCharToMultiByte(CP_UTF8, 0, w_text, -1, (char*)clipboard_text.data(), len, NULL, NULL);
+                    }
+                }
+                GlobalUnlock(hMem);
+            }
+            CloseClipboard();
+        }
+        return clipboard_text.c_str();
+    };
+    
     io.Fonts->Flags |= ImFontAtlasFlags_NoPowerOfTwoHeight;
     
     ImGui::StyleColorsDark();
@@ -59,28 +207,101 @@ bool WatermarkRenderer::InitializeImGui(ID3D11Device* pDevice, ID3D11DeviceConte
         config = m_config;
     }
     
-    int fontSize = std::clamp(config.fontSize, 36, 132);
+    // 水印文字字体大小（从配置读取）
+    // 使用精简字符范围后可支持更大字体（最大 300px）
+    int watermarkFontSize = std::clamp(config.fontSize, 18, 300);
+    LOG_INFO("InitializeImGui: Watermark font size from config = {} (clamped to {})", config.fontSize, watermarkFontSize);
     
+    // UI 控件字体（固定 18px，用于授权输入框、按钮等）
     m_font = io.Fonts->AddFontFromFileTTF(
         "c:\\Windows\\Fonts\\msyh.ttc", 18.0f, &fontConfig,
         io.Fonts->GetGlyphRangesChineseSimplifiedCommon());
+    LOG_INFO("InitializeImGui: UI font loaded (fixed 18px)");
     
+    // 水印文字字体（可变大小，使用精简字符范围）
     ImFontConfig titleFontConfig;
     titleFontConfig.OversampleH = 3;
     titleFontConfig.OversampleV = 1;
     titleFontConfig.PixelSnapH = false;
     titleFontConfig.RasterizerMultiply = 1.3f;
     
+    // 构建精简字符范围（只包含水印需要的字符）
+    m_watermarkGlyphRanges = BuildWatermarkGlyphRanges(config.title, g_appID);
+    
     m_titleFont = io.Fonts->AddFontFromFileTTF(
-        "c:\\Windows\\Fonts\\msyh.ttc", (float)fontSize, &titleFontConfig,
-        io.Fonts->GetGlyphRangesChineseSimplifiedCommon());
+        "c:\\Windows\\Fonts\\msyh.ttc", (float)watermarkFontSize, &titleFontConfig,
+        m_watermarkGlyphRanges.data());
+    LOG_INFO("InitializeImGui: Watermark font loaded ({}px)", watermarkFontSize);
     
     // 保存设备指针，等待配置更新后再加载图片
     m_pDevice = pDevice;
     
     m_initialized = true;
-    LOG_INFO("WatermarkRenderer: ImGui initialized successfully");
+    LOG_INFO("WatermarkRenderer: ImGui initialized - UI font: 18px, Watermark font: {}px", watermarkFontSize);
     return true;
+}
+
+void WatermarkRenderer::ReloadFonts() {
+    LOG_INFO("=== ReloadFonts START ===");
+    
+    if (!m_initialized) {
+        LOG_WARNING("WatermarkRenderer: Cannot reload fonts - not initialized");
+        return;
+    }
+    
+    WatermarkConfig config;
+    {
+        std::lock_guard<std::mutex> lock(m_configMutex);
+        config = m_config;
+    }
+    
+    LOG_INFO("ReloadFonts: config.fontSize = {}", config.fontSize);
+    // 使用精简字符范围后可支持更大字体（最大 300px）
+    int watermarkFontSize = std::clamp(config.fontSize, 18, 300);
+    LOG_INFO("ReloadFonts: watermark fontSize = {} (clamped to {})", config.fontSize, watermarkFontSize);
+    
+    // 获取 ImGui IO
+    ImGuiIO& io = ImGui::GetIO();
+    
+    // 清除现有字体
+    io.Fonts->Clear();
+    m_font = nullptr;
+    m_titleFont = nullptr;
+    LOG_INFO("ReloadFonts: Cleared old fonts");
+    
+    // 重新加载字体
+    // UI 控件字体（固定 18px）
+    ImFontConfig fontConfig;
+    fontConfig.OversampleH = 3;
+    fontConfig.OversampleV = 1;
+    fontConfig.PixelSnapH = false;
+    fontConfig.RasterizerMultiply = 1.3f;
+    
+    m_font = io.Fonts->AddFontFromFileTTF(
+        "c:\\Windows\\Fonts\\msyh.ttc", 18.0f, &fontConfig,
+        io.Fonts->GetGlyphRangesChineseSimplifiedCommon());
+    LOG_INFO("ReloadFonts: UI font reloaded (fixed 18px)");
+    
+    // 水印文字字体（可变大小，使用精简字符范围）
+    ImFontConfig titleFontConfig;
+    titleFontConfig.OversampleH = 3;
+    titleFontConfig.OversampleV = 1;
+    titleFontConfig.PixelSnapH = false;
+    titleFontConfig.RasterizerMultiply = 1.3f;
+    
+    // 重新构建精简字符范围
+    m_watermarkGlyphRanges = BuildWatermarkGlyphRanges(config.title, g_appID);
+    
+    m_titleFont = io.Fonts->AddFontFromFileTTF(
+        "c:\\Windows\\Fonts\\msyh.ttc", (float)watermarkFontSize, &titleFontConfig,
+        m_watermarkGlyphRanges.data());
+    LOG_INFO("ReloadFonts: Watermark font reloaded ({}px)", watermarkFontSize);
+    
+    // 重新构建字体纹理
+    ImGui_ImplDX11_InvalidateDeviceObjects();
+    ImGui_ImplDX11_CreateDeviceObjects();
+    
+    LOG_INFO("WatermarkRenderer: Fonts reloaded successfully");
 }
 
 void WatermarkRenderer::CleanupImGui() {
@@ -103,14 +324,38 @@ void WatermarkRenderer::CleanupImGui() {
 }
 
 void WatermarkRenderer::UpdateConfig(const WatermarkConfig& config) {
+    LOG_INFO("=== UpdateConfig START ===");
+    LOG_INFO("New config.fontSize = {}", config.fontSize);
+    
     std::string oldImagePath;
+    int oldFontSize;
     bool firstLoad = false;
     {
         std::lock_guard<std::mutex> lock(m_configMutex);
         oldImagePath = m_config.imagePath;
+        oldFontSize = m_config.fontSize;
         // 如果是首次设置配置（m_config.imagePath 为空且 m_currentImagePath 为空）
         firstLoad = (m_config.imagePath.empty() && m_currentImagePath.empty());
         m_config = config;
+    }
+    
+    LOG_INFO("UpdateConfig: oldFontSize={}, newFontSize={}, firstLoad={}, initialized={}",
+             oldFontSize, config.fontSize, firstLoad, m_initialized);
+    
+    // 检查字体大小是否改变
+    bool fontSizeChanged = (oldFontSize != config.fontSize);
+    
+    // 如果已初始化且字体大小改变，重新加载字体
+    if (m_initialized && fontSizeChanged) {
+        LOG_INFO("WatermarkRenderer: Font size changed from {} to {}, reloading fonts", 
+                 oldFontSize, config.fontSize);
+        ReloadFonts();
+    } else {
+        LOG_INFO("UpdateConfig: No font reload needed (initialized={}, fontSizeChanged={})",
+                 m_initialized, fontSizeChanged);
+        if (!m_initialized && fontSizeChanged) {
+            LOG_INFO("UpdateConfig: Config saved, will use new fontSize on next ImGui init");
+        }
     }
     
     // 检查图片路径是否改变或首次加载
@@ -348,7 +593,26 @@ bool WatermarkRenderer::RenderLicenseWindow(bool& showLicenseWindow, float windo
         ImGui::SetCursorPosX((licenseWindowSize.x - inputSize.x) / 2);
         ImGui::SetCursorPosY(50);
         ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(16.0f, 16.0f));
-        ImGui::InputTextMultiline("##source", m_licenseText, IM_ARRAYSIZE(m_licenseText), inputSize);
+        
+        // 诊断：记录输入框状态
+        static bool logged = false;
+        if (!logged) {
+            ImGuiIO& io = ImGui::GetIO();
+            LOG_INFO("InputText state: WantCaptureKeyboard={}, WantTextInput={}", 
+                     io.WantCaptureKeyboard, io.WantTextInput);
+            logged = true;
+        }
+        
+        bool inputChanged = ImGui::InputTextMultiline("##source", m_licenseText, IM_ARRAYSIZE(m_licenseText), inputSize);
+        
+        // 诊断：记录输入框焦点状态
+        if (!logged) {
+            bool isFocused = ImGui::IsItemFocused();
+            bool isActive = ImGui::IsItemActive();
+            LOG_INFO("InputText after render: focused={}, active={}, changed={}, text=\"{}\"", 
+                     isFocused, isActive, inputChanged, m_licenseText);
+        }
+        
         ImGui::PopStyleVar();
         
         if (!m_licenseError.empty()) {
@@ -498,56 +762,109 @@ void WatermarkRenderer::RenderWatermarkText(const std::string& text, float windo
         config = m_config;
     }
     
-    // 确保颜色可见
-    ImVec4 color = config.color;
-    if (color.w < 0.5f) color.w = 0.5f;
-    
-    ImGui::PushStyleColor(ImGuiCol_Text, color);
-    
     ImVec2 textSize = ImGui::CalcTextSize(text.c_str());
     
+    // 水印颜色（降低透明度，更专业）
+    ImVec4 color = config.color;
+    float baseAlpha = std::clamp(color.w, 0.15f, 0.6f);
+    
+    // 阴影颜色（黑色半透明）
+    ImVec4 shadowColor = ImVec4(0.0f, 0.0f, 0.0f, baseAlpha * 0.5f);
+    
+    ImDrawList* drawList = ImGui::GetWindowDrawList();
+    
     if (config.animate) {
-        // 动画：碰撞边界反弹 - 确保文字完全在屏幕内
+        // === 动画模式：单个水印弹跳 ===
+        color.w = baseAlpha;
+        
+        // 碰撞边界反弹
         if (m_titlePosition.x + textSize.x >= windowWidth) {
             m_titleVelocity.x = -1;
-            m_titlePosition.x = windowWidth - textSize.x;  // 立即修正位置
+            m_titlePosition.x = windowWidth - textSize.x;
         }
         if (m_titlePosition.x <= 0) {
             m_titleVelocity.x = 1;
-            m_titlePosition.x = 0;  // 立即修正位置
+            m_titlePosition.x = 0;
         }
         if (m_titlePosition.y + textSize.y >= windowHeight) {
             m_titleVelocity.y = -1;
-            m_titlePosition.y = windowHeight - textSize.y;  // 立即修正位置
+            m_titlePosition.y = windowHeight - textSize.y;
         }
         if (m_titlePosition.y <= 0) {
             m_titleVelocity.y = 1;
-            m_titlePosition.y = 0;  // 立即修正位置
+            m_titlePosition.y = 0;
         }
         
         m_titlePosition.x += m_titleVelocity.x;
         m_titlePosition.y += m_titleVelocity.y;
         
-        // 确保移动后仍在边界内
         float maxX = (std::max)(0.0f, windowWidth - textSize.x);
         float maxY = (std::max)(0.0f, windowHeight - textSize.y);
         m_titlePosition.x = std::clamp(m_titlePosition.x, 0.0f, maxX);
         m_titlePosition.y = std::clamp(m_titlePosition.y, 0.0f, maxY);
+        
+        // 绘制带阴影的文字
+        ImVec2 pos = m_titlePosition;
+        float shadowOffset = 2.0f;
+        
+        // 阴影（右下偏移）
+        drawList->AddText(m_titleFont, m_titleFont->FontSize,
+            ImVec2(pos.x + shadowOffset, pos.y + shadowOffset),
+            ImGui::ColorConvertFloat4ToU32(shadowColor), text.c_str());
+        
+        // 主文字
+        drawList->AddText(m_titleFont, m_titleFont->FontSize, pos,
+            ImGui::ColorConvertFloat4ToU32(color), text.c_str());
     } else {
-        // 静态定位也要确保在屏幕内
-        float posX = (windowWidth - textSize.x) - 50;
-        float posY = 150;
-        float maxX = (std::max)(0.0f, windowWidth - textSize.x);
-        float maxY = (std::max)(0.0f, windowHeight - textSize.y);
-        posX = std::clamp(posX, 0.0f, maxX);
-        posY = std::clamp(posY, 0.0f, maxY);
-        m_titlePosition = ImVec2(posX, posY);
+        // === 静态模式：专业平铺水印 ===
+        // 斜向 -30 度倾斜排列
+        float angle = -30.0f * 3.14159f / 180.0f;
+        float cosA = cosf(angle);
+        float sinA = sinf(angle);
+        
+        // 水印间距（根据文字大小自适应）
+        float spacingX = textSize.x * 1.8f;
+        float spacingY = textSize.y * 3.5f;
+        
+        // 扩展绘制区域（因为倾斜需要更大范围）
+        float extendX = windowHeight * fabsf(sinA);
+        float extendY = windowWidth * fabsf(sinA);
+        
+        // 计算起始偏移（使水印网格居中）
+        float startX = -extendX;
+        float startY = -extendY;
+        
+        // 遍历平铺位置
+        for (float baseY = startY; baseY < windowHeight + extendY; baseY += spacingY) {
+            for (float baseX = startX; baseX < windowWidth + extendX; baseX += spacingX) {
+                // 旋转变换
+                float rotatedX = baseX * cosA - baseY * sinA;
+                float rotatedY = baseX * sinA + baseY * cosA;
+                
+                // 偏移到屏幕中心区域
+                float finalX = rotatedX + windowWidth * 0.3f;
+                float finalY = rotatedY + windowHeight * 0.3f;
+                
+                // 只绘制可见区域内的水印
+                if (finalX > -textSize.x && finalX < windowWidth + textSize.x &&
+                    finalY > -textSize.y && finalY < windowHeight + textSize.y) {
+                    
+                    // 阴影
+                    drawList->AddText(m_titleFont, m_titleFont->FontSize,
+                        ImVec2(finalX + 2.0f, finalY + 2.0f),
+                        ImGui::ColorConvertFloat4ToU32(shadowColor), text.c_str());
+                    
+                    // 主文字
+                    ImVec4 tileColor = color;
+                    tileColor.w = baseAlpha;
+                    drawList->AddText(m_titleFont, m_titleFont->FontSize,
+                        ImVec2(finalX, finalY),
+                        ImGui::ColorConvertFloat4ToU32(tileColor), text.c_str());
+                }
+            }
+        }
     }
     
-    ImGui::SetCursorPos(m_titlePosition);
-    ImGui::Text("%s", text.c_str());
-    
-    ImGui::PopStyleColor();
     ImGui::PopFont();
 }
 

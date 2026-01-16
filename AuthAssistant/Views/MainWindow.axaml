@@ -29,26 +29,39 @@
 		</Style>
 	</Window.Styles>
 
-	<DockPanel Margin="12">
-		<Border BorderBrush="LightGray" BorderThickness="0,0,0,1" DockPanel.Dock="Top">
+	<DockPanel Margin="0">
+		<Border Background="#3F51B5" DockPanel.Dock="Top" Padding="16 12">
 
-			<DockPanel DockPanel.Dock="Top">
+			<DockPanel>
 
-				<Button Theme="{StaticResource MaterialFlatButton}" ToolTip.Tip="刷新列表" 
-					IsVisible="{Binding LoggedIn}"
-						Width="32" Height="32"
-					Command="{Binding ReloadCommand}"
-				>
+				<Button Theme="{StaticResource MaterialFlatButton}" 
+						ToolTip.Tip="刷新列表" 
+						IsVisible="{Binding LoggedIn}"
+						Width="36" Height="36"
+						Foreground="White"
+						Command="{Binding ReloadCommand}">
 					<avalonia:MaterialIcon Kind="Reload" />
 				</Button>
 				
 				
-				<StackPanel DockPanel.Dock="Right"  HorizontalAlignment="Right" Orientation="Horizontal" VerticalAlignment="Center"  Margin="0 5 0 8">
+				<StackPanel DockPanel.Dock="Right"  HorizontalAlignment="Right" Orientation="Horizontal" VerticalAlignment="Center">
 					
-					<avalonia:MaterialIcon Kind="AccountCircle" Width="24" Height="24" />
-					<TextBlock Text="{Binding UserInfo.username}" VerticalAlignment="Center" Margin="5 0 10 0"/>
+					<avalonia:MaterialIcon Kind="AccountCircle" Width="24" Height="24" Foreground="White"/>
+					<TextBlock Text="{Binding UserInfo.username}" VerticalAlignment="Center" Margin="5 0 5 0" Foreground="White" FontWeight="Medium"/>
+					
+					<!-- 超级管理员徽章 -->
+					<Border Background="White" CornerRadius="4" Padding="6 3" 
+							IsVisible="{Binding IsSuperAdmin}" Margin="0 0 10 0"
+							BorderBrush="#FFC107" BorderThickness="2">
+						<TextBlock Text="超级管理员" FontSize="10" Foreground="#FF6F00" 
+								   FontWeight="Bold" VerticalAlignment="Center" HorizontalAlignment="Center"/>
+					</Border>
+					
 					<Menu  Height="32" Padding="0" Margin="0">
-						<MenuItem Height="32" Width="32" Header="{avalonia:MaterialIconExt DotsVertical, Size=24}">
+						<MenuItem Height="32" Width="32">
+							<MenuItem.Header>
+								<avalonia:MaterialIcon Kind="DotsVertical" Foreground="White"/>
+							</MenuItem.Header>
 							<MenuItem Header="生成许可证" Icon="{avalonia:MaterialIconExt License, Size=24}"
 									  Command="{Binding GenerateCommand}"/>
 
@@ -58,8 +71,17 @@
 								  />
 							<MenuItem Header="清空许可证" Icon="{avalonia:MaterialIconExt NoteRemoveOutline, Size=24}"
 									  Command="{Binding ClearLicenseCommand}"/>
+							
+							<Separator IsVisible="{Binding IsSuperAdmin}"/>
+							
+							<!-- 超级管理员专属功能 -->
+							<MenuItem Header="颁发许可证文件" Icon="{avalonia:MaterialIconExt CertificateOutline, Size=24}"
+									  Command="{Binding IssueLicenseCommand}"
+									  IsVisible="{Binding IsSuperAdmin}"/>
+							
+							<Separator />
 
-							<MenuItem Header="退出" Icon="{avalonia:MaterialIconExt Logout, Size=24}"
+							<MenuItem Header="退出登录" Icon="{avalonia:MaterialIconExt Logout, Size=24}"
 										  Command="{Binding LogoutCommand}"/>
 						</MenuItem>
 					</Menu>
@@ -67,42 +89,62 @@
 			</DockPanel>
 			
 		</Border>
-		<TextBlock DockPanel.Dock="Top" Classes="Headline6" Padding="0 15 0 0" 
-				   IsVisible="{Binding NoLicense}" >当前环境没有检测到许可证信息</TextBlock>
-		<ListBox ItemsSource="{Binding LicenseInfos}" DataContext="{Binding}" Tag="Test">
-			<ListBox.ItemTemplate>
-				<DataTemplate >
-					<Grid ColumnDefinitions="6*,14*" >
-						<StackPanel Orientation="Vertical" Grid.Row="0" Grid.Column="0" >
-							<TextBlock Classes="Headline5" Text="{Binding appid}"/>	
-							<StackPanel Orientation="Horizontal" IsVisible="{Binding HasLicense}">
-								<TextBlock Classes="Subtitle2" Text="授权人:" />
-								<TextBlock Classes="Subtitle2" Width="120" Text="{Binding username}" />
-								<TextBlock Classes="Subtitle2" Text="有效期至:" />
-								<TextBlock Classes="Subtitle2" Text="{Binding ExpiredDateString}" />
-								<TextBlock Classes="Subtitle2" Foreground="Red" Padding="10 0 0 0"
-										   IsVisible="{Binding IsExpired}"
-										   Text="(已过期)" />
-								
-							</StackPanel>
-							<TextBlock Classes="Subtitle2" Foreground="OrangeRed" Text="暂无授权信息" IsVisible="{Binding NoLicense}" />
-						</StackPanel>
-						<StackPanel Orientation="Horizontal" Grid.Row="0" Grid.Column="1" HorizontalAlignment="Right">
-							<Button Theme="{StaticResource MaterialOutlineButton}" Classes="light" Content="续订"
-									Height="30"
-									Command="{Binding $parent[ListBox].((vm:MainWindowViewModel)DataContext).RenewCommand}"
-									CommandParameter="{Binding}"
-									/>
-							<Button Margin="10 0 0 0" Theme="{StaticResource MaterialOutlineButton}" 
-									Height="30"
-									Command="{Binding $parent[ListBox].((vm:MainWindowViewModel)DataContext).UnsubscribeCommand}"
-									CommandParameter="{Binding}"
-									Classes="light" Content="退订" />
-						</StackPanel>
-					</Grid>
-				</DataTemplate>
-			</ListBox.ItemTemplate>
-		</ListBox>
+		
+		<!-- 内容区域 -->
+		<ScrollViewer>
+			<StackPanel Margin="16">
+				<TextBlock Classes="Headline6" Padding="0 8 0 8" 
+						   Foreground="#757575"
+						   IsVisible="{Binding NoLicense}">当前环境没有检测到许可证信息</TextBlock>
+					   
+			<ListBox ItemsSource="{Binding LicenseInfos}" 
+					 DataContext="{Binding}" 
+					 Background="Transparent"
+					 BorderThickness="0">
+				<ListBox.ItemTemplate>
+					<DataTemplate>
+						<Border Background="White" 
+								CornerRadius="8" 
+								Padding="16" 
+								Margin="0 8"
+								BorderBrush="#E0E0E0"
+								BorderThickness="1">
+							<Grid ColumnDefinitions="6*,14*">
+								<StackPanel Orientation="Vertical" Grid.Column="0">
+									<TextBlock Classes="Headline5" Text="{Binding appid}" Foreground="#3F51B5" FontWeight="Bold"/>	
+									<StackPanel Orientation="Horizontal" IsVisible="{Binding HasLicense}" Margin="0 8 0 0">
+										<TextBlock Classes="Subtitle2" Text="授权人:" Foreground="#757575"/>
+										<TextBlock Classes="Subtitle2" Width="120" Text="{Binding username}" Margin="4 0 0 0"/>
+										<TextBlock Classes="Subtitle2" Text="有效期至:" Foreground="#757575" Margin="8 0 0 0"/>
+										<TextBlock Classes="Subtitle2" Text="{Binding ExpiredDateString}" Margin="4 0 0 0"/>
+										<TextBlock Classes="Subtitle2" Foreground="#F44336" Padding="10 0 0 0"
+												   IsVisible="{Binding IsExpired}"
+												   Text="(已过期)" FontWeight="Bold"/>
+									</StackPanel>
+									<TextBlock Classes="Subtitle2" Foreground="#FF6F00" Text="暂无授权信息" IsVisible="{Binding NoLicense}" Margin="0 8 0 0"/>
+								</StackPanel>
+								<StackPanel Orientation="Horizontal" Grid.Column="1" HorizontalAlignment="Right" VerticalAlignment="Center">
+									<Button Theme="{StaticResource MaterialOutlineButton}" 
+											Content="续订"
+											Height="32"
+											CornerRadius="4"
+											Command="{Binding $parent[ListBox].((vm:MainWindowViewModel)DataContext).RenewCommand}"
+											CommandParameter="{Binding}"/>
+									<Button Margin="10 0 0 0" 
+											Theme="{StaticResource MaterialOutlineButton}" 
+											Height="32"
+											CornerRadius="4"
+											Command="{Binding $parent[ListBox].((vm:MainWindowViewModel)DataContext).UnsubscribeCommand}"
+											CommandParameter="{Binding}"
+											Content="退订" />
+								</StackPanel>
+							</Grid>
+						</Border>
+					</DataTemplate>
+				</ListBox.ItemTemplate>
+			</ListBox>
+			</StackPanel>
+		</ScrollViewer>
 	</DockPanel>
 
 </Window>

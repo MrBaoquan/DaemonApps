@@ -74,15 +74,13 @@ private:
     void OnResizeBuffers(IDXGISwapChain* pSwapChain, UINT BufferCount,
         UINT Width, UINT Height, DXGI_FORMAT NewFormat, UINT SwapChainFlags);
     
-    // 输入处理
+    // 输入处理 - 使用 SetWindowLongPtr 直接替换窗口过程
     void ProcessInput();
     void InstallInputHook();
     void UninstallInputHook();
-    static LRESULT CALLBACK KeyboardHookProc(int nCode, WPARAM wParam, LPARAM lParam);
-    static LRESULT CALLBACK GetMsgHookProc(int nCode, WPARAM wParam, LPARAM lParam);
+    static LRESULT CALLBACK WndProcHook(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam);
     static HookRenderer* s_instance;
-    HHOOK m_hKeyboardHook = nullptr;
-    HHOOK m_hGetMsgHook = nullptr;
+    WNDPROC m_originalWndProc = nullptr;  // 原始窗口过程
     bool m_inputHookInstalled = false;
     
     // 初始化 ImGui（在 Hook 回调中首次调用）

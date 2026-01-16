@@ -36,8 +36,6 @@ extern "C"
 
 unsigned proc_t(LPVOID lParam)
 {
-    // Check();
-    
     Validate(SysAllocString(_bstr_t(processName.c_str())));
     
     _endthreadex(0);

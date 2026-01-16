@@ -6,6 +6,7 @@
 
 #include <windows.h>
 #include <tlhelp32.h>
+#include <winuser.h>
 
 // Forward declare message handler from imgui_impl_win32.cpp
 extern IMGUI_IMPL_API LRESULT ImGui_ImplWin32_WndProcHandler(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam);
@@ -14,6 +15,7 @@ extern IMGUI_IMPL_API LRESULT ImGui_ImplWin32_WndProcHandler(HWND hWnd, UINT msg
 extern std::string g_appID;
 void reqQuitAllTargetWindows();
 std::string GetUserFolder();
+extern HMODULE g_hDllModule;  // DLL 模块句柄
 
 namespace LicHper {
 
@@ -406,6 +408,9 @@ void HookRenderer::ProcessInput() {
     
     ImGuiIO& io = ImGui::GetIO();
     
+    // Hook 模式：输入通过 KeyboardHookProc 处理，不需要从消息队列获取
+    // 剪贴板操作通过 ImGui 的剪贴板回调处理
+    
     // 获取鼠标位置
     POINT pt;
     if (GetCursorPos(&pt)) {
@@ -422,48 +427,69 @@ void HookRenderer::ProcessInput() {
 void HookRenderer::InstallInputHook() {
     if (m_inputHookInstalled) return;
     
-    // 安装 GetMessage Hook 来拦截窗口消息（包括 WM_CHAR）
-    m_hGetMsgHook = SetWindowsHookExA(WH_GETMESSAGE, GetMsgHookProc, nullptr, GetCurrentThreadId());
-    if (m_hGetMsgHook) {
+    if (!m_hwndTarget) {
+        LOG_ERROR("HookRenderer: No target window for input hook");
+        return;
+    }
+    
+    // 检查窗口是否有效
+    if (!IsWindow(m_hwndTarget)) {
+        LOG_ERROR("HookRenderer: Target window handle is invalid");
+        return;
+    }
+    
+    // 使用 SetWindowLongPtr 直接替换窗口过程（最底层最可靠的方法）
+    // 这种方式在 DLL 注入场景中非常可靠
+    LOG_INFO("HookRenderer: Installing window procedure hook for input, HWND: 0x{:X}", (UINT_PTR)m_hwndTarget);
+    
+    // 保存原始窗口过程
+    m_originalWndProc = (WNDPROC)SetWindowLongPtrA(m_hwndTarget, GWLP_WNDPROC, (LONG_PTR)WndProcHook);
+    
+    if (m_originalWndProc) {
         m_inputHookInstalled = true;
-        LOG_INFO("HookRenderer: GetMessage hook installed successfully");
+        LOG_INFO("HookRenderer: Window procedure hooked successfully, original: 0x{:X}", (UINT_PTR)m_originalWndProc);
     } else {
-        LOG_ERROR("HookRenderer: Failed to install GetMessage hook, error: {}", GetLastError());
+        DWORD error = GetLastError();
+        LOG_ERROR("HookRenderer: Failed to hook window procedure, error code: {} (0x{:X})", error, error);
     }
 }
 
 void HookRenderer::UninstallInputHook() {
     if (!m_inputHookInstalled) return;
     
-    if (m_hGetMsgHook) {
-        UnhookWindowsHookEx(m_hGetMsgHook);
-        m_hGetMsgHook = nullptr;
+    if (m_hwndTarget && m_originalWndProc) {
+        // 恢复原始窗口过程
+        SetWindowLongPtrA(m_hwndTarget, GWLP_WNDPROC, (LONG_PTR)m_originalWndProc);
+        m_originalWndProc = nullptr;
+        LOG_INFO("HookRenderer: Window procedure hook removed");
     }
     
     m_inputHookInstalled = false;
-    LOG_INFO("HookRenderer: Input hooks uninstalled");
 }
 
-LRESULT CALLBACK HookRenderer::KeyboardHookProc(int nCode, WPARAM wParam, LPARAM lParam) {
-    // 未使用，保留以防需要
-    return CallNextHookEx(nullptr, nCode, wParam, lParam);
-}
-
-LRESULT CALLBACK HookRenderer::GetMsgHookProc(int nCode, WPARAM wParam, LPARAM lParam) {
-    if (nCode >= 0 && s_instance && wParam == PM_REMOVE) {
-        MSG* pMsg = reinterpret_cast<MSG*>(lParam);
+// 窗口过程 Hook - 拦截宿主窗口的消息
+// 将 WM_KEYDOWN/WM_CHAR 转换为 ImGui 输入
+LRESULT CALLBACK HookRenderer::WndProcHook(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam) {
+    HookRenderer* pThis = s_instance;
+    
+    if (pThis) {
+        // 先让 ImGui 处理消息（ImGui_ImplWin32_WndProcHandler 会自动处理所有键盘输入）
+        if (ImGui_ImplWin32_WndProcHandler(hWnd, uMsg, wParam, lParam)) {
+            // ImGui 已处理（WantCaptureKeyboard=true），阻止消息传递给游戏
+            return 0;
+        }
         
-        // 将消息转发给 ImGui
-        if (pMsg->hwnd == s_instance->m_hwndTarget || 
-            pMsg->hwnd == nullptr ||
-            GetParent(pMsg->hwnd) == s_instance->m_hwndTarget) {
-            
-            ImGui_ImplWin32_WndProcHandler(pMsg->hwnd, pMsg->message, pMsg->wParam, pMsg->lParam);
+        // 调用原始窗口过程
+        if (pThis->m_originalWndProc) {
+            return CallWindowProcA(pThis->m_originalWndProc, hWnd, uMsg, wParam, lParam);
         }
     }
     
-    return CallNextHookEx(s_instance ? s_instance->m_hGetMsgHook : nullptr, nCode, wParam, lParam);
+    return DefWindowProcA(hWnd, uMsg, wParam, lParam);
 }
+
+// 已移除 KeyboardHookProc - 改用 SetWindowLongPtr 直接替换窗口过程
+// 这是最底层最可靠的方法，ImGui_ImplWin32_WndProcHandler 自动处理所有键盘输入
 
 bool HookRenderer::InitializeD3D12Renderer(IDXGISwapChain* pSwapChain) {
     auto& hook = DXGIHook::Instance();

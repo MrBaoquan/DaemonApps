@@ -7,6 +7,7 @@
 #include <chrono>
 #include <mutex>
 #include <functional>
+#include <vector>
 
 namespace LicHper {
 
@@ -66,6 +67,9 @@ private:
     // 格式化倒计时
     std::string FormatCountdown(int seconds);
     
+    // 重新加载字体
+    void ReloadFonts();
+    
     // 配置
     WatermarkConfig m_config;
     std::mutex m_configMutex;
@@ -74,6 +78,7 @@ private:
     bool m_initialized = false;
     ImFont* m_font = nullptr;
     ImFont* m_titleFont = nullptr;
+    std::vector<ImWchar> m_watermarkGlyphRanges;  // 水印字体精简字符范围
     
     // D3D11 设备（用于重新加载纹理）
     ID3D11Device* m_pDevice = nullptr;

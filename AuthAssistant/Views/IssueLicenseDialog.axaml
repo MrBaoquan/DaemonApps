@@ -1,0 +1,66 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:vm="using:AuthAssistant.ViewModels"
+        xmlns:p1="clr-namespace:Material.Styles.Assists;assembly=Material.Styles"
+        mc:Ignorable="d" d:DesignWidth="480" d:DesignHeight="480"
+        x:Class="AuthAssistant.Views.IssueLicenseDialog"
+        x:DataType="vm:IssueLicenseViewModel"
+        Width="480" Height="480"
+        MinHeight="480"
+        Title="颁发许可证文件"
+        WindowStartupLocation="CenterOwner"
+        CanResize="False">
+
+    <Design.DataContext>
+        <vm:IssueLicenseViewModel/>
+    </Design.DataContext>
+
+    <DockPanel Margin="24">
+        <StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0 20 0 0">
+            <Button Content="取消" 
+                    Theme="{StaticResource MaterialOutlineButton}"
+                    Width="100"
+                    Margin="0 0 10 0"
+                    Click="CancelButton_Click"/>
+            <Button Content="确定颁发" 
+                    Theme="{StaticResource MaterialFlatButton}"
+                    Width="100"
+                    Click="ConfirmButton_Click"/>
+        </StackPanel>
+        
+    <StackPanel>
+        <TextBlock Classes="Headline6" Text="填写用户信息" Margin="0 0 0 20"/>
+        
+        <TextBox Margin="0 10"
+                 Classes="outline"
+                 Theme="{StaticResource OutlineTextBox}"
+                 Text="{Binding Username}"
+                 p1:TextFieldAssist.Label="用户名" 
+                 p1:TextFieldAssist.Hints="*必填项"
+                 UseFloatingWatermark="True" />
+        
+        <TextBox Margin="0 10"
+                 Classes="outline"
+                 Theme="{StaticResource OutlineTextBox}"
+                 Text="{Binding PhoneNumber}"
+                 p1:TextFieldAssist.Label="联系电话" 
+                 p1:TextFieldAssist.Hints="*必填项"
+                 UseFloatingWatermark="True" />
+        
+        <DatePicker Margin="0 10"
+                    p1:DatePickerAssist.DateTimeFormat="yyyy-MM-dd"
+                    p1:TextFieldAssist.Label="有效期至"
+                    SelectedDate="{Binding ExpiredAt}" />
+        
+        <CheckBox Margin="0 20"
+                  IsChecked="{Binding IsSuperAdmin}"
+                  Content="授予超级管理员权限" />
+        
+        <TextBlock Classes="Caption" Margin="0 10" Foreground="Gray">
+            提示：生成的许可证文件将被加密保存为 .lic 格式
+        </TextBlock>
+    </StackPanel>
+    </DockPanel>
+</Window>

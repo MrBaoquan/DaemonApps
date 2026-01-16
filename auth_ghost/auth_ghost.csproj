@@ -23,7 +23,9 @@
   </ItemGroup>
 
   <ItemGroup>
-    <EmbeddedResource Include="Costura64\LicHper.dll" />
+    <EmbeddedResource Include="Costura64\LicHper.dll">
+      <CopyToOutputDirectory>Never</CopyToOutputDirectory>
+    </EmbeddedResource>
   </ItemGroup>
 
   <ItemGroup>
@@ -36,7 +38,6 @@
 
   <ItemGroup>
     <ProjectReference Include="..\CloudDisk\CloudDisk.csproj" />
-    <ProjectReference Include="..\LicHper\LicHper.vcxproj" />
   </ItemGroup>
 
 </Project>

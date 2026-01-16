@@ -36,7 +36,15 @@
 				 UseFloatingWatermark="True" Classes="outline clearButton" Theme="{StaticResource OutlineTextBox}" 
 				 p1:TextFieldAssist.Label="软件ID" 
 				 p1:TextFieldAssist.Hints="*必填项"
-				 IsEnabled="{Binding AppIDEditable}" Text="{Binding AppID}"   />
+				 IsEnabled="{Binding AppIDEditable}"
+				 Text="{Binding AppID}"   />
+		
+		<!-- 超级授权码选项（只有超级管理员在生成模式下可见） -->
+		<CheckBox Margin="24 12 24 0" 
+				  IsChecked="{Binding IsSuperLicense}"
+				  IsVisible="{Binding CanShowSuperLicenseOption}"
+				  Content="生成超级授权码（适用于所有应用）" />
+		
 		<Grid Margin="24" DataContext="{Binding}">
 			<Grid.RowDefinitions>
 				<RowDefinition Height="Auto" />
