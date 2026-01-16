@@ -1,6 +1,7 @@
 ﻿#pragma once
 
 #include "WatermarkConfig.h"
+#include "ImGuiWatermarkCore.h"
 #include "imgui.h"
 #include <d3d11.h>
 #include <string>
@@ -8,15 +9,17 @@
 #include <mutex>
 #include <functional>
 #include <vector>
+#include <memory>
 
 namespace LicHper {
 
 // 水印渲染组件
 // 负责 ImGui 的初始化和水印的实际绘制
 // 可被 OverlayRenderer 和 HookRenderer 共用
+// 现在内部使用 ImGuiWatermarkCore 实现统一的渲染逻辑
 class WatermarkRenderer {
 public:
-    WatermarkRenderer() = default;
+    WatermarkRenderer();
     ~WatermarkRenderer();
     
     // 初始化 ImGui（需要 D3D11 设备和窗口句柄）
@@ -32,7 +35,7 @@ public:
     void UpdateConfig(const WatermarkConfig& config);
     
     // 设置开始时间（用于倒计时）
-    void SetStartTime(std::chrono::high_resolution_clock::time_point startTime) { m_startTime = startTime; }
+    void SetStartTime(std::chrono::high_resolution_clock::time_point startTime);
     
     // 加载水印纹理
     bool LoadWatermarkTexture(ID3D11Device* pDevice);
@@ -55,24 +58,15 @@ public:
         std::function<void()> onLicenseSuccess = nullptr);
     
 private:
-    // 渲染水印图片
-    void RenderWatermarkImage(float windowWidth, float windowHeight);
-    
-    // 渲染水印文字
-    void RenderWatermarkText(const std::string& text, float windowWidth, float windowHeight);
-    
-    // 处理水印文字（替换占位符）
-    std::string ProcessWatermarkText();
-    
-    // 格式化倒计时
-    std::string FormatCountdown(int seconds);
-    
     // 重新加载字体
     void ReloadFonts();
     
     // 配置
     WatermarkConfig m_config;
     std::mutex m_configMutex;
+    
+    // 共享水印渲染核心
+    std::unique_ptr<ImGuiWatermarkCore> m_watermarkCore;
     
     // ImGui 状态
     bool m_initialized = false;
@@ -90,20 +84,8 @@ private:
     bool m_hasWatermarkImage = false;
     std::string m_currentImagePath;  // 当前加载的图片路径
     
-    // 动画状态
-    ImVec2 m_titlePosition = ImVec2(0, 0);
-    ImVec2 m_titleVelocity = ImVec2(1, 1);
-    
-    // 图片动画状态
-    ImVec2 m_imagePosition = ImVec2(100, 100);
-    ImVec2 m_imageVelocity = ImVec2(1, 1);
-    
     // 时间
     std::chrono::high_resolution_clock::time_point m_startTime;
-    
-    // 授权窗口状态
-    char m_licenseText[1024 * 16] = "";
-    std::string m_licenseError;
 };
 
 } // namespace LicHper

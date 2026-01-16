@@ -7,10 +7,16 @@
 #include <string>
 #include <vector>
 #include <functional>
+#include <memory>
+
+// ImGui 前置声明
+struct ImFont;
+typedef unsigned short ImWchar;
 
 namespace LicHper {
 
 struct WatermarkConfig;
+class ImGuiWatermarkCore;
 
 // D3D12 原生水印渲染器
 // 使用 ImGui D3D12 后端直接在 D3D12 SwapChain 上渲染
@@ -32,7 +38,7 @@ public:
     void UpdateConfig(const WatermarkConfig& config);
     
     // 设置开始时间（用于计时）
-    void SetStartTime(std::chrono::high_resolution_clock::time_point startTime) { m_startTime = startTime; }
+    void SetStartTime(std::chrono::high_resolution_clock::time_point startTime);
     
     // 渲染水印（在 Present 之前调用）
     void Render(IDXGISwapChain* pSwapChain);
@@ -58,10 +64,6 @@ private:
     
     // 等待 GPU 完成
     void WaitForGpu();
-    
-    // 渲染内容
-    void RenderWatermarkContent(float windowWidth, float windowHeight);
-    bool RenderLicenseWindow(float windowWidth, float windowHeight);
     
     // D3D12 设备和命令队列（从 DXGIHook 获取，不要 Release）
     ID3D12Device* m_pDevice = nullptr;
@@ -94,12 +96,20 @@ private:
     WatermarkConfig* m_pConfig = nullptr;
     std::mutex m_configMutex;
     
+    // 共享水印渲染核心
+    std::unique_ptr<ImGuiWatermarkCore> m_watermarkCore;
+    
     // 时间
     std::chrono::high_resolution_clock::time_point m_startTime;
     
-    // 授权窗口
-    bool m_showLicenseWindow = true;
+    // 授权窗口（默认隐藏，与 D3D11 模式保持一致）
+    bool m_showLicenseWindow = false;
     std::function<void()> m_exitCallback;
+    
+    // 字体
+    ImFont* m_font = nullptr;       // UI 字体（18px）
+    ImFont* m_titleFont = nullptr;  // 水印字体（可变大小）
+    std::vector<ImWchar> m_watermarkGlyphRanges;
 };
 
 } // namespace LicHper
