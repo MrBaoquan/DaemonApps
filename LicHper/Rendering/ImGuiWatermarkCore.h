@@ -61,8 +61,8 @@ public:
     // 标记字体已加载
     void MarkFontLoaded(int fontSize);
     
-    // 构建水印精简字符范围
-    static std::vector<ImWchar> BuildWatermarkGlyphRanges(const std::string& title, const std::string& appID);
+    // 构建水印精简字符范围（根据字体大小动态调整）
+    static std::vector<ImWchar> BuildWatermarkGlyphRanges(const std::string& title, const std::string& appID, int fontSize = 80);
     
     // ========== 核心渲染方法 ==========
     

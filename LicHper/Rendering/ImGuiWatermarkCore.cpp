@@ -17,17 +17,10 @@ namespace LicHper {
 
 // ========== 静态工具函数 ==========
 
-std::vector<ImWchar> ImGuiWatermarkCore::BuildWatermarkGlyphRanges(const std::string& title, const std::string& appID) {
-    std::set<ImWchar> chars;
-    
-    // 1. 基础 ASCII（数字、字母、常用符号，用于倒计时和 AppID）
-    for (ImWchar c = 0x0020; c <= 0x007E; ++c) {
-        chars.insert(c);
-    }
-    
-    // 2. 从 title 提取所有字符（支持 UTF-8 中文）
-    const char* p = title.c_str();
-    const char* end = p + title.size();
+// UTF-8 字符串解析辅助函数：提取所有 Unicode 字符
+static void ExtractUTF8Chars(const char* str, std::set<ImWchar>& chars) {
+    const char* p = str;
+    const char* end = p + strlen(str);
     while (p < end) {
         unsigned int c;
         unsigned char byte = *p;
@@ -57,43 +50,56 @@ std::vector<ImWchar> ImGuiWatermarkCore::BuildWatermarkGlyphRanges(const std::st
             chars.insert((ImWchar)c);
         }
     }
+}
+
+std::vector<ImWchar> ImGuiWatermarkCore::BuildWatermarkGlyphRanges(const std::string& title, const std::string& appID, int fontSize) {
+    // 按需加载：只加载配置中实际用到的字符
+    // 这样无论字体多大，字符数量都是可控的（通常只有几十到几百个）
+    
+    std::set<ImWchar> chars;
+    
+    // 1. 基础 ASCII（数字、字母、常用符号）- 用于倒计时和通用显示
+    for (ImWchar c = 0x0020; c <= 0x007E; ++c) {
+        chars.insert(c);
+    }
+    
+    // 2. 从 title 提取所有字符（支持 UTF-8 中文）
+    ExtractUTF8Chars(title.c_str(), chars);
     
     // 3. 从 appID 提取字符
-    for (char c : appID) {
-        if (c > 0) chars.insert((ImWchar)(unsigned char)c);
+    ExtractUTF8Chars(appID.c_str(), chars);
+    
+    // 4. 添加 UI 必需的固定文本字符
+    const char* uiTexts[] = {
+        "请输入软件授权码",
+        "授权码错误，请重试",
+        "授权成功",
+        "确认",
+        "取消",
+        "Demo",
+        "Version",
+        "未授权",
+        "试用版",
+        "样本",
+        "测试",
+        "水印"
+    };
+    for (const char* text : uiTexts) {
+        ExtractUTF8Chars(text, chars);
     }
     
-    // 4. 添加常用替换文本字符
-    const char* extras[] = { "Demo", "Version", "未授权", "试用版", "样本", "请输入软件授权码", "APPID", "取消", "确认", "授权码错误" };
-    for (const char* extra : extras) {
-        const char* ep = extra;
-        const char* eend = ep + strlen(ep);
-        while (ep < eend) {
-            unsigned char byte = *ep;
-            unsigned int c;
-            if ((byte & 0x80) == 0) {
-                c = byte;
-                ep += 1;
-            } else if ((byte & 0xE0) == 0xC0) {
-                c = (byte & 0x1F) << 6;
-                if (ep + 1 < eend) c |= (ep[1] & 0x3F);
-                ep += 2;
-            } else if ((byte & 0xF0) == 0xE0) {
-                c = (byte & 0x0F) << 12;
-                if (ep + 1 < eend) c |= (ep[1] & 0x3F) << 6;
-                if (ep + 2 < eend) c |= (ep[2] & 0x3F);
-                ep += 3;
-            } else {
-                ep += 1;
-                continue;
-            }
-            if (c > 0 && c <= 0xFFFF) {
-                chars.insert((ImWchar)c);
-            }
-        }
+    // 5. 中文标点符号（常用）
+    const ImWchar punctuation[] = {
+        0x3000, 0x3001, 0x3002, 0x3010, 0x3011,  // 　、。【】
+        0xFF0C, 0xFF01, 0xFF1F, 0xFF1A, 0xFF1B,  // ，！？：；
+        0xFF08, 0xFF09,                           // （）
+        0
+    };
+    for (int i = 0; punctuation[i] != 0; ++i) {
+        chars.insert(punctuation[i]);
     }
     
-    // 构建 ImGui 字符范围格式
+    // 6. 构建 ImGui 字符范围格式（连续范围合并）
     std::vector<ImWchar> ranges;
     ImWchar rangeStart = 0;
     ImWchar rangeEnd = 0;
@@ -113,9 +119,11 @@ std::vector<ImWchar> ImGuiWatermarkCore::BuildWatermarkGlyphRanges(const std::st
         ranges.push_back(rangeStart);
         ranges.push_back(rangeEnd);
     }
-    ranges.push_back(0);
+    ranges.push_back(0);  // 结束标记
     
-    LOG_INFO("BuildWatermarkGlyphRanges: {} unique chars, {} ranges", chars.size(), (ranges.size() - 1) / 2);
+    LOG_INFO("BuildWatermarkGlyphRanges: fontSize={}, {} unique chars from title='{}', appID='{}', {} ranges", 
+             fontSize, chars.size(), title, appID, (ranges.size() - 1) / 2);
+    
     return ranges;
 }
 

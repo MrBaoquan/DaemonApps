@@ -125,15 +125,15 @@ bool WatermarkRenderer::InitializeImGui(ID3D11Device* pDevice, ID3D11DeviceConte
     titleFontConfig.PixelSnapH = false;
     titleFontConfig.RasterizerMultiply = 1.3f;
     
-    // 构建精简字符范围（只包含水印需要的字符）- 使用共享核心的静态方法
-    m_watermarkGlyphRanges = ImGuiWatermarkCore::BuildWatermarkGlyphRanges(config.title, g_appID);
+    // 构建精简字符范围（根据字体大小动态调整）- 使用共享核心的静态方法
+    m_watermarkGlyphRanges = ImGuiWatermarkCore::BuildWatermarkGlyphRanges(config.title, g_appID, watermarkFontSize);
     
     m_titleFont = io.Fonts->AddFontFromFileTTF(
         "c:\\Windows\\Fonts\\msyh.ttc", (float)watermarkFontSize, &titleFontConfig,
         m_watermarkGlyphRanges.data());
     LOG_INFO("InitializeImGui: Watermark font loaded ({}px)", watermarkFontSize);
     
-    // 保存设备指针，等待配置更新后再加载图片
+    // 保存设备指针
     m_pDevice = pDevice;
     
     // 设置共享核心的字体
@@ -144,6 +144,13 @@ bool WatermarkRenderer::InitializeImGui(ID3D11Device* pDevice, ID3D11DeviceConte
     }
     
     m_initialized = true;
+    
+    // 尝试加载水印图片（如果配置已设置）
+    if (!m_hasWatermarkImage && !m_config.imagePath.empty()) {
+        LOG_INFO("InitializeImGui: Loading watermark texture after init");
+        LoadWatermarkTexture(pDevice);
+    }
+    
     LOG_INFO("WatermarkRenderer: ImGui initialized - UI font: 18px, Watermark font: {}px", watermarkFontSize);
     return true;
 }
@@ -196,8 +203,8 @@ void WatermarkRenderer::ReloadFonts() {
     titleFontConfig.PixelSnapH = false;
     titleFontConfig.RasterizerMultiply = 1.3f;
     
-    // 重新构建精简字符范围 - 使用共享核心的静态方法
-    m_watermarkGlyphRanges = ImGuiWatermarkCore::BuildWatermarkGlyphRanges(config.title, g_appID);
+    // 重新构建精简字符范围（根据字体大小动态调整）
+    m_watermarkGlyphRanges = ImGuiWatermarkCore::BuildWatermarkGlyphRanges(config.title, g_appID, watermarkFontSize);
     
     m_titleFont = io.Fonts->AddFontFromFileTTF(
         "c:\\Windows\\Fonts\\msyh.ttc", (float)watermarkFontSize, &titleFontConfig,
@@ -239,17 +246,19 @@ void WatermarkRenderer::CleanupImGui() {
 
 void WatermarkRenderer::UpdateConfig(const WatermarkConfig& config) {
     LOG_INFO("=== UpdateConfig START ===");
-    LOG_INFO("New config.fontSize = {}", config.fontSize);
+    LOG_INFO("New config.fontSize = {}, title = '{}'", config.fontSize, config.title);
     
     std::string oldImagePath;
+    std::string oldTitle;
     int oldFontSize;
     bool firstLoad = false;
     {
         std::lock_guard<std::mutex> lock(m_configMutex);
         oldImagePath = m_config.imagePath;
+        oldTitle = m_config.title;
         oldFontSize = m_config.fontSize;
-        // 如果是首次设置配置（m_config.imagePath 为空且 m_currentImagePath 为空）
-        firstLoad = (m_config.imagePath.empty() && m_currentImagePath.empty());
+        // 如果是首次设置配置（m_config.title 为空或为默认值）
+        firstLoad = m_config.title.empty() || m_config.title.find("Demo Version") != std::string::npos;
         m_config = config;
     }
     
@@ -261,26 +270,28 @@ void WatermarkRenderer::UpdateConfig(const WatermarkConfig& config) {
     LOG_INFO("UpdateConfig: oldFontSize={}, newFontSize={}, firstLoad={}, initialized={}",
              oldFontSize, config.fontSize, firstLoad, m_initialized);
     
-    // 检查字体大小是否改变
+    // 检查字体大小或 title 是否改变（title 改变需要重新构建字形范围）
     bool fontSizeChanged = (oldFontSize != config.fontSize);
+    bool titleChanged = (oldTitle != config.title);
     
-    // 如果已初始化且字体大小改变，重新加载字体
-    if (m_initialized && fontSizeChanged) {
-        LOG_INFO("WatermarkRenderer: Font size changed from {} to {}, reloading fonts", 
-                 oldFontSize, config.fontSize);
+    // 如果已初始化且字体大小或 title 改变，重新加载字体
+    if (m_initialized && (fontSizeChanged || (firstLoad && titleChanged))) {
+        LOG_INFO("WatermarkRenderer: Font config changed (fontSize: {}->{}, title changed: {}), reloading fonts", 
+                 oldFontSize, config.fontSize, titleChanged);
         ReloadFonts();
     } else {
-        LOG_INFO("UpdateConfig: No font reload needed (initialized={}, fontSizeChanged={})",
-                 m_initialized, fontSizeChanged);
+        LOG_INFO("UpdateConfig: No font reload needed (initialized={}, fontSizeChanged={}, titleChanged={})",
+                 m_initialized, fontSizeChanged, titleChanged);
         if (!m_initialized && fontSizeChanged) {
             LOG_INFO("UpdateConfig: Config saved, will use new fontSize on next ImGui init");
         }
     }
     
-    // 检查图片路径是否改变或首次加载
-    if (firstLoad || oldImagePath != config.imagePath) {
+    // 检查图片路径是否改变或首次加载图片
+    bool imageFirstLoad = oldImagePath.empty() || oldImagePath == "placeholder.png";
+    if (imageFirstLoad || oldImagePath != config.imagePath) {
         if (m_pDevice) {
-            if (firstLoad) {
+            if (imageFirstLoad) {
                 LOG_INFO("WatermarkRenderer: First config update, loading watermark texture");
             } else {
                 LOG_INFO("WatermarkRenderer: Image path changed from '{}' to '{}', reloading texture", 
@@ -341,10 +352,10 @@ bool WatermarkRenderer::LoadWatermarkTexture(ID3D11Device* pDevice) {
     unsigned char* data = stbi_load(imagePath.c_str(), &width, &height, NULL, 4);
     if (!data) return false;
     
-    // 验证图片内容
+    // 验证图片内容 - 至少 1% 像素可见（支持透明背景水印）
     int totalPixels = width * height;
     int visiblePixels = 0;
-    int minRequired = totalPixels / 10;
+    int minRequired = totalPixels / 100;  // 1% 而不是 10%
     
     for (int i = 0; i < totalPixels && visiblePixels < minRequired; i++) {
         unsigned char a = data[i * 4 + 3];

@@ -15,7 +15,7 @@ std::string GetUserFolder();
 
 namespace LicHper {
 
-// 验证水印图片是否有效（至少 10% 像素可见）
+// 验证水印图片是否有效（至少 1% 像素可见，支持透明背景水印）
 static bool IsValidWatermarkImage(const std::string& imagePath) {
     if (!std::filesystem::exists(imagePath)) {
         LOG_WARNING("IsValidWatermarkImage: File not found: {}", imagePath);
@@ -29,10 +29,10 @@ static bool IsValidWatermarkImage(const std::string& imagePath) {
         return false;
     }
     
-    // 验证图片内容 - 至少 10% 像素可见
+    // 验证图片内容 - 至少 1% 像素可见（降低阈值以支持透明背景水印）
     int totalPixels = width * height;
     int visiblePixels = 0;
-    int minRequired = totalPixels / 10;
+    int minRequired = totalPixels / 100;  // 1% 而不是 10%
     
     for (int i = 0; i < totalPixels && visiblePixels < minRequired; i++) {
         unsigned char a = data[i * 4 + 3];  // alpha
