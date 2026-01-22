@@ -147,9 +147,9 @@ bool D3D12WatermarkRenderer::Initialize(IDXGISwapChain* pSwapChain, ID3D12Device
     titleFontConfig.PixelSnapH = false;
     titleFontConfig.RasterizerMultiply = 1.3f;
     
-    // 构建精简字符范围
+    // 构建精简字符范围（根据字体大小动态调整）
     m_watermarkGlyphRanges = ImGuiWatermarkCore::BuildWatermarkGlyphRanges(
-        m_pConfig->title, m_pConfig->appID);
+        m_pConfig->title, m_pConfig->appID, watermarkFontSize);
     
     m_titleFont = io.Fonts->AddFontFromFileTTF(
         "c:\\Windows\\Fonts\\msyh.ttc", (float)watermarkFontSize, &titleFontConfig,
