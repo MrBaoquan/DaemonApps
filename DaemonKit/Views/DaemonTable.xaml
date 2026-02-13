@@ -4,155 +4,397 @@
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     xmlns:local="clr-namespace:DaemonKit"
+    xmlns:vm="clr-namespace:DaemonKit.ViewModels"
+    xmlns:models="clr-namespace:DaemonKit.Models"
+    xmlns:converters="clr-namespace:DaemonKit.Converters"
     x:Class="DaemonKit.DaemonTable"
-    x:TypeArguments="local:DaemonTableViewModel"
+    x:TypeArguments="vm:DaemonPanelViewModel"
     xmlns:fa="http://schemas.fontawesome.io/icons/"
     xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes"
     xmlns:reactiveui="http://reactiveui.net"
+    xmlns:sys="clr-namespace:System;assembly=mscorlib"
     mc:Ignorable="d"
-    Title="联调面板"
-    Height="720"
-    Width="1580">
-    <Grid>
-        <!--This is the hidden helper Grid which does the resizing -->
-        <Grid Visibility="Hidden">
-            <Grid.ColumnDefinitions>
-                <!--Width is bound to width of the first GridViewColumn -->
-                <ColumnDefinition Width="150"/>
-                <!--Width is set to "Fill"-->
-                <ColumnDefinition Width="140"/>
-                <!--Correction Width-->
-                <ColumnDefinition Width="1*"
-                                  MinWidth="250"/>
-                <ColumnDefinition Width="1*"
-                                  MinWidth="250"/>
-                <ColumnDefinition Width="1*"
-                                  MinWidth="250"/>
-                <ColumnDefinition Width="2*"/>
-            </Grid.ColumnDefinitions>
-            <!--This is the hidden helper Field which is used to bind to, using the "Fill" column of the helper grid-->
-            <Grid Grid.Column="0"
-                  x:Name="col_name"/>
-            <Grid Grid.Column="1"
-                  x:Name="col_ip"/>
-            <Grid Grid.Column="2"
-                  x:Name="col_cpu"/>
-            <Grid Grid.Column="3"
-                  x:Name="col_gpu"/>
-            <Grid Grid.Column="4"
-                  x:Name="col_memory"/>
-            <Grid Grid.Column="5"
-                  x:Name="col_option"/>
-        </Grid>
-        <ListView HorizontalAlignment="Stretch"
-                  Padding="15 0 15 0"
-                  VerticalAlignment="Stretch"
-                  ItemsSource="{Binding Machines}">
-            <ListView.ItemContainerStyle>
-                <Style TargetType="ListViewItem">
-                    <Setter Property="VerticalAlignment"
-                            Value="Center"/>
-                    <Setter Property="BorderBrush"
-                            Value="LightGray"/>
-                    <Setter Property="BorderThickness"
-                            Value="0,0,0,1"/>
-                </Style>
-            </ListView.ItemContainerStyle>
+    Title="设备联调面板"
+    Height="800"
+    Width="1400"
+    MinWidth="1000"
+    MinHeight="600"
+    WindowStartupLocation="CenterScreen">
 
-            <ListView.View>
-                <GridView>
-                    <GridViewColumn Header="设备"
-                                    DisplayMemberBinding="{Binding Name}"
-                                    Width="{Binding ElementName=col_name, Path=ActualWidth}"/>
-                    <GridViewColumn Header="IP"
-                                    Width="{Binding ElementName=col_ip, Path=ActualWidth}">
-                        <GridViewColumn.CellTemplate>
-                            <DataTemplate>
-                                <ListView ItemsSource="{Binding IPs}"
-                                          IsHitTestVisible="False">
-                                    <ListView.ItemTemplate>
-                                        <DataTemplate>
-                                            <TextBlock Text="{Binding}"/>
-                                        </DataTemplate>
-                                    </ListView.ItemTemplate>
-                                </ListView>
-                            </DataTemplate>
-                        </GridViewColumn.CellTemplate>
-                    </GridViewColumn>
-                    <GridViewColumn Header="CPU"
-                                    Width="{Binding ElementName=col_cpu, Path=ActualWidth}">
-                        <GridViewColumn.CellTemplate>
-                            <DataTemplate>
-                                <ListView ItemsSource="{Binding CPUs}"
-                                          IsHitTestVisible="False">
-                                    <ListView.ItemTemplate>
-                                        <DataTemplate>
-                                            <TextBlock Text="{Binding}"/>
-                                        </DataTemplate>
-                                    </ListView.ItemTemplate>
-                                </ListView>
-                            </DataTemplate>
-                        </GridViewColumn.CellTemplate>
-                    </GridViewColumn>
-                    <GridViewColumn Header="GPU"
-                                    Width="{Binding ElementName=col_gpu, Path=ActualWidth}">
-                        <GridViewColumn.CellTemplate>
-                            <DataTemplate>
-                                <ListView ItemsSource="{Binding GPUs}">
-                                    <ListView.ItemTemplate>
-                                        <DataTemplate>
-                                            <TextBlock Text="{Binding}"/>
-                                        </DataTemplate>
-                                    </ListView.ItemTemplate>
-                                </ListView>
-                            </DataTemplate>
-                        </GridViewColumn.CellTemplate>
-                    </GridViewColumn>
-                    <GridViewColumn Header="内存"
-                                    Width="{Binding ElementName=col_memory, Path=ActualWidth}">
-                        <GridViewColumn.CellTemplate>
-                            <DataTemplate>
-                                <ListView ItemsSource="{Binding Memories}">
-                                    <ListView.ItemTemplate>
-                                        <DataTemplate>
-                                            <TextBlock Text="{Binding}"/>
-                                        </DataTemplate>
-                                    </ListView.ItemTemplate>
-                                </ListView>
-                            </DataTemplate>
-                        </GridViewColumn.CellTemplate>
-                    </GridViewColumn>
-                    <GridViewColumn Header="操作"
-                                    Width="{Binding ElementName=col_option, Path=ActualWidth}">
-                        <GridViewColumn.CellTemplate>
-                            <DataTemplate>
-                                <StackPanel Orientation="Horizontal"
-                                            Margin="0 0 5 0">
-                                    <Button  Content="连接"
-                                             Margin="0 0 5 0"
-                                             Command="{Binding RelativeSource={RelativeSource FindAncestor, AncestorType={x:Type Window},AncestorLevel=1},Path=DataContext.TryConnectCommand}"
-                                             CommandParameter="{Binding}"/>
-                                    <Button  Content="重启电脑"
-                                             Margin="0 0 5 0"
-                                             Command="{Binding RelativeSource={RelativeSource FindAncestor, AncestorType={x:Type Window},AncestorLevel=1},Path=DataContext.TryRestartCommand}"
-                                             CommandParameter="{Binding}"/>
+    <Window.Resources>
+        <!-- 转换器 -->
+        <converters:MachineStatusToBrushConverter x:Key="StatusToBrushConverter"/>
+        <converters:TransferStateToStringConverter x:Key="TransferStateToStringConverter"/>
+        <converters:TransferStateToBrushConverter x:Key="TransferStateToBrushConverter"/>
+        <converters:BytesToHumanReadableConverter x:Key="BytesToHumanReadableConverter"/>
+        <converters:TransferringToVisibilityConverter x:Key="TransferringToVisibilityConverter"/>
+        <converters:PausedToVisibilityConverter x:Key="PausedToVisibilityConverter"/>
+        <converters:GreaterThanZeroToBoolConverter x:Key="GreaterThanZeroToBoolConverter"/>
+        <BooleanToVisibilityConverter x:Key="BoolToVisibilityConverter"/>
+        <!-- ViewModel代理（供DataTemplate中的命令绑定使用） -->
+        <converters:BindingProxy x:Key="ViewModelProxy" Data="{Binding}"/>
+    </Window.Resources>
 
-                                    <Button   Content="关机"
-                                              Margin="0 0 5 0"
-                                              Command="{Binding RelativeSource={RelativeSource FindAncestor, AncestorType={x:Type Window},AncestorLevel=1},Path=DataContext.TryShutdownCommand}"
-                                              CommandParameter="{Binding}"/>
-                                    <Button  Content="重启软件"
-                                             Margin="0 0 5 0"
-                                             Command="{Binding RelativeSource={RelativeSource FindAncestor, AncestorType={x:Type Window},AncestorLevel=1},Path=DataContext.TryRestartNodeTree}"
-                                             CommandParameter="{Binding}"/>
+    <Grid Margin="8">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>  <!-- 工具栏 -->
+            <RowDefinition Height="Auto"/>  <!-- 批量操作栏 -->
+            <RowDefinition Height="*"/>      <!-- 设备列表 -->
+            <RowDefinition Height="Auto"/>  <!-- 分页控件 -->
+        </Grid.RowDefinitions>
+
+        <!-- 1. 工具栏：搜索 + 过滤 + 统计 + 工具按钮 -->
+        <materialDesign:Card Grid.Row="0" Margin="0,0,0,8" Padding="12">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+
+                <!-- 搜索框 -->
+                <TextBox Grid.Column="0" Width="280"
+                         materialDesign:HintAssist.Hint="名称/IP/IP范围(如192.168.1.10-20)"
+                         materialDesign:TextFieldAssist.HasClearButton="True"
+                         Style="{StaticResource MaterialDesignOutlinedTextBox}"
+                         Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}"
+                         VerticalAlignment="Center"/>
+
+                <!-- 状态过滤 -->
+                <ComboBox Grid.Column="1" Margin="12,0,0,0" Width="120"
+                          materialDesign:HintAssist.Hint="状态筛选"
+                          Style="{StaticResource MaterialDesignOutlinedComboBox}"
+                          ItemsSource="{Binding StatusFilterOptions}"
+                          SelectedItem="{Binding SelectedStatusOption}"
+                          DisplayMemberPath="DisplayName"
+                          VerticalAlignment="Center"/>
+
+                <!-- 设备统计 -->
+                <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center" 
+                            HorizontalAlignment="Right" Margin="12,0,8,0">
+                    <TextBlock Text="共 " VerticalAlignment="Center" FontSize="13" Foreground="#666"/>
+                    <TextBlock Text="{Binding FilteredCount}" FontWeight="Bold" FontSize="13" Foreground="{StaticResource PrimaryHueMidBrush}"/>
+                    <TextBlock Text=" / " VerticalAlignment="Center" FontSize="13" Foreground="#666"/>
+                    <TextBlock Text="{Binding TotalDevices}" FontSize="13" Foreground="#666"/>
+                    <TextBlock Text=" 台" VerticalAlignment="Center" FontSize="13" Foreground="#666"/>
+                </StackPanel>
+
+                <!-- 工具按钮 -->
+                <StackPanel Grid.Column="3" Orientation="Horizontal">
+                    <Button Command="{Binding ClearDeviceCacheCommand}"
+                            Style="{StaticResource MaterialDesignIconButton}"
+                            ToolTip="清除离线设备缓存"
+                            Margin="0,0,4,0">
+                        <materialDesign:PackIcon Kind="DeleteSweep" Width="24" Height="24"/>
+                    </Button>
+                    <Button Command="{Binding OpenSharedFolderCommand}"
+                            Style="{StaticResource MaterialDesignIconButton}"
+                            ToolTip="打开共享文件夹"
+                            Margin="0,0,4,0">
+                        <materialDesign:PackIcon Kind="FolderOpen" Width="24" Height="24"/>
+                    </Button>
+                    <Button Command="{Binding RefreshCommand}"
+                            Style="{StaticResource MaterialDesignIconButton}"
+                            ToolTip="刷新设备列表">
+                        <materialDesign:PackIcon Kind="Refresh" Width="24" Height="24"/>
+                    </Button>
+                </StackPanel>
+            </Grid>
+        </materialDesign:Card>
+
+        <!-- 2. 批量操作栏 -->
+        <Border Grid.Row="1" Margin="0,0,0,6" Padding="10,6" CornerRadius="4"
+                Background="#E3F2FD">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+
+                <!-- 全选在线 -->
+                <Button Grid.Column="0"
+                        Style="{StaticResource MaterialDesignFlatButton}"
+                        Command="{Binding SelectAllOnlineCommand}"
+                        Height="28" Padding="8,2">
+                    <StackPanel Orientation="Horizontal">
+                        <materialDesign:PackIcon Kind="CheckboxMultipleMarked" Width="16" Height="16" Margin="0,0,4,0"/>
+                        <TextBlock Text="全选在线" FontSize="12"/>
+                    </StackPanel>
+                </Button>
+
+                <!-- 选中计数 -->
+                <TextBlock Grid.Column="1" VerticalAlignment="Center" Margin="8,0,0,0" FontSize="13"
+                           Visibility="{Binding HasSelection, Converter={StaticResource BoolToVisibilityConverter}}">
+                    <Run Text="已选 "/>
+                    <Run Text="{Binding SelectedCount, Mode=OneWay}" FontWeight="Bold" Foreground="{StaticResource PrimaryHueMidBrush}"/>
+                    <Run Text=" 台"/>
+                </TextBlock>
+
+                <!-- 批量操作按钮 -->
+                <StackPanel Grid.Column="2" Orientation="Horizontal" HorizontalAlignment="Center"
+                            Visibility="{Binding HasSelection, Converter={StaticResource BoolToVisibilityConverter}}">
+                    <Button Style="{StaticResource MaterialDesignOutlinedButton}"
+                            Command="{Binding BatchDownloadPackagesCommand}"
+                            Padding="10,2" Height="28" Margin="0,0,6,0" FontSize="12"
+                            Foreground="Purple" BorderBrush="Purple">
+                        <StackPanel Orientation="Horizontal">
+                            <materialDesign:PackIcon Kind="PackageDown" Width="14" Height="14" Margin="0,0,4,0"/>
+                            <TextBlock Text="批量下载进程包"/>
+                        </StackPanel>
+                    </Button>
+                    <Button Style="{StaticResource MaterialDesignOutlinedButton}"
+                            Command="{Binding BatchRestartSoftwareCommand}"
+                            Padding="10,2" Height="28" Margin="0,0,6,0" FontSize="12">
+                        <StackPanel Orientation="Horizontal">
+                            <materialDesign:PackIcon Kind="ApplicationCog" Width="14" Height="14" Margin="0,0,4,0"/>
+                            <TextBlock Text="批量重启软件"/>
+                        </StackPanel>
+                    </Button>
+                    <Button Style="{StaticResource MaterialDesignOutlinedButton}"
+                            Command="{Binding BatchRestartCommand}"
+                            Padding="10,2" Height="28" Margin="0,0,6,0" FontSize="12">
+                        <StackPanel Orientation="Horizontal">
+                            <materialDesign:PackIcon Kind="Restart" Width="14" Height="14" Margin="0,0,4,0"/>
+                            <TextBlock Text="批量重启"/>
+                        </StackPanel>
+                    </Button>
+                    <Button Style="{StaticResource MaterialDesignOutlinedButton}"
+                            Command="{Binding BatchShutdownCommand}"
+                            Padding="10,2" Height="28" FontSize="12"
+                            Foreground="OrangeRed" BorderBrush="OrangeRed">
+                        <StackPanel Orientation="Horizontal">
+                            <materialDesign:PackIcon Kind="Power" Width="14" Height="14" Margin="0,0,4,0"/>
+                            <TextBlock Text="批量关机"/>
+                        </StackPanel>
+                    </Button>
+                </StackPanel>
+
+                <!-- 取消全选 -->
+                <Button Grid.Column="3"
+                        Style="{StaticResource MaterialDesignFlatButton}"
+                        Command="{Binding DeselectAllCommand}"
+                        Content="取消全选" Padding="8,2" Height="28" FontSize="12"
+                        Visibility="{Binding HasSelection, Converter={StaticResource BoolToVisibilityConverter}}"/>
+            </Grid>
+        </Border>
+
+        <!-- 3. 设备列表 DataGrid -->
+        <materialDesign:Card Grid.Row="2" Margin="0,0,0,8">
+            <DataGrid ItemsSource="{Binding PagedMachines}"
+                      SelectedItem="{Binding SelectedMachine}"
+                      AutoGenerateColumns="False"
+                      CanUserAddRows="False"
+                      CanUserDeleteRows="False"
+                      IsReadOnly="True"
+                      SelectionMode="Single"
+                      HeadersVisibility="Column"
+                      GridLinesVisibility="Horizontal"
+                      HorizontalScrollBarVisibility="Auto"
+                      VerticalScrollBarVisibility="Auto"
+                      Background="White">
+
+                <DataGrid.Columns>
+                    <!-- 选择复选框（表头全选） -->
+                    <DataGridTemplateColumn Width="48" CanUserResize="False">
+                        <DataGridTemplateColumn.HeaderTemplate>
+                            <DataTemplate>
+                                <CheckBox IsChecked="{Binding Data.IsAllSelected, Source={StaticResource ViewModelProxy}, Mode=TwoWay}"
+                                          HorizontalAlignment="Center" VerticalAlignment="Center"
+                                          ToolTip="全选/取消全选"/>
+                            </DataTemplate>
+                        </DataGridTemplateColumn.HeaderTemplate>
+                        <DataGridTemplateColumn.CellTemplate>
+                            <DataTemplate>
+                                <CheckBox IsChecked="{Binding IsSelected, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                          HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                            </DataTemplate>
+                        </DataGridTemplateColumn.CellTemplate>
+                    </DataGridTemplateColumn>
+
+                    <!-- 状态指示灯 -->
+                    <DataGridTemplateColumn Header="" Width="44" CanUserResize="False">
+                        <DataGridTemplateColumn.CellTemplate>
+                            <DataTemplate>
+                                <Ellipse Width="10" Height="10" HorizontalAlignment="Center"
+                                         Fill="{Binding Status, Converter={StaticResource StatusToBrushConverter}}"
+                                         ToolTip="{Binding Status}"/>
+                            </DataTemplate>
+                        </DataGridTemplateColumn.CellTemplate>
+                    </DataGridTemplateColumn>
+
+                    <!-- 设备名称 -->
+                    <DataGridTextColumn Header="设备名称" Binding="{Binding Name}" Width="140">
+                        <DataGridTextColumn.ElementStyle>
+                            <Style TargetType="TextBlock">
+                                <Setter Property="VerticalAlignment" Value="Center"/>
+                                <Setter Property="FontWeight" Value="Medium"/>
+                            </Style>
+                        </DataGridTextColumn.ElementStyle>
+                    </DataGridTextColumn>
+
+                    <!-- IP地址 -->
+                    <DataGridTemplateColumn Header="IP地址" Width="120">
+                        <DataGridTemplateColumn.CellTemplate>
+                            <DataTemplate>
+                                <ItemsControl ItemsSource="{Binding IPs}" VerticalAlignment="Center">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                            <TextBlock Text="{Binding}" Margin="0,1" FontSize="12"/>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </DataTemplate>
+                        </DataGridTemplateColumn.CellTemplate>
+                    </DataGridTemplateColumn>
+
+                    <!-- 硬件概要 -->
+                    <DataGridTemplateColumn Header="硬件概要" Width="*" MinWidth="180">
+                        <DataGridTemplateColumn.CellTemplate>
+                            <DataTemplate>
+                                <TextBlock Text="{Binding HardwareInfoSummary, Mode=OneWay}"
+                                           TextTrimming="CharacterEllipsis"
+                                           ToolTip="{Binding HardwareInfo}"
+                                           VerticalAlignment="Center"
+                                           FontSize="12" Foreground="#666"/>
+                            </DataTemplate>
+                        </DataGridTemplateColumn.CellTemplate>
+                    </DataGridTemplateColumn>
+
+                    <!-- 操作按钮：常用内联 + 更多下拉菜单 -->
+                    <DataGridTemplateColumn Header="操作" Width="Auto" MinWidth="160">
+                        <DataGridTemplateColumn.CellTemplate>
+                            <DataTemplate>
+                                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                    <!-- 常用操作：内联 -->
+                                    <Button Style="{StaticResource MaterialDesignIconButton}"
+                                            ToolTip="远程连接" Width="30" Height="30"
+                                            Command="{Binding Data.ConnectCommand, Source={StaticResource ViewModelProxy}}"
+                                            CommandParameter="{Binding}">
+                                        <materialDesign:PackIcon Kind="RemoteDesktop" Width="16" Height="16"/>
+                                    </Button>
+                                    <Button Style="{StaticResource MaterialDesignIconButton}"
+                                            ToolTip="发送文件" Width="30" Height="30"
+                                            Foreground="{StaticResource PrimaryHueMidBrush}"
+                                            Command="{Binding Data.SendFilesCommand, Source={StaticResource ViewModelProxy}}"
+                                            CommandParameter="{Binding}">
+                                        <materialDesign:PackIcon Kind="FileUpload" Width="16" Height="16"/>
+                                    </Button>
+                                    <Button Style="{StaticResource MaterialDesignIconButton}"
+                                            ToolTip="下载进程包" Width="30" Height="30"
+                                            Foreground="Purple"
+                                            Command="{Binding Data.DownloadPackageCommand, Source={StaticResource ViewModelProxy}}"
+                                            CommandParameter="{Binding}">
+                                        <materialDesign:PackIcon Kind="PackageDown" Width="16" Height="16"/>
+                                    </Button>
+
+                                    <!-- 更多操作：下拉菜单 -->
+                                    <materialDesign:PopupBox PlacementMode="BottomAndAlignRightEdges"
+                                                             StaysOpen="False"
+                                                             ToolTip="更多操作"
+                                                             Width="30" Height="30"
+                                                             Padding="0">
+                                        <materialDesign:PopupBox.ToggleContent>
+                                            <materialDesign:PackIcon Kind="DotsVertical" Width="16" Height="16"
+                                                                     Foreground="#999"/>
+                                        </materialDesign:PopupBox.ToggleContent>
+                                        <StackPanel MinWidth="150">
+                                            <Button Command="{Binding Data.BrowseFilesCommand, Source={StaticResource ViewModelProxy}}"
+                                                    CommandParameter="{Binding}"
+                                                    HorizontalContentAlignment="Left" Padding="12,8">
+                                                <StackPanel Orientation="Horizontal">
+                                                    <materialDesign:PackIcon Kind="FolderSearch" Width="16" Height="16" 
+                                                                             Margin="0,0,10,0" Foreground="Teal"/>
+                                                    <TextBlock Text="浏览远程文件"/>
+                                                </StackPanel>
+                                            </Button>
+                                            <Button Command="{Binding Data.RestartNodeTreeCommand, Source={StaticResource ViewModelProxy}}"
+                                                    CommandParameter="{Binding}"
+                                                    HorizontalContentAlignment="Left" Padding="12,8">
+                                                <StackPanel Orientation="Horizontal">
+                                                    <materialDesign:PackIcon Kind="ApplicationCog" Width="16" Height="16" 
+                                                                             Margin="0,0,10,0" Foreground="{StaticResource PrimaryHueMidBrush}"/>
+                                                    <TextBlock Text="重启软件"/>
+                                                </StackPanel>
+                                            </Button>
+                                            <Button Command="{Binding Data.RestartCommand, Source={StaticResource ViewModelProxy}}"
+                                                    CommandParameter="{Binding}"
+                                                    HorizontalContentAlignment="Left" Padding="12,8">
+                                                <StackPanel Orientation="Horizontal">
+                                                    <materialDesign:PackIcon Kind="Restart" Width="16" Height="16" 
+                                                                             Margin="0,0,10,0"/>
+                                                    <TextBlock Text="重启系统"/>
+                                                </StackPanel>
+                                            </Button>
+                                            <Button Command="{Binding Data.ShutdownCommand, Source={StaticResource ViewModelProxy}}"
+                                                    CommandParameter="{Binding}"
+                                                    HorizontalContentAlignment="Left" Padding="12,8">
+                                                <StackPanel Orientation="Horizontal">
+                                                    <materialDesign:PackIcon Kind="Power" Width="16" Height="16" 
+                                                                             Margin="0,0,10,0" Foreground="OrangeRed"/>
+                                                    <TextBlock Text="关机"/>
+                                                </StackPanel>
+                                            </Button>
+                                            <Separator/>
+                                            <Button Command="{Binding Data.RemoveDeviceCommand, Source={StaticResource ViewModelProxy}}"
+                                                    CommandParameter="{Binding}"
+                                                    HorizontalContentAlignment="Left" Padding="12,8">
+                                                <StackPanel Orientation="Horizontal">
+                                                    <materialDesign:PackIcon Kind="Close" Width="16" Height="16" 
+                                                                             Margin="0,0,10,0" Foreground="#999"/>
+                                                    <TextBlock Text="移除设备"/>
+                                                </StackPanel>
+                                            </Button>
+                                        </StackPanel>
+                                    </materialDesign:PopupBox>
                                 </StackPanel>
                             </DataTemplate>
-                        </GridViewColumn.CellTemplate>
-                    </GridViewColumn>
-                </GridView>
-            </ListView.View>
-        </ListView>
+                        </DataGridTemplateColumn.CellTemplate>
+                    </DataGridTemplateColumn>
+                </DataGrid.Columns>
+            </DataGrid>
+        </materialDesign:Card>
+
+        <!-- 4. 分页控件 -->
+        <materialDesign:Card Grid.Row="3" Margin="0,0,0,8" Padding="12">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+
+                <!-- 每页条数 -->
+                <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
+                    <TextBlock Text="每页显示" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                    <ComboBox Width="70" 
+                              ItemsSource="{Binding PageSizeOptions}"
+                              SelectedItem="{Binding PageSize}"
+                              Style="{StaticResource MaterialDesignOutlinedComboBox}"
+                              materialDesign:HintAssist.Hint="条数"/>
+                    <TextBlock Text="条" VerticalAlignment="Center" Margin="8,0,0,0"/>
+                </StackPanel>
+
+                <!-- 页码导航 -->
+                <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
+                    <Button Command="{Binding PrevPageCommand}" 
+                            Style="{StaticResource MaterialDesignFlatButton}"
+                            Content="上一页" Margin="0,0,8,0"/>
+                    <TextBlock VerticalAlignment="Center" FontSize="14">
+                        <Run Text="第 "/>
+                        <Run Text="{Binding CurrentPage}" FontWeight="Bold"/>
+                        <Run Text=" / "/>
+                        <Run Text="{Binding TotalPages}"/>
+                        <Run Text=" 页"/>
+                    </TextBlock>
+                    <Button Command="{Binding NextPageCommand}" 
+                            Style="{StaticResource MaterialDesignFlatButton}"
+                            Content="下一页" Margin="8,0,0,0"/>
+                </StackPanel>
+            </Grid>
+        </materialDesign:Card>
+
     </Grid>
-
-
 </reactiveui:ReactiveWindow>

@@ -394,11 +394,7 @@ namespace DaemonKit
                 {
                     USerialization.SerializeXML(globalScheduleConfig, AppPathes.GlobalSchedulePath);
 
-                    // 简单同步备份
-                    if (!Directory.Exists(AppPathes.ConfigDir_BackUp))
-                    {
-                        Directory.CreateDirectory(AppPathes.ConfigDir_BackUp);
-                    }
+                    // 备份到同目录 .bak 文件
                     File.Copy(
                         AppPathes.GlobalSchedulePath,
                         AppPathes.GlobalSchedulePath_Backup,

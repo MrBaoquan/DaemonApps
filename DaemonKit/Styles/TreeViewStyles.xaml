@@ -24,6 +24,10 @@
                         <MenuItem Header="删除该节点"
                                   Command="{Binding RelativeSource={RelativeSource FindAncestor, AncestorType={x:Type Window}, AncestorLevel=1}, Path=DataContext.DeleteTreeNode}"/>
                 </MenuItem>
+                <Separator/>
+                <MenuItem Header="导出节点包..."
+                          Command="{Binding RelativeSource={RelativeSource FindAncestor, AncestorType={x:Type Window}, AncestorLevel=1}, Path=DataContext.ExportNodePackage}"
+                          CommandParameter="{Binding}"/>
         </ContextMenu>
 
         <!-- TreeViewItem样式 -->

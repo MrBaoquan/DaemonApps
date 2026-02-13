@@ -203,7 +203,7 @@
                                 <ColumnDefinition Width="Auto"/>
                             </Grid.ColumnDefinitions>
                             <TextBox Text="{Binding PackagePath, Mode=TwoWay}"
-                                     materialDesign:HintAssist.Hint="选择.dkpkg文件"
+                                     materialDesign:HintAssist.Hint="选择 .dkp.zip 文件"
                                      Style="{StaticResource MaterialDesignOutlinedTextBox}"
                                      IsReadOnly="True"
                                      Grid.Column="0"
@@ -248,7 +248,7 @@
                                                Margin="0,0,10,4"/>
                                     <TextBlock Grid.Row="0"
                                                Grid.Column="1"
-                                               Text="{Binding Metadata.ProjectName}"
+                                               Text="{Binding Manifest.Tree.ProjectName}"
                                                FontSize="11"
                                                Margin="0,0,0,4"/>
 
@@ -260,7 +260,7 @@
                                                Margin="0,0,10,4"/>
                                     <TextBlock Grid.Row="1"
                                                Grid.Column="1"
-                                               Text="{Binding Metadata.Description}"
+                                               Text="{Binding Manifest.Description}"
                                                TextWrapping="Wrap"
                                                FontSize="11"
                                                Margin="0,0,0,4"/>
@@ -273,7 +273,7 @@
                                                Margin="0,0,10,4"/>
                                     <TextBlock Grid.Row="2"
                                                Grid.Column="1"
-                                               Text="{Binding Metadata.ExportDate, StringFormat='yyyy-MM-dd HH:mm:ss'}"
+                                               Text="{Binding Manifest.CreatedAt, StringFormat='yyyy-MM-dd HH:mm:ss'}"
                                                FontSize="11"
                                                Margin="0,0,0,4"/>
 
@@ -287,9 +287,9 @@
                                                Grid.Column="1"
                                                FontSize="11"
                                                Margin="0,0,0,4">
-                                        <Run Text="{Binding Metadata.MachineName}"/>
+                                        <Run Text="{Binding Manifest.Source.MachineName}"/>
                                         <Run Text=" | "/>
-                                        <Run Text="{Binding Metadata.UserName}"/>
+                                        <Run Text="{Binding Manifest.Source.UserName}"/>
                                     </TextBlock>
 
                                     <TextBlock Grid.Row="4"

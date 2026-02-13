@@ -548,7 +548,7 @@ namespace DaemonKit.Core
         /// </summary>
         private void TakeScreenshotTask()
         {
-            var screenshotDir = Path.Combine(AppPathes.AppRoot, "Screenshots");
+            var screenshotDir = AppPathes.ScreenshotsDir;
             if (!Directory.Exists(screenshotDir))
                 Directory.CreateDirectory(screenshotDir);
 

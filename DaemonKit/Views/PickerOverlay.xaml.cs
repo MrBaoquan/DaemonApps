@@ -1250,9 +1250,8 @@ namespace DaemonKit
 
         private string GetDefaultScreenshotFolder()
         {
-            // 默认保存到 进程所在目录下的 "Screenshots" 文件夹
-            string processDir = AppDomain.CurrentDomain.BaseDirectory;
-            string folder = System.IO.Path.Combine(processDir, "Screenshots");
+            // 使用统一的截图目录
+            string folder = Utilities.AppPathes.ScreenshotsDir;
 
             if (!Directory.Exists(folder))
             {

@@ -41,6 +41,9 @@ namespace DaemonKit
         public bool EnableIdleAutoPowerSaving { get; set; } = false; // 启用空闲自动省电
         public int IdleAutoPowerSavingThresholdMinutes { get; set; } = 5; // 空闲省电阈值(分钟)
 
+        // 传输设置
+        public int MaxConcurrentTransfers { get; set; } = 4;
+
         // 节能模式设置
         public bool PowerSavingModeEnabled { get; set; } = false;
         public byte PowerSavingNormalBrightness { get; set; } = 100;
@@ -99,6 +102,7 @@ namespace DaemonKit
                         IdleAutoActionThresholdMinutes = IdleAutoActionThresholdMinutes,
                         EnableIdleAutoPowerSaving = EnableIdleAutoPowerSaving,
                         IdleAutoPowerSavingThresholdMinutes = IdleAutoPowerSavingThresholdMinutes,
+                        MaxConcurrentTransfers = MaxConcurrentTransfers,
                         PowerSavingModeEnabled = PowerSavingModeEnabled,
                         PowerSavingNormalBrightness = PowerSavingNormalBrightness,
                         PowerSavingLowBrightness = PowerSavingLowBrightness,
@@ -137,6 +141,7 @@ namespace DaemonKit
             IdleAutoActionThresholdMinutes = settings.IdleAutoActionThresholdMinutes;
             EnableIdleAutoPowerSaving = settings.EnableIdleAutoPowerSaving;
             IdleAutoPowerSavingThresholdMinutes = settings.IdleAutoPowerSavingThresholdMinutes;
+            MaxConcurrentTransfers = settings.MaxConcurrentTransfers;
             PowerSavingModeEnabled = settings.PowerSavingModeEnabled;
             PowerSavingNormalBrightness = settings.PowerSavingNormalBrightness;
             PowerSavingLowBrightness = settings.PowerSavingLowBrightness;
@@ -264,6 +269,13 @@ namespace DaemonKit
                     ref idleAutoPowerSavingThresholdMinutes,
                     Math.Max(value, 1)
                 );
+        }
+
+        private int maxConcurrentTransfers = 4;
+        public int MaxConcurrentTransfers
+        {
+            get => maxConcurrentTransfers;
+            set => this.RaiseAndSetIfChanged(ref maxConcurrentTransfers, Math.Clamp(value, 1, 16));
         }
 
         private int startUpDelay = 0;
