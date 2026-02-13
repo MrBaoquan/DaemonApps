@@ -315,6 +315,14 @@
                              Text="{Binding CrashWindows}"/>
                 </StackPanel>
 
+                <StackPanel Margin="0,8">
+                    <TextBox FontSize="14"
+                             materialDesign:HintAssist.Hint="最大并发传输数"
+                             materialDesign:HintAssist.IsFloating="True"
+                             Text="{Binding MaxConcurrentTransfers}"
+                             materialDesign:TextFieldAssist.SuffixText="个"/>
+                </StackPanel>
+
                 <!-- 安全关闭设置分组 -->
                 <TextBlock Text="安全关闭"
                            FontSize="16"

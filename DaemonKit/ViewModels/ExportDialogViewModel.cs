@@ -200,9 +200,9 @@ namespace DaemonKit.ViewModels
         {
             var saveDialog = new SaveFileDialog
             {
-                Filter = "DaemonKit 配置包 (*.dkit)|*.dkit",
-                DefaultExt = ".dkit",
-                FileName = $"DaemonKit_Export_{DateTime.Now:yyyyMMdd_HHmmss}.dkit"
+                Filter = "DaemonKit 进程包 (*.dkp.zip)|*.dkp.zip",
+                DefaultExt = ".dkp.zip",
+                FileName = $"DaemonKit_进程包_{DateTime.Now:yyyyMMdd_HHmmss}.dkp.zip"
             };
 
             if (saveDialog.ShowDialog() != true)

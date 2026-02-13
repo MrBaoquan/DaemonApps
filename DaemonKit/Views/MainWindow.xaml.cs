@@ -79,6 +79,10 @@ namespace DaemonKit
         private IdleMonitorService _idleMonitorService = null!;
         private NetworkBroadcastService _networkBroadcastService = null!;
         private CrashDetectionService? _crashDetectionService;
+        private P2PFileTransferService _p2pService = null!;
+        private TransferTaskManager _transferTaskManager = null!;
+        private Views.TransferListWindow? _transferListWindow;
+        private Views.ResourceLibraryWindow? _resourceLibraryWindow;
 
         // 全局计划任务配置
         public static GlobalScheduleConfig GlobalSchedule { get; set; } = null!;
@@ -172,15 +176,24 @@ namespace DaemonKit
 
             ViewModel = new MainViewModel();
 
-            NLogger.LogFileDir = "Logs";
+            NLogger.LogFileDir = AppPathes.LogsDir;
             NLogger.LogFileName = "DaemonKit.log";
             NLogger.Initialize();
+
+            // 确保所有目录存在
+            AppPathes.EnsureDirectories();
 
             // 节点编辑窗口
             processNodeForm = new ProcessNodeForm();
             settingsWindow = new Settings();
             scheduleWindow = new Schedule();
-            _table = new DaemonTable();
+
+            // 初始化P2P文件传输服务和任务管理器（应用级生命周期，不依赖联调面板）
+            // 注意：此时 AppSettings 尚未加载，使用默认值；loadConfig 后会通过 UpdateMaxConcurrentTransfers 同步
+            _p2pService = new P2PFileTransferService();
+            _transferTaskManager = new TransferTaskManager();
+            _transferTaskManager.LoadHistory();
+            _table = new DaemonTable(_p2pService, _transferTaskManager);
 
             // 初始化服务层（在 AppSettings 加载后会调用 Initialize）
             _powerSavingService = new PowerSavingService();
@@ -191,6 +204,12 @@ namespace DaemonKit
                 .Listen<PackageProgressInfo>()
                 .ObserveOn(RxApp.MainThreadScheduler)
                 .Subscribe(OnPackageProgressUpdate);
+
+            // 订阅"在资源库中查看此设备"跳转消息
+            ReactiveUI.MessageBus.Current
+                .Listen<string>("OpenResourceLibrary")
+                .ObserveOn(RxApp.MainThreadScheduler)
+                .Subscribe(deviceFilter => ShowResourceLibraryWindow(deviceFilter));
 
             this.WhenActivated(disposables =>
             {
@@ -279,6 +298,11 @@ namespace DaemonKit
                             _powerSavingService.EnableIdleAutoPowerSaving =
                                 AppSettings.EnableIdleAutoPowerSaving;
 
+                            // 同步最大并发传输数到 P2P 服务
+                            _p2pService.UpdateMaxConcurrentTransfers(
+                                AppSettings.MaxConcurrentTransfers
+                            );
+
                             // 如果 EnableIdleAutoPowerSaving 状态改变，记录日志
                             if (
                                 oldEnableIdleAutoPowerSaving
@@ -352,6 +376,27 @@ namespace DaemonKit
                 ViewModel.EnableNameInput.Subscribe(_item =>
                 {
                     _item.EnableNameInput();
+                });
+
+                ViewModel.ExportNodePackage.Subscribe(_item =>
+                {
+                    if (_item == null || _item.IsSuperRoot)
+                        return;
+                    if (
+                        string.IsNullOrEmpty(_item.NodePath)
+                        || !System.IO.File.Exists(_item.NodePath)
+                    )
+                    {
+                        MessageBox.Show(
+                            $"节点程序文件不存在：{_item.NodePath}",
+                            "提示",
+                            MessageBoxButton.OK,
+                            MessageBoxImage.Warning
+                        );
+                        return;
+                    }
+                    var dialog = new NodePackageExportDialog(_item) { Owner = this };
+                    dialog.ShowDialog();
                 });
 
                 ViewModel.ShowInExplorer.Subscribe(_ =>
@@ -434,6 +479,14 @@ namespace DaemonKit
                     {
                         _table.Show();
                     });
+
+                ViewModel.OpenTransferList
+                    .ObserveOn(RxApp.MainThreadScheduler)
+                    .Subscribe(_ => ShowTransferListWindow());
+
+                ViewModel.OpenResourceLibrary
+                    .ObserveOn(RxApp.MainThreadScheduler)
+                    .Subscribe(_ => ShowResourceLibraryWindow());
 
                 ViewModel.OpenScheduleWindow
                     .ObserveOn(RxApp.MainThreadScheduler)
@@ -713,6 +766,54 @@ namespace DaemonKit
                 _networkBroadcastService = new NetworkBroadcastService();
                 _networkBroadcastService.Start(rootProcessNode, AppSettings.DaemonInterval);
 
+                // 启动P2P文件传输服务器（应用级，不依赖联调面板打开）
+                try
+                {
+                    _p2pService.UpdateMaxConcurrentTransfers(AppSettings.MaxConcurrentTransfers);
+                    _p2pService.StartServer();
+                    NLogger.Info("[P2P] 文件传输服务已随应用启动，端口: 7009");
+                }
+                catch (Exception ex)
+                {
+                    NLogger.Error($"[P2P] 启动文件传输服务失败: {ex.Message}");
+                }
+
+                // 订阅传输服务事件 → 委托给TransferTaskManager统一管理
+                // 使用Buffer替代GroupBy+Sample，避免每个TaskId创建永久定时器导致泄漏
+                _p2pService.TransferProgress
+                    .Buffer(TimeSpan.FromMilliseconds(200))
+                    .Where(batch => batch.Count > 0)
+                    .ObserveOn(RxApp.MainThreadScheduler)
+                    .Subscribe(batch =>
+                    {
+                        // 每个TaskId只取最新一条
+                        foreach (var task in batch.GroupBy(t => t.TaskId).Select(g => g.Last()))
+                        {
+                            _transferTaskManager.TrackTask(task);
+                        }
+                    })
+                    .DisposeWith(disposables);
+
+                _p2pService.TransferCompleted
+                    .ObserveOn(RxApp.MainThreadScheduler)
+                    .Subscribe(task => _transferTaskManager.CompleteTask(task.TaskId, true))
+                    .DisposeWith(disposables);
+
+                _p2pService.TransferFailed
+                    .ObserveOn(RxApp.MainThreadScheduler)
+                    .Subscribe(
+                        task =>
+                            _transferTaskManager.CompleteTask(task.TaskId, false, task.ErrorMessage)
+                    )
+                    .DisposeWith(disposables);
+
+                // 状态栏传输状态刷新（每500ms检查）
+                Observable
+                    .Interval(TimeSpan.FromMilliseconds(500))
+                    .ObserveOn(RxApp.MainThreadScheduler)
+                    .Subscribe(_ => UpdateTransferStatusBar())
+                    .DisposeWith(disposables);
+
                 // 设置硬件信息就绪回调，自动更新硬件信息显示
                 _networkBroadcastService.SetHardwareInfoReadyCallback(() =>
                 {
@@ -755,6 +856,157 @@ namespace DaemonKit
                             NLogger.Info("执行停止进程树命令");
                             rootProcessNode.KillNode();
                         }
+                        else if (_command.EventID == Command.EXPORT_PACKAGE)
+                        {
+                            NLogger.Info("执行远程导出进程包命令");
+                            _ = System.Threading.Tasks.Task.Run(async () =>
+                            {
+                                var incomingTaskId = _command.Data?.Value<string>("taskId") ?? "";
+                                try
+                                {
+                                    var requesterIP_forProgress = _command.Data?.Value<string>(
+                                        "requesterIP"
+                                    );
+
+                                    // 创建进度回调：通过UDP向请求方发送导出进度
+                                    IProgress<string> statusProgress = null;
+                                    if (!string.IsNullOrEmpty(requesterIP_forProgress))
+                                    {
+                                        var myIP_forProgress = GetLocalIPForRemote(
+                                            requesterIP_forProgress
+                                        );
+                                        statusProgress = new Progress<string>(message =>
+                                        {
+                                            try
+                                            {
+                                                var progressCommand = new Command
+                                                {
+                                                    EventID = Command.EXPORT_PACKAGE_PROGRESS,
+                                                    Data = new Newtonsoft.Json.Linq.JObject
+                                                    {
+                                                        ["message"] = message,
+                                                        ["remoteIP"] = myIP_forProgress
+                                                    }
+                                                };
+                                                var pJson = JsonConvert.SerializeObject(
+                                                    progressCommand
+                                                );
+                                                var pData = System.Text.Encoding.UTF8.GetBytes(
+                                                    pJson
+                                                );
+                                                using (var udp = new System.Net.Sockets.UdpClient())
+                                                {
+                                                    udp.Send(
+                                                        pData,
+                                                        pData.Length,
+                                                        requesterIP_forProgress,
+                                                        CommonVars.ControlPort
+                                                    );
+                                                }
+                                            }
+                                            catch
+                                            { /* 进度通知失败不影响导出 */
+                                            }
+                                        });
+                                    }
+
+                                    var exportedFileName = await ExportPackageToSharedFolderAsync(
+                                        rootProcessNode,
+                                        statusProgress
+                                    );
+
+                                    // 导出完成后发送通知回请求方
+                                    var requesterIP = _command.Data?.Value<string>("requesterIP");
+                                    if (!string.IsNullOrEmpty(requesterIP))
+                                    {
+                                        NLogger.Info(
+                                            $"[Remote Export] 向 {requesterIP} 发送导出完成通知, 文件名: {exportedFileName}"
+                                        );
+
+                                        // 获取本机IP（用于让请求方识别是谁发来的通知）
+                                        var myIP = GetLocalIPForRemote(requesterIP);
+
+                                        var completedCommand = new Command
+                                        {
+                                            EventID = Command.EXPORT_PACKAGE_COMPLETED,
+                                            Data = new Newtonsoft.Json.Linq.JObject
+                                            {
+                                                ["success"] = !string.IsNullOrEmpty(
+                                                    exportedFileName
+                                                ),
+                                                ["machineName"] = Environment.MachineName,
+                                                ["remoteIP"] = myIP, // 附带本机IP
+                                                ["packageFileName"] = exportedFileName ?? "", // 附带导出文件名
+                                                ["taskId"] = incomingTaskId // 回传任务ID用于精确匹配TCS
+                                            }
+                                        };
+
+                                        // 使用UDP发送通知
+                                        var json = JsonConvert.SerializeObject(completedCommand);
+                                        var data = System.Text.Encoding.UTF8.GetBytes(json);
+                                        using (var udpClient = new System.Net.Sockets.UdpClient())
+                                        {
+                                            udpClient.Send(
+                                                data,
+                                                data.Length,
+                                                requesterIP,
+                                                CommonVars.ControlPort
+                                            );
+                                        }
+                                    }
+                                }
+                                catch (Exception ex)
+                                {
+                                    NLogger.Error($"远程导出进程包失败: {ex.Message}");
+
+                                    // 发送失败通知
+                                    var requesterIP = _command.Data?.Value<string>("requesterIP");
+                                    if (!string.IsNullOrEmpty(requesterIP))
+                                    {
+                                        var myIP = GetLocalIPForRemote(requesterIP);
+
+                                        var completedCommand = new Command
+                                        {
+                                            EventID = Command.EXPORT_PACKAGE_COMPLETED,
+                                            Data = new Newtonsoft.Json.Linq.JObject
+                                            {
+                                                ["success"] = false,
+                                                ["error"] = ex.Message,
+                                                ["machineName"] = Environment.MachineName,
+                                                ["remoteIP"] = myIP,
+                                                ["taskId"] = incomingTaskId // 回传任务ID
+                                            }
+                                        };
+
+                                        // 使用UDP发送通知
+                                        try
+                                        {
+                                            var json = JsonConvert.SerializeObject(
+                                                completedCommand
+                                            );
+                                            var data = System.Text.Encoding.UTF8.GetBytes(json);
+                                            using (
+                                                var udpClient = new System.Net.Sockets.UdpClient()
+                                            )
+                                            {
+                                                udpClient.Send(
+                                                    data,
+                                                    data.Length,
+                                                    requesterIP,
+                                                    CommonVars.ControlPort
+                                                );
+                                            }
+                                        }
+                                        catch (Exception sendEx)
+                                        {
+                                            NLogger.Warn(
+                                                $"[Remote Export] 发送失败通知异常: {sendEx.Message}"
+                                            );
+                                        }
+                                    }
+                                }
+                            });
+                        }
                         else if (_command.EventID == Command.HEARTBEAT)
                         {
                             // 心跳处理
@@ -792,6 +1044,330 @@ namespace DaemonKit
                                 NLogger.Error($"处理心跳命令异常: {ex.Message}");
                             }
                         }
+                        else if (_command.EventID == Command.EXPORT_PACKAGE_PROGRESS)
+                        {
+                            // 导出进程包进度通知
+                            try
+                            {
+                                var progressMsg = _command.Data?.Value<string>("message") ?? "";
+                                var remoteIP = _command.Data?.Value<string>("remoteIP");
+
+                                if (!string.IsNullOrEmpty(remoteIP) && _table?.ViewModel != null)
+                                {
+                                    _table.ViewModel.OnExportPackageProgress(remoteIP, progressMsg);
+                                }
+                            }
+                            catch (Exception ex)
+                            {
+                                NLogger.Warn($"处理导出进度通知异常: {ex.Message}");
+                            }
+                        }
+                        else if (_command.EventID == Command.EXPORT_PACKAGE_COMPLETED)
+                        {
+                            // 导出进程包完成通知
+                            try
+                            {
+                                if (_command.Data == null)
+                                {
+                                    NLogger.Warn("导出完成通知缺少数据");
+                                    return;
+                                }
+
+                                var success = _command.Data.Value<bool>("success");
+                                var machineName =
+                                    _command.Data.Value<string>("machineName") ?? "未知设备";
+                                var error = _command.Data.Value<string>("error");
+                                var remoteIP = _command.Data.Value<string>("remoteIP"); // 从命令数据中获取远程IP
+                                var packageFileName = _command.Data.Value<string>(
+                                    "packageFileName"
+                                ); // 导出的文件名
+                                var taskId = _command.Data.Value<string>("taskId"); // 任务ID（用于精确匹配TCS）
+
+                                if (string.IsNullOrEmpty(remoteIP))
+                                {
+                                    NLogger.Warn("导出完成通知缺少remoteIP");
+                                    return;
+                                }
+
+                                NLogger.Info(
+                                    $"[Remote Export] 收到 {machineName}({remoteIP}) 的导出完成通知，成功: {success}, 文件: {packageFileName}"
+                                );
+
+                                // 通知 DaemonPanelViewModel
+                                if (_table?.ViewModel != null)
+                                {
+                                    _table.ViewModel.OnExportPackageCompleted(
+                                        remoteIP,
+                                        success,
+                                        error,
+                                        packageFileName,
+                                        taskId
+                                    );
+                                }
+                            }
+                            catch (Exception ex)
+                            {
+                                NLogger.Error($"处理导出完成通知异常: {ex.Message}");
+                            }
+                        }
+                        else if (_command.EventID == Command.PUSH_PACKAGE_TO_REQUESTER)
+                        {
+                            // 请求方通过UDP要求本机主动推送文件（避免TCP入站被防火墙阻断）
+                            var transferService = _p2pService;
+                            _ = System.Threading.Tasks.Task.Run(async () =>
+                            {
+                                try
+                                {
+                                    var requesterIP = _command.Data?.Value<string>("requesterIP");
+                                    var fileName = _command.Data?.Value<string>("fileName");
+                                    var requesterPort =
+                                        _command.Data?.Value<int>("requesterPort") ?? 7009;
+
+                                    if (
+                                        string.IsNullOrEmpty(requesterIP)
+                                        || string.IsNullOrEmpty(fileName)
+                                    )
+                                    {
+                                        NLogger.Warn("[PUSH] 推送请求缺少必要参数");
+                                        return;
+                                    }
+
+                                    NLogger.Info(
+                                        $"[PUSH] 收到推送请求: 文件={fileName}, 目标={requesterIP}:{requesterPort}"
+                                    );
+
+                                    var sharedDir = Utilities.AppPathes.SharedFilesDir;
+                                    var filePath = System.IO.Path.Combine(sharedDir, fileName);
+
+                                    if (!System.IO.File.Exists(filePath))
+                                    {
+                                        NLogger.Error($"[PUSH] 要推送的文件不存在: {filePath}");
+                                        return;
+                                    }
+
+                                    // 创建目标机器信息
+                                    var targetMachine = new MachineInfo
+                                    {
+                                        ID = requesterIP,
+                                        IPs =
+                                            new System.Collections.ObjectModel.ObservableCollection<string>
+                                            {
+                                                requesterIP
+                                            }
+                                    };
+
+                                    // 主动推送文件到请求方
+                                    if (transferService != null)
+                                    {
+                                        try
+                                        {
+                                            await transferService.SendFilesAsync(
+                                                targetMachine,
+                                                new List<string> { filePath },
+                                                sourceHint: TransferTaskSource.PackageDownload
+                                            );
+                                            NLogger.Info(
+                                                $"[PUSH] 文件推送完成: {fileName} -> {requesterIP}"
+                                            );
+                                        }
+                                        catch (Exception ex)
+                                        {
+                                            NLogger.Error($"[PUSH] 文件推送失败: {ex.Message}");
+                                        }
+                                    }
+                                    else
+                                    {
+                                        NLogger.Error("[PUSH] 无法获取传输服务实例");
+                                    }
+                                }
+                                catch (Exception ex)
+                                {
+                                    NLogger.Error($"[PUSH] 推送文件异常: {ex.Message}");
+                                }
+                            });
+                        }
+                        else if (_command.EventID == Command.LIST_SHARED_FILES)
+                        {
+                            // 远程设备请求本机共享文件列表（UDP）
+                            var transferService = _p2pService;
+                            _ = System.Threading.Tasks.Task.Run(() =>
+                            {
+                                try
+                                {
+                                    var requesterIP = _command.Data?.Value<string>("requesterIP");
+                                    var requestId = _command.Data?.Value<string>("requestId");
+
+                                    if (
+                                        string.IsNullOrEmpty(requesterIP)
+                                        || string.IsNullOrEmpty(requestId)
+                                    )
+                                    {
+                                        NLogger.Warn("[LIST_SHARED_FILES] 缺少必要参数");
+                                        return;
+                                    }
+
+                                    NLogger.Info(
+                                        $"[LIST_SHARED_FILES] 收到来自 {requesterIP} 的文件列表请求, requestId={requestId}"
+                                    );
+
+                                    // 获取本机共享文件列表
+                                    var files =
+                                        transferService?.GetSharedFiles()
+                                        ?? new List<SharedFileInfo>();
+
+                                    // 通过UDP返回文件列表
+                                    var responseCommand = new Command
+                                    {
+                                        EventID = Command.LIST_SHARED_FILES_RESPONSE,
+                                        Data = new Newtonsoft.Json.Linq.JObject
+                                        {
+                                            ["requestId"] = requestId,
+                                            ["files"] = Newtonsoft.Json.Linq.JArray.FromObject(
+                                                files
+                                            )
+                                        }
+                                    };
+
+                                    var json = JsonConvert.SerializeObject(responseCommand);
+                                    var data = System.Text.Encoding.UTF8.GetBytes(json);
+                                    using (var udpClient = new System.Net.Sockets.UdpClient())
+                                    {
+                                        udpClient.Send(
+                                            data,
+                                            data.Length,
+                                            requesterIP,
+                                            CommonVars.ControlPort
+                                        );
+                                    }
+
+                                    NLogger.Info(
+                                        $"[LIST_SHARED_FILES] 已回复 {files.Count} 个文件信息给 {requesterIP}"
+                                    );
+                                }
+                                catch (Exception ex)
+                                {
+                                    NLogger.Error($"[LIST_SHARED_FILES] 处理文件列表请求异常: {ex.Message}");
+                                }
+                            });
+                        }
+                        else if (_command.EventID == Command.LIST_SHARED_FILES_RESPONSE)
+                        {
+                            // 收到远程设备回复的共享文件列表
+                            try
+                            {
+                                var requestId = _command.Data?.Value<string>("requestId");
+                                var filesToken = _command.Data?["files"];
+                                var files =
+                                    filesToken != null
+                                        ? filesToken.ToObject<SharedFileInfo[]>()
+                                        : Array.Empty<SharedFileInfo>();
+
+                                NLogger.Info(
+                                    $"[LIST_SHARED_FILES_RESPONSE] 收到文件列表响应, requestId={requestId}, 文件数={files?.Length ?? 0}"
+                                );
+
+                                if (!string.IsNullOrEmpty(requestId))
+                                {
+                                    _table?.ViewModel?.OnListSharedFilesResponse(requestId, files);
+                                }
+                            }
+                            catch (Exception ex)
+                            {
+                                NLogger.Error(
+                                    $"[LIST_SHARED_FILES_RESPONSE] 处理文件列表响应异常: {ex.Message}"
+                                );
+                            }
+                        }
+                        else if (_command.EventID == Command.PUSH_DOWNLOAD_FILES)
+                        {
+                            // 远程设备要求本机主动推送指定文件（从文件浏览对话框发起的下载）
+                            var transferService = _p2pService;
+                            _ = System.Threading.Tasks.Task.Run(async () =>
+                            {
+                                try
+                                {
+                                    var requesterIP = _command.Data?.Value<string>("requesterIP");
+                                    var fileNamesToken = _command.Data?["fileNames"];
+                                    var fileNames =
+                                        fileNamesToken?.ToObject<string[]>()
+                                        ?? Array.Empty<string>();
+
+                                    if (string.IsNullOrEmpty(requesterIP) || fileNames.Length == 0)
+                                    {
+                                        NLogger.Warn("[PUSH_DOWNLOAD_FILES] 缺少必要参数");
+                                        return;
+                                    }
+
+                                    NLogger.Info(
+                                        $"[PUSH_DOWNLOAD_FILES] 收到文件推送请求: 目标={requesterIP}, 文件数={fileNames.Length}"
+                                    );
+
+                                    var sharedDir = Utilities.AppPathes.SharedFilesDir;
+                                    var filePaths = new List<string>();
+
+                                    foreach (var fileName in fileNames)
+                                    {
+                                        var filePath = System.IO.Path.Combine(sharedDir, fileName);
+                                        if (System.IO.File.Exists(filePath))
+                                        {
+                                            filePaths.Add(filePath);
+                                        }
+                                        else
+                                        {
+                                            NLogger.Warn(
+                                                $"[PUSH_DOWNLOAD_FILES] 文件不存在: {filePath}"
+                                            );
+                                        }
+                                    }
+
+                                    if (filePaths.Count == 0)
+                                    {
+                                        NLogger.Warn("[PUSH_DOWNLOAD_FILES] 没有有效的文件可推送");
+                                        return;
+                                    }
+
+                                    // 创建目标机器信息
+                                    var targetMachine = new MachineInfo
+                                    {
+                                        ID = requesterIP,
+                                        IPs =
+                                            new System.Collections.ObjectModel.ObservableCollection<string>
+                                            {
+                                                requesterIP
+                                            }
+                                    };
+
+                                    if (transferService != null)
+                                    {
+                                        try
+                                        {
+                                            await transferService.SendFilesAsync(
+                                                targetMachine,
+                                                filePaths,
+                                                sourceHint: TransferTaskSource.RemoteBrowseDownload
+                                            );
+                                            NLogger.Info(
+                                                $"[PUSH_DOWNLOAD_FILES] 文件推送完成: {filePaths.Count} 个文件 -> {requesterIP}"
+                                            );
+                                        }
+                                        catch (Exception ex)
+                                        {
+                                            NLogger.Error(
+                                                $"[PUSH_DOWNLOAD_FILES] 文件推送失败: {ex.Message}"
+                                            );
+                                        }
+                                    }
+                                    else
+                                    {
+                                        NLogger.Error("[PUSH_DOWNLOAD_FILES] 无法获取传输服务实例");
+                                    }
+                                }
+                                catch (Exception ex)
+                                {
+                                    NLogger.Error($"[PUSH_DOWNLOAD_FILES] 推送文件异常: {ex.Message}");
+                                }
+                            });
+                        }
                         else
                         {
                             NLogger.Warn($"收到未知命令: EventID={_command.EventID}");
@@ -804,6 +1380,9 @@ namespace DaemonKit
                         _recvCommandDisposable.Dispose();
                         _networkBroadcastService?.Dispose();
                         _crashDetectionService?.Dispose();
+                        _p2pService?.Dispose();
+                        _transferTaskManager?.SaveHistory();
+                        _transferTaskManager?.Dispose();
 
                         NLogger.Info("程序已退出,再见...");
                     });
@@ -865,7 +1444,7 @@ namespace DaemonKit
         private string _lastLogContent = string.Empty;
 
         /// <summary>
-        /// 更新日志显示，根据警告级别添加颜色
+        /// 更新��志显示，根据警告级别添加颜色
         /// </summary>
         private void UpdateLogBox(List<string> messages)
         {
@@ -1273,12 +1852,6 @@ namespace DaemonKit
                     USerialization.SerializeXML(GlobalSchedule, AppPathes.GlobalSchedulePath);
                 });
 
-                if (!Directory.Exists(AppPathes.ConfigDir_BackUp))
-                {
-                    Directory.CreateDirectory(AppPathes.ConfigDir_BackUp);
-                    WinAPI.OpenProcess("attrib.exe", $"+h {AppPathes.ConfigDir_BackUp}");
-                }
-
                 // 备份配置文件（只备份成功保存的文件）
                 try
                 {
@@ -1336,7 +1909,7 @@ namespace DaemonKit
             }
             catch (Exception ex)
             {
-                NLogger.Error($"保存配置文件失败: {ex.Message}");
+                NLogger.Error($"保存配��文件失败: {ex.Message}");
             }
         }
 
@@ -1355,10 +1928,6 @@ namespace DaemonKit
                 // 备份应用设置
                 try
                 {
-                    if (!Directory.Exists(AppPathes.ConfigDir_BackUp))
-                    {
-                        Directory.CreateDirectory(AppPathes.ConfigDir_BackUp);
-                    }
                     System.IO.File.Copy(
                         AppPathes.AppSettingPath,
                         AppPathes.AppSettingPath_Backup,
@@ -1905,7 +2474,7 @@ namespace DaemonKit
         {
             try
             {
-                var screenshotPath = Path.Combine(AppPathes.AppRoot, "Screenshots");
+                var screenshotPath = AppPathes.ScreenshotsDir;
                 if (!Directory.Exists(screenshotPath))
                 {
                     Directory.CreateDirectory(screenshotPath);
@@ -2039,6 +2608,31 @@ namespace DaemonKit
             }
         }
 
+        /// <summary>
+        /// 打开备份管理窗口
+        /// </summary>
+        private void OpenBackupManager_Click(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                var backupWindow = new BackupManagerWindow { Owner = this };
+                backupWindow.ShowDialog();
+
+                // 如果有恢复操作，可能需要重新加载配置
+                // 由恢复操作自行处理
+            }
+            catch (Exception ex)
+            {
+                NLogger.Error($"打开备份管理窗口失败: {ex.Message}");
+                MessageBox.Show(
+                    $"打开备份管理窗口失败：{ex.Message}",
+                    "错误",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Error
+                );
+            }
+        }
+
         private void OpenHotkeySettings_Click(object sender, RoutedEventArgs e)
         {
             var oldHotKeyEnabled = AppSettings.EnableGlobalHotKey;
@@ -2147,6 +2741,234 @@ namespace DaemonKit
         {
             PackageProgressItem.Visibility = Visibility.Collapsed;
             _currentPackageDialog = null;
+        }
+
+        /// <summary>
+        /// 打开传输列表窗口（单例模式）
+        /// </summary>
+        /// <param name="tabIndex">要激活的Tab索引：0=上传, 1=下载, -1=保持不变（默认）</param>
+        public void ShowTransferListWindow(int tabIndex = -1)
+        {
+            if (_transferListWindow != null)
+            {
+                // 窗口已存在，检查是否被关闭了
+                if (System.Windows.PresentationSource.FromVisual(_transferListWindow) != null)
+                {
+                    // 切换到指定Tab
+                    if (
+                        tabIndex >= 0
+                        && _transferListWindow.DataContext
+                            is ViewModels.TransferListViewModel existingVm
+                    )
+                    {
+                        existingVm.SelectedTabIndex = tabIndex;
+                    }
+                    _transferListWindow.Activate();
+                    return;
+                }
+                _transferListWindow = null;
+            }
+
+            var vm = new ViewModels.TransferListViewModel(_transferTaskManager, _p2pService);
+            if (tabIndex >= 0)
+            {
+                vm.SelectedTabIndex = tabIndex;
+            }
+            _transferListWindow = new Views.TransferListWindow(vm);
+            _transferListWindow.Owner = this;
+            _transferListWindow.Show();
+        }
+
+        /// <summary>
+        /// 打开资源库窗口（单例模式），可选预设设备过滤
+        /// </summary>
+        private void ShowResourceLibraryWindow(string deviceFilter = null)
+        {
+            if (_resourceLibraryWindow != null)
+            {
+                if (System.Windows.PresentationSource.FromVisual(_resourceLibraryWindow) != null)
+                {
+                    // 窗口已存在，如果有过滤条件则更新搜索
+                    if (
+                        !string.IsNullOrEmpty(deviceFilter)
+                        && _resourceLibraryWindow.DataContext
+                            is ViewModels.ResourceLibraryViewModel existingVM
+                    )
+                    {
+                        existingVM.SearchText = deviceFilter;
+                    }
+                    _resourceLibraryWindow.Activate();
+                    return;
+                }
+                _resourceLibraryWindow = null;
+            }
+
+            var panelVM = _table?.ViewModel;
+            if (panelVM == null)
+            {
+                DNHper.NLogger.Warn("[资源库] 联调面板ViewModel未初始化");
+                return;
+            }
+
+            var vm = new ViewModels.ResourceLibraryViewModel(panelVM);
+            if (!string.IsNullOrEmpty(deviceFilter))
+            {
+                vm.SearchText = deviceFilter;
+            }
+            _resourceLibraryWindow = new Views.ResourceLibraryWindow(vm);
+            _resourceLibraryWindow.Show();
+        }
+
+        /// <summary>
+        /// 更新状态栏传输状态显示
+        /// </summary>
+        private void UpdateTransferStatusBar()
+        {
+            var activeCount = _transferTaskManager.ActiveCount;
+            if (activeCount > 0)
+            {
+                TransferStatusItem.Visibility = Visibility.Visible;
+                var speed = _transferTaskManager.TotalSpeedDisplay;
+                var upload = _transferTaskManager.UploadCount;
+                var download = _transferTaskManager.DownloadCount;
+                var parts = new System.Collections.Generic.List<string>();
+                if (upload > 0)
+                    parts.Add($"↑{upload}");
+                if (download > 0)
+                    parts.Add($"↓{download}");
+                TransferStatusText.Text = $"{string.Join(" ", parts)} {speed}";
+            }
+            else
+            {
+                TransferStatusItem.Visibility = Visibility.Collapsed;
+            }
+        }
+
+        /// <summary>
+        /// 点击状态栏传输指示器打开传输列表窗口
+        /// </summary>
+        private void TransferStatusButton_Click(object sender, RoutedEventArgs e)
+        {
+            ShowTransferListWindow();
+        }
+
+        #endregion
+
+        #region 远程导出进程包
+
+        /// <summary>
+        /// 导出进程包到共享文件夹（用于远程下载）
+        /// </summary>
+        private async System.Threading.Tasks.Task<string> ExportPackageToSharedFolderAsync(
+            ProcessItem rootNode,
+            IProgress<string> statusProgress = null
+        )
+        {
+            try
+            {
+                // 确保共享目录存在
+                var sharedDir = Utilities.AppPathes.SharedFilesDir;
+                if (!System.IO.Directory.Exists(sharedDir))
+                {
+                    System.IO.Directory.CreateDirectory(sharedDir);
+                }
+
+                // 生成导出文件名
+                var timestamp = DateTime.Now.ToString("yyyyMMdd_HHmmss");
+                var projectName = rootNode?.MetaData?.Name ?? Environment.MachineName;
+                // 清理非法文件名字符
+                projectName = string.Join(
+                    "_",
+                    projectName.Split(System.IO.Path.GetInvalidFileNameChars())
+                );
+                var packageName = $"{projectName}_{timestamp}.dkp.zip";
+                var packagePath = System.IO.Path.Combine(sharedDir, packageName);
+
+                NLogger.Info($"[Remote Export] 开始导出进程包到共享目录: {packagePath}");
+
+                // 获取所有配置文件
+                var configFiles = new List<string>
+                {
+                    Utilities.AppPathes.TreeViewDataPath,
+                    Utilities.AppPathes.AppSettingPath,
+                    Utilities.AppPathes.GlobalSchedulePath,
+                    Utilities.AppPathes.ScheduleConfigPath,
+                    Utilities.AppPathes.HotkeyConfigPath,
+                    Utilities.AppPathes.ExtensionConfigPath
+                }
+                    .Where(System.IO.File.Exists)
+                    .ToList();
+
+                // 收集进程树所有节点
+                var allNodes = new List<ProcessItem> { rootNode };
+                CollectAllNodes(rootNode, allNodes);
+
+                // 执行导出（包含程序文件，完整备份）
+                var success = await Services.ExportImportService.ExportPackageAsync(
+                    packagePath,
+                    configFiles,
+                    allNodes,
+                    includeAllPrograms: true, // 远程导出时包含程序文件，完整备份
+                    description: $"远程导出 - {Environment.MachineName} - {DateTime.Now:yyyy-MM-dd HH:mm:ss}",
+                    statusProgress: statusProgress
+                );
+
+                if (success)
+                {
+                    NLogger.Info($"[Remote Export] 进程包导出成功: {packagePath}");
+                    return packageName; // 返回文件名供通知使用
+                }
+                else
+                {
+                    NLogger.Error($"[Remote Export] 进程包导出失败");
+                    return null;
+                }
+            }
+            catch (Exception ex)
+            {
+                NLogger.Error($"[Remote Export] 导出进程包异常: {ex.Message}");
+                throw;
+            }
+        }
+
+        /// <summary>
+        /// 获取与远程IP通信的本地IP地址
+        /// </summary>
+        private string GetLocalIPForRemote(string remoteIP)
+        {
+            try
+            {
+                using (
+                    var socket = new System.Net.Sockets.Socket(
+                        System.Net.Sockets.AddressFamily.InterNetwork,
+                        System.Net.Sockets.SocketType.Dgram,
+                        0
+                    )
+                )
+                {
+                    socket.Connect(remoteIP, 65530);
+                    var endPoint = socket.LocalEndPoint as System.Net.IPEndPoint;
+                    return endPoint?.Address.ToString() ?? "127.0.0.1";
+                }
+            }
+            catch
+            {
+                return "127.0.0.1";
+            }
+        }
+
+        /// <summary>
+        /// 递归收集所有子节点
+        /// </summary>
+        private void CollectAllNodes(ProcessItem node, List<ProcessItem> nodes)
+        {
+            if (node?.Children == null)
+                return;
+            foreach (var child in node.Children)
+            {
+                nodes.Add(child);
+                CollectAllNodes(child, nodes);
+            }
         }
 
         #endregion

@@ -1,0 +1,172 @@
+<Window x:Class="DaemonKit.Views.RemoteFileBrowserWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes"
+        Title="远程文件浏览" 
+        Height="500" Width="600"
+        WindowStartupLocation="CenterOwner"
+        ResizeMode="CanResize"
+        Background="{DynamicResource MaterialDesignPaper}"
+        TextElement.Foreground="{DynamicResource MaterialDesignBody}">
+
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <!-- 标题栏 -->
+        <Border Grid.Row="0" 
+                Background="{DynamicResource PrimaryHueMidBrush}" 
+                Padding="16,12">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+                
+                <StackPanel>
+                    <TextBlock Text="{Binding TargetMachineName, StringFormat={}设备: {0}}" 
+                               FontSize="16" FontWeight="Medium"
+                               Foreground="White"/>
+                    <TextBlock Text="SharedFiles 文件夹" 
+                               FontSize="12" Opacity="0.8"
+                               Foreground="White"/>
+                </StackPanel>
+                
+                <Button Grid.Column="1" 
+                        Command="{Binding OpenInResourceLibraryCommand}"
+                        Style="{StaticResource MaterialDesignIconButton}"
+                        ToolTip="在资源库中查看此设备" Width="32" Height="32"
+                        Margin="0,0,4,0">
+                    <materialDesign:PackIcon Kind="PackageVariantClosed" Foreground="White" Width="18" Height="18"/>
+                </Button>
+
+                <Button Grid.Column="2" 
+                        Command="{Binding RefreshCommand}"
+                        Style="{StaticResource MaterialDesignIconButton}"
+                        ToolTip="刷新">
+                    <materialDesign:PackIcon Kind="Refresh" Foreground="White"/>
+                </Button>
+            </Grid>
+        </Border>
+
+        <!-- 文件列表 -->
+        <DataGrid Grid.Row="1" 
+                  ItemsSource="{Binding Files}"
+                  AutoGenerateColumns="False"
+                  CanUserAddRows="False"
+                  CanUserDeleteRows="False"
+                  SelectionMode="Extended"
+                  IsReadOnly="False"
+                  GridLinesVisibility="Horizontal"
+                  HeadersVisibility="Column"
+                  Margin="8">
+
+            <DataGrid.Columns>
+                <!-- 选择复选框 -->
+                <DataGridTemplateColumn Width="50" MinWidth="50">
+                    <DataGridTemplateColumn.Header>
+                        <CheckBox IsChecked="{Binding DataContext.AllSelected, RelativeSource={RelativeSource AncestorType=DataGrid}, Mode=OneWay}"
+                                  Command="{Binding DataContext.ToggleSelectAllCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}"
+                                  HorizontalAlignment="Center"
+                                  ToolTip="全选/取消全选"/>
+                    </DataGridTemplateColumn.Header>
+                    <DataGridTemplateColumn.CellTemplate>
+                        <DataTemplate>
+                            <CheckBox IsChecked="{Binding IsSelected, UpdateSourceTrigger=PropertyChanged, Mode=TwoWay}"
+                                      HorizontalAlignment="Center"
+                                      VerticalAlignment="Center"/>
+                        </DataTemplate>
+                    </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>
+
+                <!-- 文件名 -->
+                <DataGridTextColumn Header="文件名" 
+                                    Binding="{Binding FileName}" 
+                                    Width="*"
+                                    IsReadOnly="True"/>
+
+                <!-- 文件大小 -->
+                <DataGridTextColumn Header="大小" 
+                                    Binding="{Binding FileSizeFormatted}" 
+                                    Width="100"
+                                    IsReadOnly="True"/>
+
+                <!-- 修改时间 -->
+                <DataGridTextColumn Header="修改时间" 
+                                    Binding="{Binding LastModified, StringFormat=yyyy-MM-dd HH:mm}" 
+                                    Width="140"
+                                    IsReadOnly="True"/>
+            </DataGrid.Columns>
+        </DataGrid>
+
+        <!-- 加载指示器 -->
+        <Grid Grid.Row="1" Visibility="{Binding IsLoading, Converter={StaticResource BooleanToVisibilityConverter}}">
+            <Border Background="#80000000"/>
+            <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
+                <ProgressBar Style="{StaticResource MaterialDesignCircularProgressBar}"
+                             IsIndeterminate="True"
+                             Value="0"/>
+                <TextBlock Text="正在加载..." 
+                           Foreground="White" 
+                           Margin="0,8,0,0"
+                           HorizontalAlignment="Center"/>
+            </StackPanel>
+        </Grid>
+
+        <!-- 状态栏 -->
+        <Border Grid.Row="2" 
+                Background="{DynamicResource MaterialDesignCardBackground}"
+                Padding="16,8">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+                
+                <TextBlock Text="{Binding StatusText}" 
+                           VerticalAlignment="Center"/>
+                
+                <TextBlock Grid.Column="1" 
+                           VerticalAlignment="Center">
+                    <Run Text="已选择 "/>
+                    <Run Text="{Binding SelectedCount, Mode=OneWay}"/>
+                    <Run Text=" 个文件"/>
+                </TextBlock>
+            </Grid>
+        </Border>
+
+        <!-- 操作按钮 -->
+        <Border Grid.Row="3" 
+                Background="{DynamicResource MaterialDesignCardBackground}"
+                Padding="16,12">
+            <StackPanel Orientation="Horizontal" 
+                        HorizontalAlignment="Right">
+                <Button Content="取消" 
+                        Style="{StaticResource MaterialDesignOutlinedButton}"
+                        Click="CancelButton_Click"
+                        Margin="0,0,8,0"/>
+                
+                <Button Content="下载选中文件" 
+                        Style="{StaticResource MaterialDesignRaisedButton}"
+                        Command="{Binding DownloadSelectedCommand}"
+                        IsEnabled="{Binding HasSelection}">
+                    <Button.ContentTemplate>
+                        <DataTemplate>
+                            <StackPanel Orientation="Horizontal">
+                                <materialDesign:PackIcon Kind="Download" 
+                                                         VerticalAlignment="Center"
+                                                         Margin="0,0,8,0"/>
+                                <TextBlock Text="下载选中文件"/>
+                            </StackPanel>
+                        </DataTemplate>
+                    </Button.ContentTemplate>
+                </Button>
+            </StackPanel>
+        </Border>
+    </Grid>
+</Window>

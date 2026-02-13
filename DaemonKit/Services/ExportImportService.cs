@@ -12,9 +12,9 @@ using System.Threading.Tasks;
 namespace DaemonKit.Services
 {
     /// <summary>
-    /// 导出导入包的元数据
+    /// [内部/已弃用] 旧版导出导入包的元数据 — 仅用于兼容旧版 metadata.json，新代码请使用 PackageManifest
     /// </summary>
-    public class PackageMetadata
+    internal class PackageMetadata
     {
         public string Version { get; set; } = "1.0";
         public DateTime CreatedAt { get; set; }
@@ -27,9 +27,9 @@ namespace DaemonKit.Services
     }
 
     /// <summary>
-    /// 程序信息
+    /// [内部/已弃用] 旧版程序信息 — 仅用于兼容旧版 metadata.json
     /// </summary>
-    public class ProgramInfo
+    internal class ProgramInfo
     {
         public string Name { get; set; }
         public string ExecutablePath { get; set; }
@@ -44,6 +44,8 @@ namespace DaemonKit.Services
     {
         private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
         private const string MetadataFileName = "metadata.json";
+        private const string ManifestFileName = "manifest.json";
+        private const string FilesDirName = "files";
         private const string ConfigsDirName = "Configs";
         private const string ProgramsDirName = "Programs";
 
@@ -142,6 +144,43 @@ namespace DaemonKit.Services
                     var metadataPath = Path.Combine(tempDir, MetadataFileName);
                     var metadataJson = JsonConvert.SerializeObject(metadata, Formatting.Indented);
                     File.WriteAllText(metadataPath, metadataJson);
+
+                    // 4b. 写入统一清单 manifest.json（TreeBundle 格式）
+                    var manifest = new PackageManifest
+                    {
+                        SchemaVersion = "1.0",
+                        PackageType = PackageType.TreeBundle,
+                        CreatedAt = metadata.CreatedAt,
+                        Description = description,
+                        Source = new ManifestSource
+                        {
+                            MachineName = Environment.MachineName,
+                            UserName = Environment.UserName,
+                            Builder = "DaemonKit"
+                        },
+                        Tree = new ManifestTree
+                        {
+                            ProjectName = projectName,
+                            IncludedConfigs = configList.Select(Path.GetFileName).ToList(),
+                            Programs = programInfos
+                                .Select(
+                                    p =>
+                                        new ManifestProgramInfo
+                                        {
+                                            Name = p.Name,
+                                            ExePath = p.ExecutablePath,
+                                            SizeBytes = p.SizeBytes,
+                                            ProgramType = p.ProgramType
+                                        }
+                                )
+                                .ToList()
+                        }
+                    };
+
+                    var manifestPath = Path.Combine(tempDir, ManifestFileName);
+                    var manifestJson = JsonConvert.SerializeObject(manifest, Formatting.Indented);
+                    File.WriteAllText(manifestPath, manifestJson);
+                    Logger.Info("Manifest (TreeBundle) written to manifest.json");
 
                     // 5. 导出进程树配置（并转换为相对路径）
                     statusProgress?.Report("导出进程树配置...");
@@ -330,20 +369,67 @@ namespace DaemonKit.Services
                         cancellationToken
                     );
 
-                    // 2. 读取元数据
+                    // 2. 读取元数据（优先 manifest.json，回退 metadata.json）
                     statusProgress?.Report("读取元数据...");
+                    PackageManifest manifest = null;
+                    var manifestPath = Path.Combine(tempDir, ManifestFileName);
                     var metadataPath = Path.Combine(tempDir, MetadataFileName);
-                    if (!File.Exists(metadataPath))
+
+                    if (File.Exists(manifestPath))
+                    {
+                        var manifestJson = File.ReadAllText(manifestPath);
+                        manifest = JsonConvert.DeserializeObject<PackageManifest>(manifestJson);
+                        Logger.Info(
+                            $"Package manifest: SchemaVersion={manifest.SchemaVersion}, PackageType={manifest.PackageType}, CreatedAt={manifest.CreatedAt}"
+                        );
+                    }
+                    else if (File.Exists(metadataPath))
+                    {
+                        // 回退：从旧版 metadata.json 构建 manifest
+                        var metadataJson = File.ReadAllText(metadataPath);
+                        var metadata = JsonConvert.DeserializeObject<PackageMetadata>(metadataJson);
+                        Logger.Info(
+                            $"Legacy metadata: Version={metadata.Version}, CreatedAt={metadata.CreatedAt}"
+                        );
+
+                        manifest = new PackageManifest
+                        {
+                            SchemaVersion = "1.0",
+                            PackageType = PackageType.TreeBundle,
+                            CreatedAt = metadata.CreatedAt,
+                            Description = metadata.Description,
+                            Source = new ManifestSource
+                            {
+                                MachineName = metadata.MachineName,
+                                UserName = metadata.UserName,
+                                Builder = "DaemonKit"
+                            },
+                            Tree = new ManifestTree
+                            {
+                                ProjectName = metadata.ProjectName,
+                                IncludedConfigs = metadata.IncludedConfigs,
+                                Programs =
+                                    metadata.IncludedPrograms
+                                        ?.Select(
+                                            p =>
+                                                new ManifestProgramInfo
+                                                {
+                                                    Name = p.Name,
+                                                    ExePath = p.ExecutablePath,
+                                                    SizeBytes = p.SizeBytes,
+                                                    ProgramType = p.ProgramType
+                                                }
+                                        )
+                                        .ToList() ?? new List<ManifestProgramInfo>()
+                            }
+                        };
+                        Logger.Info("Converted legacy metadata to manifest (TreeBundle)");
+                    }
+                    else
                     {
                         statusProgress?.Report("包格式错误：缺少元数据文件！");
                         return false;
                     }
-
-                    var metadataJson = File.ReadAllText(metadataPath);
-                    var metadata = JsonConvert.DeserializeObject<PackageMetadata>(metadataJson);
-                    Logger.Info(
-                        $"Package metadata: Version={metadata.Version}, CreatedAt={metadata.CreatedAt}"
-                    );
 
                     // 3. 导入配置文件
                     var configsDir = Path.Combine(tempDir, ConfigsDirName);
@@ -448,9 +534,76 @@ namespace DaemonKit.Services
         }
 
         /// <summary>
-        /// 读取包元数据（不解压整个包）
+        /// 读取包元数据（不解压整个包）— 优先 manifest.json，回退 metadata.json
+        /// 返回统一的 PackageManifest 对象
         /// </summary>
-        public static async Task<PackageMetadata> ReadPackageMetadataAsync(string packagePath)
+        public static async Task<PackageManifest> ReadPackageManifestAsync(string packagePath)
+        {
+            try
+            {
+                // 优先尝试 manifest.json
+                var manifest = await ReadManifestAsync(packagePath);
+                if (manifest != null)
+                    return manifest;
+
+                // 回退 metadata.json → 转换为 PackageManifest
+                var legacy = await ReadLegacyMetadataAsync(packagePath);
+                if (legacy != null)
+                {
+                    return new PackageManifest
+                    {
+                        SchemaVersion = "1.0",
+                        PackageType = PackageType.TreeBundle,
+                        CreatedAt = legacy.CreatedAt,
+                        Description = legacy.Description,
+                        Source = new ManifestSource
+                        {
+                            MachineName = legacy.MachineName,
+                            UserName = legacy.UserName,
+                            Builder = "DaemonKit"
+                        },
+                        Tree = new ManifestTree
+                        {
+                            ProjectName = legacy.ProjectName,
+                            IncludedConfigs = legacy.IncludedConfigs,
+                            Programs =
+                                legacy.IncludedPrograms
+                                    ?.Select(
+                                        p =>
+                                            new ManifestProgramInfo
+                                            {
+                                                Name = p.Name,
+                                                ExePath = p.ExecutablePath,
+                                                SizeBytes = p.SizeBytes,
+                                                ProgramType = p.ProgramType
+                                            }
+                                    )
+                                    .ToList() ?? new List<ManifestProgramInfo>()
+                        }
+                    };
+                }
+
+                return null;
+            }
+            catch (Exception ex)
+            {
+                Logger.Error(ex, "Failed to read package manifest");
+                return null;
+            }
+        }
+
+        /// <summary>
+        /// 同步读取包清单（不解压整个包）
+        /// </summary>
+        public static PackageManifest ReadPackageManifestSync(string packagePath)
+        {
+            return ReadPackageManifestAsync(packagePath).GetAwaiter().GetResult();
+        }
+
+        /// <summary>
+        /// 读取旧版 metadata.json（不解压整个包）— 内部辅助方法
+        /// </summary>
+        private static async Task<PackageMetadata> ReadLegacyMetadataAsync(string packagePath)
         {
             try
             {
@@ -473,7 +626,7 @@ namespace DaemonKit.Services
             }
             catch (Exception ex)
             {
-                Logger.Error(ex, "Failed to read package metadata");
+                Logger.Warn(ex, "Failed to read legacy metadata.json");
                 return null;
             }
         }
@@ -847,6 +1000,17 @@ namespace DaemonKit.Services
 
             Logger.Info($"[GetProgramsFromNodes] Total programs collected: {programs.Count}");
             return programs.Distinct().ToList();
+        }
+
+        /// <summary>
+        /// 获取节点程序的根目录（公开方法，供 ViewModel 调用）
+        /// </summary>
+        public static string GetNodeProgramRootDirectory(string exePath)
+        {
+            if (string.IsNullOrEmpty(exePath) || !File.Exists(exePath))
+                return null;
+            var programType = DetectProgramType(exePath);
+            return GetProgramRootDirectory(exePath, programType);
         }
 
         /// <summary>
@@ -1641,6 +1805,441 @@ namespace DaemonKit.Services
                 {
                     ConvertToRelativePaths(child, pathMappings);
                 }
+            }
+        }
+
+        #endregion
+
+        #region 节点包 (NodeFull / NodePatch) 支持
+
+        /// <summary>
+        /// 创建节点包（NodeFull 或 NodePatch）
+        /// 将指定进程节点的程序目录打包为 .dkp.zip 或 .dkp-patch.zip
+        /// </summary>
+        public static async Task<bool> CreateNodePackageAsync(
+            ProcessItem node,
+            string outputPath,
+            PackageType packageType,
+            string version,
+            string description,
+            IProgress<string> statusProgress = null,
+            IProgress<CompressionProgress> compressionProgress = null,
+            CancellationToken cancellationToken = default,
+            IEnumerable<string> selectedFiles = null
+        )
+        {
+            try
+            {
+                if (node == null)
+                {
+                    statusProgress?.Report("未指定节点");
+                    return false;
+                }
+
+                var exePath = node.NodePath;
+                if (string.IsNullOrEmpty(exePath) || !File.Exists(exePath))
+                {
+                    statusProgress?.Report($"节点程序不存在: {exePath}");
+                    return false;
+                }
+
+                var programType = DetectProgramType(exePath);
+                var rootDir = GetProgramRootDirectory(exePath, programType);
+
+                if (!Directory.Exists(rootDir))
+                {
+                    statusProgress?.Report($"程序目录不存在: {rootDir}");
+                    return false;
+                }
+
+                statusProgress?.Report("准备打包...");
+                Logger.Info(
+                    $"Creating node package: type={packageType}, node={node.Name}, rootDir={rootDir}"
+                );
+
+                // 创建临时目录
+                var tempDir = Path.Combine(
+                    Path.GetTempPath(),
+                    $"DaemonKit_NodePkg_{Guid.NewGuid()}"
+                );
+                Directory.CreateDirectory(tempDir);
+
+                try
+                {
+                    // 1. 创建 manifest.json
+                    var exeRelativePath = Path.GetRelativePath(rootDir, exePath);
+                    var manifest = new PackageManifest
+                    {
+                        SchemaVersion = "1.0",
+                        PackageType = packageType,
+                        CreatedAt = DateTime.Now,
+                        Description = description,
+                        Source = new ManifestSource
+                        {
+                            MachineName = Environment.MachineName,
+                            UserName = Environment.UserName,
+                            Builder = "DaemonKit"
+                        },
+                        Target = new ManifestTarget
+                        {
+                            ExeName = Path.GetFileName(exePath),
+                            NodeName = node.Name,
+                            ProgramType = programType,
+                            Version = version
+                        }
+                    };
+
+                    var manifestPath = Path.Combine(tempDir, ManifestFileName);
+                    var manifestJson = JsonConvert.SerializeObject(manifest, Formatting.Indented);
+                    File.WriteAllText(manifestPath, manifestJson);
+                    Logger.Info("Manifest written");
+
+                    // 2. 拷贝程序文件到 files/
+                    var filesDir = Path.Combine(tempDir, FilesDirName);
+                    Directory.CreateDirectory(filesDir);
+
+                    // 如果指定了选择的文件列表（补丁包），只拷贝选中文件；否则拷贝整个目录
+                    var fileList = selectedFiles?.ToList();
+                    if (fileList != null && fileList.Count > 0)
+                    {
+                        statusProgress?.Report($"复制选中的 {fileList.Count} 个文件...");
+                        await Task.Run(
+                            () =>
+                            {
+                                CopySelectedFiles(rootDir, filesDir, fileList);
+                            },
+                            cancellationToken
+                        );
+                        Logger.Info($"Copied {fileList.Count} selected files");
+                    }
+                    else
+                    {
+                        statusProgress?.Report("复制程序文件...");
+                        await Task.Run(
+                            () =>
+                            {
+                                CopyDirectory(rootDir, filesDir);
+                            },
+                            cancellationToken
+                        );
+                    }
+
+                    if (cancellationToken.IsCancellationRequested)
+                        return false;
+
+                    // 3. 压缩到 ZIP
+                    statusProgress?.Report("压缩打包中...");
+                    await HighPerformanceCompressor.CompressDirectoryAsync(
+                        tempDir,
+                        outputPath,
+                        compressionProgress,
+                        cancellationToken
+                    );
+
+                    statusProgress?.Report("打包完成！");
+                    Logger.Info($"Node package created: {outputPath}");
+                    return true;
+                }
+                finally
+                {
+                    try
+                    {
+                        if (Directory.Exists(tempDir))
+                            Directory.Delete(tempDir, true);
+                    }
+                    catch (Exception ex)
+                    {
+                        Logger.Warn(ex, "Failed to delete temp directory");
+                    }
+                }
+            }
+            catch (OperationCanceledException)
+            {
+                Logger.Info("Node package creation cancelled");
+                statusProgress?.Report("操作已取消");
+                return false;
+            }
+            catch (Exception ex)
+            {
+                Logger.Error(ex, "Failed to create node package");
+                statusProgress?.Report($"打包失败: {ex.Message}");
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// 从包中读取统一清单 manifest.json（不解压整个包）
+        /// </summary>
+        public static async Task<PackageManifest> ReadManifestAsync(string packagePath)
+        {
+            try
+            {
+                var tempFile = Path.Combine(Path.GetTempPath(), $"manifest_{Guid.NewGuid()}.json");
+                try
+                {
+                    await HighPerformanceCompressor.ExtractFileAsync(
+                        packagePath,
+                        ManifestFileName,
+                        tempFile
+                    );
+                    var json = File.ReadAllText(tempFile);
+                    return JsonConvert.DeserializeObject<PackageManifest>(json);
+                }
+                finally
+                {
+                    if (File.Exists(tempFile))
+                        File.Delete(tempFile);
+                }
+            }
+            catch (Exception ex)
+            {
+                Logger.Error(ex, "Failed to read package manifest");
+                return null;
+            }
+        }
+
+        /// <summary>
+        /// 应用节点包（NodeFull 或 NodePatch）到目标目录
+        /// NodeFull: 清空目标目录后全量拷贝 files/
+        /// NodePatch + Overlay: 仅覆盖 files/ 中的文件
+        /// NodePatch + Replace: 清空目标目录后全量拷贝 files/
+        /// 在执行 Replace/NodeFull 前会自动备份目标目录
+        /// </summary>
+        public static async Task<bool> ApplyNodePackageAsync(
+            string packagePath,
+            string targetDirectory,
+            PackageManifest manifest,
+            PatchMode patchModeOverride = PatchMode.Overlay,
+            IProgress<string> statusProgress = null,
+            IProgress<CompressionProgress> decompressionProgress = null,
+            CancellationToken cancellationToken = default
+        )
+        {
+            try
+            {
+                var packageType = manifest.PackageType;
+                var patchMode = patchModeOverride;
+
+                bool needCleanTarget =
+                    packageType == PackageType.NodeFull
+                    || (packageType == PackageType.NodePatch && patchMode == PatchMode.Replace);
+
+                statusProgress?.Report("解压包文件...");
+                Logger.Info($"Applying node package: type={packageType}, target={targetDirectory}");
+
+                // 解压到临时目录
+                var tempDir = Path.Combine(
+                    Path.GetTempPath(),
+                    $"DaemonKit_NodePkg_{Guid.NewGuid()}"
+                );
+                Directory.CreateDirectory(tempDir);
+
+                try
+                {
+                    await HighPerformanceCompressor.DecompressZipAsync(
+                        packagePath,
+                        tempDir,
+                        decompressionProgress,
+                        cancellationToken
+                    );
+
+                    if (cancellationToken.IsCancellationRequested)
+                        return false;
+
+                    // 定位 files/ 目录
+                    var filesDir = Path.Combine(tempDir, FilesDirName);
+                    if (!Directory.Exists(filesDir))
+                    {
+                        statusProgress?.Report("包格式错误：缺少 files/ 目录");
+                        Logger.Error("Node package missing files/ directory");
+                        return false;
+                    }
+
+                    // 如果需要清空目标，先备份
+                    if (needCleanTarget && Directory.Exists(targetDirectory))
+                    {
+                        statusProgress?.Report("备份目标目录...");
+                        await BackupDirectoryAsync(targetDirectory, statusProgress);
+
+                        statusProgress?.Report("清空目标目录...");
+                        await Task.Run(() =>
+                        {
+                            // 仅清理目标目录下的文件和子目录，不删除目标目录本身
+                            foreach (var file in Directory.GetFiles(targetDirectory))
+                            {
+                                try
+                                {
+                                    File.Delete(file);
+                                }
+                                catch (Exception ex)
+                                {
+                                    Logger.Warn(ex, $"Failed to delete: {file}");
+                                }
+                            }
+                            foreach (var dir in Directory.GetDirectories(targetDirectory))
+                            {
+                                try
+                                {
+                                    Directory.Delete(dir, true);
+                                }
+                                catch (Exception ex)
+                                {
+                                    Logger.Warn(ex, $"Failed to delete dir: {dir}");
+                                }
+                            }
+                        });
+                    }
+
+                    // 确保目标目录存在
+                    if (!Directory.Exists(targetDirectory))
+                        Directory.CreateDirectory(targetDirectory);
+
+                    // 拷贝 files/ 内容到目标目录
+                    statusProgress?.Report("应用更新文件...");
+                    var allFiles = Directory.GetFiles(filesDir, "*", SearchOption.AllDirectories);
+                    int copiedCount = 0;
+
+                    await Task.Run(() =>
+                    {
+                        foreach (var srcFile in allFiles)
+                        {
+                            if (cancellationToken.IsCancellationRequested)
+                                return;
+
+                            var relativePath = Path.GetRelativePath(filesDir, srcFile);
+                            var destFile = Path.Combine(targetDirectory, relativePath);
+                            var destDir = Path.GetDirectoryName(destFile);
+
+                            if (!string.IsNullOrEmpty(destDir) && !Directory.Exists(destDir))
+                                Directory.CreateDirectory(destDir);
+
+                            File.Copy(srcFile, destFile, overwrite: true);
+                            copiedCount++;
+
+                            statusProgress?.Report(
+                                $"已复制 {copiedCount}/{allFiles.Length}: {relativePath}"
+                            );
+                        }
+                    });
+
+                    if (cancellationToken.IsCancellationRequested)
+                        return false;
+
+                    statusProgress?.Report($"更新完成，共 {copiedCount} 个文件");
+                    Logger.Info($"Node package applied: {copiedCount} files to {targetDirectory}");
+                    return true;
+                }
+                finally
+                {
+                    // 清理临时目录
+                    try
+                    {
+                        if (Directory.Exists(tempDir))
+                            Directory.Delete(tempDir, true);
+                    }
+                    catch (Exception ex)
+                    {
+                        Logger.Warn(ex, "Failed to delete temp directory");
+                    }
+                }
+            }
+            catch (OperationCanceledException)
+            {
+                Logger.Info("Node package apply cancelled");
+                statusProgress?.Report("操作已取消");
+                return false;
+            }
+            catch (Exception ex)
+            {
+                Logger.Error(ex, "Failed to apply node package");
+                statusProgress?.Report($"应用失败: {ex.Message}");
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// 备份目标目录到 BackupsDir（带时间戳）
+        /// </summary>
+        private static async Task BackupDirectoryAsync(
+            string targetDirectory,
+            IProgress<string> statusProgress = null
+        )
+        {
+            try
+            {
+                var dirName = Path.GetFileName(targetDirectory.TrimEnd('\\', '/'));
+                var timestamp = DateTime.Now.ToString("yyyyMMdd_HHmmss");
+                var backupDir = Path.Combine(AppPathes.BackupsDir, $"{dirName}_backup_{timestamp}");
+
+                if (!Directory.Exists(AppPathes.BackupsDir))
+                    Directory.CreateDirectory(AppPathes.BackupsDir);
+
+                statusProgress?.Report($"备份到 {backupDir}...");
+                Logger.Info($"Backing up {targetDirectory} to {backupDir}");
+
+                await Task.Run(() =>
+                {
+                    CopyDirectory(targetDirectory, backupDir);
+                });
+
+                Logger.Info($"Backup completed: {backupDir}");
+            }
+            catch (Exception ex)
+            {
+                Logger.Warn(ex, "Failed to backup directory, continuing anyway");
+            }
+        }
+
+        /// <summary>
+        /// 递归拷贝目录
+        /// </summary>
+        private static void CopyDirectory(string sourceDir, string destDir)
+        {
+            Directory.CreateDirectory(destDir);
+
+            foreach (var file in Directory.GetFiles(sourceDir))
+            {
+                var destFile = Path.Combine(destDir, Path.GetFileName(file));
+                File.Copy(file, destFile, true);
+            }
+
+            foreach (var subDir in Directory.GetDirectories(sourceDir))
+            {
+                var destSubDir = Path.Combine(destDir, Path.GetFileName(subDir));
+                CopyDirectory(subDir, destSubDir);
+            }
+        }
+
+        /// <summary>
+        /// 按相对路径列表拷贝选中的文件（补丁包模式）
+        /// </summary>
+        /// <param name="sourceRootDir">程序根目录</param>
+        /// <param name="destRootDir">目标 files/ 目录</param>
+        /// <param name="relativePaths">选中的相对路径列表（使用 / 分隔）</param>
+        private static void CopySelectedFiles(
+            string sourceRootDir,
+            string destRootDir,
+            IEnumerable<string> relativePaths
+        )
+        {
+            foreach (var relPath in relativePaths)
+            {
+                // 统一为系统路径分隔符
+                var normalizedPath = relPath.Replace('/', Path.DirectorySeparatorChar);
+                var srcFile = Path.Combine(sourceRootDir, normalizedPath);
+
+                if (!File.Exists(srcFile))
+                {
+                    Logger.Warn($"Selected file not found, skipping: {srcFile}");
+                    continue;
+                }
+
+                var destFile = Path.Combine(destRootDir, normalizedPath);
+                var destFileDir = Path.GetDirectoryName(destFile);
+                if (!string.IsNullOrEmpty(destFileDir))
+                    Directory.CreateDirectory(destFileDir);
+
+                File.Copy(srcFile, destFile, true);
             }
         }
 

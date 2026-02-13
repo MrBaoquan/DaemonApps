@@ -256,8 +256,7 @@ namespace DaemonKit
 
         private string GetDefaultScreenshotsFolder()
         {
-            string processDir = AppDomain.CurrentDomain.BaseDirectory;
-            string screenshotsFolder = System.IO.Path.Combine(processDir, "Screenshots");
+            string screenshotsFolder = Utilities.AppPathes.ScreenshotsDir;
 
             if (!Directory.Exists(screenshotsFolder))
             {

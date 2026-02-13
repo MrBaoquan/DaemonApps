@@ -137,6 +137,10 @@
                                       Icon="{materialDesign:PackIcon Kind=Import}"
                                       Click="ImportConfig_Click"/>
                             <Separator/>
+                            <MenuItem Header="备份管理"
+                                      Icon="{materialDesign:PackIcon Kind=FolderClock}"
+                                      Click="OpenBackupManager_Click"/>
+                            <Separator/>
                             <MenuItem Icon="{materialDesign:PackIcon Kind=Settings}"
                                       Header="设置"
                                       Command="{Binding OpenSettings}"/>
@@ -161,6 +165,12 @@
                             <MenuItem Icon="{materialDesign:PackIcon Kind=RemoteDesktop}"
                                       Header="联调面板"
                                       Command="{Binding OpenRemotePanel}"/>
+                            <MenuItem Icon="{materialDesign:PackIcon Kind=SwapVertical}"
+                                      Header="文件传输"
+                                      Command="{Binding OpenTransferList}"/>
+                            <MenuItem Icon="{materialDesign:PackIcon Kind=PackageVariantClosed}"
+                                      Header="资源库"
+                                      Command="{Binding OpenResourceLibrary}"/>
                             <MenuItem Icon="{materialDesign:PackIcon Kind=ClockOutline}"
                                       Header="计划任务"
                                       Command="{Binding OpenScheduleWindow}"/>
@@ -472,6 +482,32 @@
                                                FontWeight="Medium"
                                                Foreground="#2196F3"
                                                VerticalAlignment="Center"/>
+                                </StackPanel>
+                            </Button>
+                        </StatusBarItem>
+
+                        <!-- 文件传输状态指示器 -->
+                        <StatusBarItem x:Name="TransferStatusItem"
+                                       Visibility="Collapsed"
+                                       Margin="4,0,0,0">
+                            <Button x:Name="TransferStatusButton"
+                                    Style="{StaticResource MaterialDesignFlatButton}"
+                                    Height="28"
+                                    Padding="8,4"
+                                    Click="TransferStatusButton_Click"
+                                    ToolTip="点击打开传输列表">
+                                <StackPanel Orientation="Horizontal">
+                                    <materialDesign:PackIcon Kind="SwapVertical"
+                                                             Width="16"
+                                                             Height="16"
+                                                             VerticalAlignment="Center"
+                                                             Foreground="#2196F3"
+                                                             Margin="0,0,4,0"/>
+                                    <TextBlock x:Name="TransferStatusText"
+                                               Text=""
+                                               FontSize="12"
+                                               VerticalAlignment="Center"
+                                               Foreground="#616161"/>
                                 </StackPanel>
                             </Button>
                         </StatusBarItem>

@@ -24,7 +24,7 @@ namespace DaemonKit.ViewModels
     public class ImportDialogViewModel : ReactiveObject
     {
         private string _packagePath;
-        private PackageMetadata _metadata;
+        private PackageManifest _manifest;
         private bool _importConfigs; // 是否导入配置
         private bool _importProcesses; // 是否导入进程
         private bool _hasConfigs; // 包内是否有配置文件
@@ -45,10 +45,13 @@ namespace DaemonKit.ViewModels
             set => this.RaiseAndSetIfChanged(ref _packagePath, value);
         }
 
-        public PackageMetadata Metadata
+        /// <summary>
+        /// 统一包清单（新格式，同时兼容旧 metadata.json 转换）
+        /// </summary>
+        public PackageManifest Manifest
         {
-            get => _metadata;
-            set => this.RaiseAndSetIfChanged(ref _metadata, value);
+            get => _manifest;
+            set => this.RaiseAndSetIfChanged(ref _manifest, value);
         }
 
         public bool ImportConfigs
@@ -228,29 +231,61 @@ namespace DaemonKit.ViewModels
         {
             var openDialog = new OpenFileDialog
             {
-                Filter = "DaemonKit 配置包 (*.dkit)|*.dkit",
-                DefaultExt = ".dkit"
+                Filter = "DaemonKit 包 (*.dkp.zip;*.dkp-patch.zip)|*.dkp.zip;*.dkp-patch.zip",
+                DefaultExt = ".dkp.zip"
             };
 
             if (openDialog.ShowDialog() == true)
             {
                 PackagePath = openDialog.FileName;
 
-                // 读取元数据
+                // 读取统一清单（优先 manifest.json，回退 metadata.json）
                 try
                 {
                     StatusMessage = "读取包信息...";
-                    Metadata = await ExportImportService.ReadPackageMetadataAsync(PackagePath);
+                    Manifest = await ExportImportService.ReadPackageManifestAsync(PackagePath);
 
-                    // 提取项目名称
-                    ImportedProjectName = Metadata?.ProjectName;
+                    // 如果是 NodeFull / NodePatch 类型，重定向到 NodePackageDialog
+                    if (Manifest != null && Manifest.PackageType != PackageType.TreeBundle)
+                    {
+                        StatusMessage = "检测到节点更新包，正在打开更新对话框...";
+                        // 需要从主窗口获取所有进程节点
+                        _dialogWindow?.Close();
+                        Application.Current.Dispatcher.InvokeAsync(() =>
+                        {
+                            try
+                            {
+                                var mainWindow = Application.Current.MainWindow;
+                                var allNodes = GetAllProcessNodesFromMainWindow(mainWindow);
+                                var rootNode = (
+                                    mainWindow?.DataContext as MainViewModel
+                                )?.RootProcessNode;
+                                var dialog = new Views.NodePackageDialog(
+                                    PackagePath,
+                                    allNodes,
+                                    rootNode
+                                )
+                                {
+                                    Owner = mainWindow
+                                };
+                                dialog.ShowDialog();
+                            }
+                            catch (Exception ex)
+                            {
+                                NLog.LogManager.GetCurrentClassLogger().Error(ex, "打开节点包对话框失败");
+                            }
+                        });
+                        return;
+                    }
+
+                    // TreeBundle 类型 — 正常加载
+                    var tree = Manifest?.Tree;
+                    ImportedProjectName = tree?.ProjectName;
                     UseImportedProjectName = false; // 默认不勾选，保护现有项目
 
                     // 检测包内是否有配置文件和进程树
-                    HasConfigs =
-                        Metadata?.IncludedConfigs != null && Metadata.IncludedConfigs.Any();
-                    HasProcesses =
-                        Metadata?.IncludedPrograms != null && Metadata.IncludedPrograms.Any();
+                    HasConfigs = tree?.IncludedConfigs != null && tree.IncludedConfigs.Any();
+                    HasProcesses = tree?.Programs != null && tree.Programs.Any();
 
                     // 设置默认勾选状态 - 根据包内容默认全选
                     ImportConfigs = HasConfigs; // 有配置则默认选中
@@ -316,12 +351,12 @@ namespace DaemonKit.ViewModels
                     NLog.LogManager.GetCurrentClassLogger().Error(ex, "无效的包文件格式");
                     StatusMessage = "文件格式错误";
                     MessageBox.Show(
-                        $"无效的包文件：{ex.Message}\n\n请选择正确的 .dkit 格式文件。",
+                        $"无效的包文件：{ex.Message}\n\n请选择正确的 .dkp.zip 格式文件。",
                         "文件格式错误",
                         MessageBoxButton.OK,
                         MessageBoxImage.Error
                     );
-                    Metadata = null;
+                    Manifest = null;
                     HasConfigs = false;
                     HasProcesses = false;
                 }
@@ -330,15 +365,139 @@ namespace DaemonKit.ViewModels
                     NLog.LogManager.GetCurrentClassLogger().Error(ex, "读取包信息失败");
                     StatusMessage = $"读取包信息失败: {ex.Message}";
                     MessageBox.Show(
-                        $"无法读取包信息：{ex.Message}\n\n请确保：\n1. 文件是有效的 .dkit 包\n2. 文件未被其他程序占用\n3. 文件没有损坏",
+                        $"无法读取包信息：{ex.Message}\n\n请确保：\n1. 文件是有效的 .dkp.zip 包\n2. 文件未被其他程序占用\n3. 文件没有损坏",
                         "错误",
                         MessageBoxButton.OK,
                         MessageBoxImage.Error
                     );
-                    Metadata = null;
+                    Manifest = null;
                     HasConfigs = false;
                     HasProcesses = false;
                 }
+            }
+        }
+
+        /// <summary>
+        /// 从主窗口获取所有进程节点扁平列表
+        /// </summary>
+        private List<ProcessItem> GetAllProcessNodesFromMainWindow(Window mainWindow)
+        {
+            var allNodes = new List<ProcessItem>();
+            try
+            {
+                if (
+                    mainWindow?.DataContext is MainViewModel mainVM
+                    && mainVM.RootProcessNode != null
+                )
+                {
+                    void Collect(ProcessItem item)
+                    {
+                        if (item == null)
+                            return;
+                        allNodes.Add(item);
+                        if (item.Children != null)
+                        {
+                            foreach (var child in item.Children)
+                                Collect(child);
+                        }
+                    }
+                    Collect(mainVM.RootProcessNode);
+                }
+            }
+            catch (Exception ex)
+            {
+                NLog.LogManager.GetCurrentClassLogger().Warn(ex, "获取进程节点列表失败");
+            }
+            return allNodes;
+        }
+
+        /// <summary>
+        /// 从指定路径加载包信息（供外部调用，如资源库部署）
+        /// </summary>
+        public async Task LoadPackageFromPathAsync(string filePath)
+        {
+            if (string.IsNullOrEmpty(filePath) || !System.IO.File.Exists(filePath))
+            {
+                StatusMessage = "包文件不存在";
+                return;
+            }
+
+            PackagePath = filePath;
+
+            try
+            {
+                StatusMessage = "读取包信息...";
+                Manifest = await ExportImportService.ReadPackageManifestAsync(PackagePath);
+
+                // 如果是 NodeFull / NodePatch 类型，标记为非 TreeBundle 并返回
+                // 调用方（ResourceLibraryViewModel）应根据 Manifest.PackageType 做路由
+                if (Manifest != null && Manifest.PackageType != PackageType.TreeBundle)
+                {
+                    HasConfigs = false;
+                    HasProcesses = false;
+                    StatusMessage = "检测到节点包，需通过更新对话框处理";
+                    return;
+                }
+
+                var tree = Manifest?.Tree;
+                ImportedProjectName = tree?.ProjectName;
+                UseImportedProjectName = false;
+
+                HasConfigs = tree?.IncludedConfigs != null && tree.IncludedConfigs.Any();
+                HasProcesses = tree?.Programs != null && tree.Programs.Any();
+
+                ImportConfigs = HasConfigs;
+                ImportProcesses = HasProcesses;
+
+                if (HasProcesses)
+                {
+                    try
+                    {
+                        var nodeList = await ExportImportService.ReadProcessTreeFromPackageAsync(
+                            PackagePath
+                        );
+                        if (nodeList != null && nodeList.Any())
+                        {
+                            AvailableProcessTree.Clear();
+                            foreach (var rootNode in nodeList)
+                            {
+                                AvailableProcessTree.Add(rootNode);
+                                if (
+                                    rootNode.MetaData != null
+                                    && !string.IsNullOrEmpty(rootNode.MetaData.Name)
+                                )
+                                {
+                                    ImportedProjectName = rootNode.MetaData.Name;
+                                }
+                            }
+                            SetSelection(AvailableProcessTree, true);
+                            StatusMessage = "已加载包信息";
+                        }
+                        else
+                        {
+                            HasProcesses = false;
+                            StatusMessage = "包中没有进程树数据";
+                        }
+                    }
+                    catch (Exception treeEx)
+                    {
+                        NLog.LogManager.GetCurrentClassLogger().Error(treeEx, "读取进程树失败");
+                        HasProcesses = false;
+                        StatusMessage = $"读取进程树失败: {treeEx.Message}";
+                    }
+                }
+                else
+                {
+                    StatusMessage = "包中没有进程树数据";
+                }
+            }
+            catch (Exception ex)
+            {
+                NLog.LogManager.GetCurrentClassLogger().Error(ex, "读取包信息失败");
+                StatusMessage = $"读取包信息失败: {ex.Message}";
+                Manifest = null;
+                HasConfigs = false;
+                HasProcesses = false;
             }
         }
 

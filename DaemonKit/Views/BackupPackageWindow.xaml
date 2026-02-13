@@ -1,0 +1,104 @@
+<Window x:Class="DaemonKit.Views.BackupPackageWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes"
+        Title="创建备份"
+        Height="350"
+        Width="500"
+        WindowStartupLocation="CenterOwner"
+        ResizeMode="NoResize"
+        Background="{DynamicResource MaterialDesignPaper}"
+        TextElement.Foreground="{DynamicResource MaterialDesignBody}"
+        TextElement.FontWeight="Regular"
+        TextElement.FontSize="13"
+        TextOptions.TextFormattingMode="Ideal"
+        TextOptions.TextRenderingMode="Auto"
+        FontFamily="{DynamicResource MaterialDesignFont}">
+
+    <Grid Margin="20">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <!-- 标题 -->
+        <TextBlock Grid.Row="0" 
+                   Text="创建当前进程配置的备份"
+                   FontSize="16"
+                   FontWeight="Medium"
+                   Margin="0,0,0,20"/>
+
+        <!-- 备份名称 -->
+        <Grid Grid.Row="1" Margin="0,0,0,16">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="80"/>
+                <ColumnDefinition Width="*"/>
+            </Grid.ColumnDefinitions>
+            <TextBlock Text="备份名称" VerticalAlignment="Center"/>
+            <TextBox Grid.Column="1" 
+                     Text="{Binding BackupName, UpdateSourceTrigger=PropertyChanged}"
+                     Style="{StaticResource MaterialDesignOutlinedTextBox}"
+                     materialDesign:HintAssist.Hint="输入备份名称"/>
+        </Grid>
+
+        <!-- 备份描述 -->
+        <Grid Grid.Row="2" Margin="0,0,0,16">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="80"/>
+                <ColumnDefinition Width="*"/>
+            </Grid.ColumnDefinitions>
+            <TextBlock Text="备份描述" VerticalAlignment="Top" Margin="0,8,0,0"/>
+            <TextBox Grid.Column="1" 
+                     Text="{Binding Description, UpdateSourceTrigger=PropertyChanged}"
+                     Style="{StaticResource MaterialDesignOutlinedTextBox}"
+                     materialDesign:HintAssist.Hint="可选：输入备份描述"
+                     AcceptsReturn="True"
+                     TextWrapping="Wrap"
+                     Height="80"
+                     VerticalContentAlignment="Top"/>
+        </Grid>
+
+        <!-- 选项 -->
+        <StackPanel Grid.Row="3" Margin="0,0,0,8"
+                    Visibility="{Binding IsNotExporting, Converter={StaticResource BooleanToVisibilityConverter}}">
+            <CheckBox Content="包含程序文件（可能需要较长时间和较大空间）" 
+                      IsChecked="{Binding IncludePrograms}"/>
+        </StackPanel>
+
+        <!-- 进度 -->
+        <StackPanel Grid.Row="4" 
+                    Visibility="{Binding IsExporting, Converter={StaticResource BooleanToVisibilityConverter}}"
+                    VerticalAlignment="Top"
+                    Margin="0,0,0,8">
+            <TextBlock Text="{Binding StatusMessage}" 
+                       TextTrimming="CharacterEllipsis"
+                       Margin="0,0,0,4"/>
+            <ProgressBar Value="{Binding ProgressPercentage}" 
+                         Height="8"
+                         Style="{StaticResource MaterialDesignLinearProgressBar}"/>
+        </StackPanel>
+
+        <!-- 底部按钮 -->
+        <StackPanel Grid.Row="5" 
+                    Orientation="Horizontal" 
+                    HorizontalAlignment="Right">
+            <Button Content="创建备份" 
+                    Command="{Binding CreateBackupCommand}"
+                    IsEnabled="{Binding IsNotExporting}"
+                    Style="{StaticResource MaterialDesignRaisedButton}"
+                    Margin="0,0,8,0"/>
+            <Button Content="取消" 
+                    Click="CancelButton_Click"
+                    IsEnabled="{Binding IsNotExporting}"
+                    Style="{StaticResource MaterialDesignOutlinedButton}"/>
+        </StackPanel>
+    </Grid>
+
+    <Window.Resources>
+        <BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter"/>
+    </Window.Resources>
+</Window>

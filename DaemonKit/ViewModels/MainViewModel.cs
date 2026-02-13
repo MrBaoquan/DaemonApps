@@ -145,6 +145,14 @@ namespace DaemonKit
                 () => { },
                 outputScheduler: RxApp.MainThreadScheduler
             );
+            OpenTransferList = ReactiveCommand.Create(
+                () => { },
+                outputScheduler: RxApp.MainThreadScheduler
+            );
+            OpenResourceLibrary = ReactiveCommand.Create(
+                () => { },
+                outputScheduler: RxApp.MainThreadScheduler
+            );
             OpenPowerSavingPanel = ReactiveCommand.Create(
                 () => { },
                 outputScheduler: RxApp.MainThreadScheduler
@@ -199,6 +207,11 @@ namespace DaemonKit
                 outputScheduler: RxApp.MainThreadScheduler
             );
 
+            this.ExportNodePackage = ReactiveCommand.Create<ProcessItem, ProcessItem>(
+                _item => _item,
+                outputScheduler: RxApp.MainThreadScheduler
+            );
+
             // 初始化音量控制
             InitializeVolumeControl();
         }
@@ -242,6 +255,8 @@ namespace DaemonKit
         public ReactiveCommand<ProcessItem, ProcessItem> EnableNameInput { get; protected set; }
         public ReactiveCommand<ProcessItem, ProcessItem> ConfirmNameInput { get; protected set; }
         public ReactiveCommand<Unit, Unit> OpenRemotePanel { get; protected set; }
+        public ReactiveCommand<Unit, Unit> OpenTransferList { get; protected set; }
+        public ReactiveCommand<Unit, Unit> OpenResourceLibrary { get; protected set; }
         public ReactiveCommand<Unit, Unit> OpenPowerSavingPanel { get; protected set; }
 
         public ReactiveCommand<Unit, Unit> OpenScheduleWindow { get; protected set; }
@@ -256,5 +271,6 @@ namespace DaemonKit
         public ReactiveCommand<Unit, Unit> ShutdownSystem { get; protected set; }
         public ReactiveCommand<Unit, Unit> RestartSystem { get; protected set; }
         public ReactiveCommand<Unit, Unit> ToggleTouchScreen { get; protected set; }
+        public ReactiveCommand<ProcessItem, ProcessItem> ExportNodePackage { get; protected set; }
     }
 }

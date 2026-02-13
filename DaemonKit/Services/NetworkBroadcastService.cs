@@ -127,7 +127,20 @@ namespace DaemonKit.Services
             if (_rootProcessNode == null)
                 return;
 
-            _machineInfo.Name = _rootProcessNode.Name;
+            // 获取设备名称：如果根节点名称是默认值"进程树"，则尝试使用第一个子节点的名称
+            var deviceName = _rootProcessNode.Name;
+            if (IsDefaultTreeName(deviceName) && _rootProcessNode.Children?.Count > 0)
+            {
+                var firstChild = _rootProcessNode.Children[0];
+                if (
+                    !string.IsNullOrWhiteSpace(firstChild.Name)
+                    && !IsDefaultTreeName(firstChild.Name)
+                )
+                {
+                    deviceName = firstChild.Name;
+                }
+            }
+            _machineInfo.Name = deviceName;
 
             _machineInfo.IPs = new System.Collections.ObjectModel.ObservableCollection<string>(
                 HardwareInfo.GetLocalIPv4Addresses().Select(ip => ip.ToString())
@@ -313,6 +326,22 @@ namespace DaemonKit.Services
             _metaDataClient = null;
 
             NLogger.Info("网络广播服务已停止");
+        }
+
+        /// <summary>
+        /// 检查名称是否为默认的进程树名称
+        /// </summary>
+        private static bool IsDefaultTreeName(string name)
+        {
+            if (string.IsNullOrWhiteSpace(name))
+                return true;
+
+            // 常见的默认名称格式
+            var defaultNames = new[] { "进程树", "[ 进程树 ]", "[进程树]", "ProcessTree", "Root" };
+
+            return defaultNames.Any(
+                d => name.Equals(d, StringComparison.OrdinalIgnoreCase) || name.Contains("进程树")
+            );
         }
     }
 }

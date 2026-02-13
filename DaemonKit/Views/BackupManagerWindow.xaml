@@ -1,0 +1,86 @@
+<Window x:Class="DaemonKit.Views.BackupManagerWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes"
+        Title="备份管理"
+        Height="500"
+        Width="700"
+        WindowStartupLocation="CenterOwner"
+        ResizeMode="CanResize"
+        Background="{DynamicResource MaterialDesignPaper}"
+        TextElement.Foreground="{DynamicResource MaterialDesignBody}"
+        TextElement.FontWeight="Regular"
+        TextElement.FontSize="13"
+        TextOptions.TextFormattingMode="Ideal"
+        TextOptions.TextRenderingMode="Auto"
+        FontFamily="{DynamicResource MaterialDesignFont}">
+
+    <Grid Margin="16">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <!-- 顶部工具栏 -->
+        <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="0,0,0,16">
+            <Button Content="创建备份" 
+                    Command="{Binding CreateBackupCommand}"
+                    Style="{StaticResource MaterialDesignRaisedButton}"
+                    Margin="0,0,8,0"/>
+            <Button Content="刷新列表" 
+                    Command="{Binding RefreshCommand}"
+                    Style="{StaticResource MaterialDesignOutlinedButton}"
+                    Margin="0,0,8,0"/>
+            <Button Content="打开备份目录" 
+                    Command="{Binding OpenBackupFolderCommand}"
+                    Style="{StaticResource MaterialDesignFlatButton}"/>
+        </StackPanel>
+
+        <!-- 备份列表 -->
+        <DataGrid Grid.Row="1" 
+                  ItemsSource="{Binding Backups}"
+                  SelectedItem="{Binding SelectedBackup}"
+                  AutoGenerateColumns="False"
+                  CanUserAddRows="False"
+                  CanUserDeleteRows="False"
+                  IsReadOnly="True"
+                  SelectionMode="Single"
+                  Style="{StaticResource MaterialDesignDataGrid}">
+            <DataGrid.Columns>
+                <DataGridTextColumn Header="备份名称" Binding="{Binding FileName}" Width="*" MinWidth="200"/>
+                <DataGridTextColumn Header="大小" Binding="{Binding FileSizeText}" Width="100"/>
+                <DataGridTextColumn Header="创建时间" Binding="{Binding CreatedTime, StringFormat=yyyy-MM-dd HH:mm:ss}" Width="150"/>
+                <DataGridTextColumn Header="描述" Binding="{Binding Description}" Width="200"/>
+                <DataGridTemplateColumn Header="操作" Width="180">
+                    <DataGridTemplateColumn.CellTemplate>
+                        <DataTemplate>
+                            <StackPanel Orientation="Horizontal">
+                                <Button Content="恢复"
+                                        Command="{Binding DataContext.RestoreBackupCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}"
+                                        CommandParameter="{Binding}"
+                                        Style="{StaticResource MaterialDesignFlatButton}"
+                                        Foreground="Green"
+                                        Padding="8,4"
+                                        Margin="0,0,4,0"/>
+                                <Button Content="删除"
+                                        Command="{Binding DataContext.DeleteBackupCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}"
+                                        CommandParameter="{Binding}"
+                                        Style="{StaticResource MaterialDesignFlatButton}"
+                                        Foreground="OrangeRed"
+                                        Padding="8,4"/>
+                            </StackPanel>
+                        </DataTemplate>
+                    </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>
+            </DataGrid.Columns>
+        </DataGrid>
+
+        <!-- 底部提示 -->
+        <TextBlock Grid.Row="2" 
+                   Text="备份文件存储在: Resources/Backups 目录下"
+                   Foreground="Gray"
+                   FontSize="11"
+                   Margin="0,8,0,0"/>
+    </Grid>
+</Window>
