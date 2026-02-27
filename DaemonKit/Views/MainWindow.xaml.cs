@@ -33,6 +33,7 @@ using Microsoft.Win32.TaskScheduler;
 using Newtonsoft.Json;
 using ReactiveMarbles.ObservableEvents;
 using ReactiveUI;
+using Splat;
 using System.Collections.Generic;
 
 namespace DaemonKit
@@ -101,70 +102,12 @@ namespace DaemonKit
         private CountdownConfirmDialog? _activeCountdownDialog;
         private readonly List<TaskCompletionSource<bool>> _countdownAwaiters = new();
 
+        // UI 线程诊断检查点：看门狗读取此字段定位阻塞回调
+        internal static volatile string _uiCheckpoint = "init";
+
         // 导入导出全局互斥锁 - 确保同时只有一个在进行
         private static bool _isExporting = false;
         private static bool _isImporting = false;
-
-        #endregion
-
-        #region Initialization Methods
-
-        /// <summary>
-        /// 后台服务初始化（在窗口显示后异步执行）
-        /// </summary>
-        private async void InitializeBackgroundServices(DateTime startTime)
-        {
-            await System.Threading.Tasks.Task.Run(() =>
-            {
-                var bgStartTime = DateTime.Now;
-
-                // 异步获取硬件信息
-                Dispatcher.InvokeAsync(() => FetchHardwareInfo());
-
-                NLogger.Info($"后台初始化开始，窗口显示耗时: {(bgStartTime - startTime).TotalMilliseconds:F0}ms");
-            });
-
-            // 初始化新的任务调度引擎（使用全局配置）
-            var engineStartTime = DateTime.Now;
-            _scheduleTaskEngine = new ScheduleTaskEngine(rootProcessNode, GlobalSchedule)
-            {
-                ConfirmHandler = ConfirmSchedulePowerActionAsync,
-                PowerSavingViewModelProvider = () => _powerSavingService.ViewModel
-            };
-            _scheduleTaskEngine.TaskExecuting += (sender, context) =>
-            {
-                NLogger.Info($"执行任务: [{context.TaskConfig.Name}] - {context.TaskConfig.Action}");
-            };
-            _scheduleTaskEngine.TaskExecuted += (sender, context) =>
-            {
-                if (context.IsSuccess)
-                {
-                    NLogger.Info($"任务完成: {context.Result}");
-                }
-                else
-                {
-                    NLogger.Error($"任务失败: {context.ErrorMessage}");
-                }
-            };
-            NLogger.Info($"任务引擎初始化耗时: {(DateTime.Now - engineStartTime).TotalMilliseconds:F0}ms");
-
-            // 订阅全局计划任务启用状态变化，自动保存配置
-            GlobalSchedule
-                .WhenAnyValue(x => x.ScheduleTasksEnabled)
-                .Skip(1) // 跳过初始值
-                .ObserveOn(RxApp.MainThreadScheduler)
-                .Subscribe(enabled =>
-                {
-                    saveConfig();
-                    NLogger.Info($"计划任务已{(enabled ? "启用" : "禁用")}");
-                });
-
-            // 检查是否首次启动并启动计划任务监控
-            CheckFirstStartToday();
-            StartScheduleTaskMonitor();
-
-            NLogger.Info($"总启动耗时: {(DateTime.Now - startTime).TotalMilliseconds:F0}ms");
-        }
 
         #endregion
 
@@ -190,13 +133,13 @@ namespace DaemonKit
 
             // 初始化P2P文件传输服务和任务管理器（应用级生命周期，不依赖联调面板）
             // 注意：此时 AppSettings 尚未加载，使用默认值；loadConfig 后会通过 UpdateMaxConcurrentTransfers 同步
-            _p2pService = new P2PFileTransferService();
-            _transferTaskManager = new TransferTaskManager();
+            _p2pService = Locator.Current.GetService<P2PFileTransferService>()!;
+            _transferTaskManager = Locator.Current.GetService<TransferTaskManager>()!;
             _transferTaskManager.LoadHistory();
             _table = new DaemonTable(_p2pService, _transferTaskManager);
 
             // 初始化服务层（在 AppSettings 加载后会调用 Initialize）
-            _powerSavingService = new PowerSavingService();
+            _powerSavingService = Locator.Current.GetService<PowerSavingService>()!;
             // _idleMonitorService 将在 loadConfig 后初始化
 
             // 订阅软件包操作进度消息
@@ -211,6 +154,12 @@ namespace DaemonKit
                 .ObserveOn(RxApp.MainThreadScheduler)
                 .Subscribe(deviceFilter => ShowResourceLibraryWindow(deviceFilter));
 
+            // 订阅配置包导入完成消息 — 导入实际完成后才执行热重载
+            ReactiveUI.MessageBus.Current
+                .Listen<bool>("TreeBundleImportCompleted")
+                .ObserveOn(RxApp.MainThreadScheduler)
+                .Subscribe(autoStart => ReloadAfterImport(autoStart));
+
             this.WhenActivated(disposables =>
             {
                 var startTime = DateTime.Now;
@@ -221,11 +170,13 @@ namespace DaemonKit
                     .ObserveOn(RxApp.MainThreadScheduler)
                     .Subscribe(_ =>
                     {
+                        _uiCheckpoint = "200ms_logUpdate";
                         var messages = NLogger.FetchMessage();
                         UpdateLogBox(messages);
+                        _uiCheckpoint = "idle";
                     });
 
-                NLogger.Info("DaemonKit 已启动");
+                NLogger.Info("DaemonKit 启动中...");
                 Utils.ExecuteProgramsBeforeStart();
 
                 // 硬件信息获取改为后台异步加载，不阻塞主窗口
@@ -237,16 +188,16 @@ namespace DaemonKit
                     });
 
                 this.ProcessTree.DataContext = this.DataContext;
-                NLogger.Info("加载进程树..");
                 loadExtensions();
                 loadConfig();
-                var configLoadTime = DateTime.Now;
-                NLogger.Info($"配置加载耗时: {(configLoadTime - startTime).TotalMilliseconds:F0}ms");
 
                 this.ProcessTree.Items.Add(rootProcessNode);
 
-                // 延迟非关键初始化到窗口显示后执行
-                this.Loaded += (s, e) => InitializeBackgroundServices(startTime);
+                // 直接调用 async void 方法：InitializeBackgroundServices 内部首行就是 await Task.Run(...)，
+                // 会立即 yield 回调方, 不阻塞后续步骤 5-9 的同步执行。
+                // 注意：不能用 Dispatcher.InvokeAsync(Background)，因为 200ms/500ms/1s 的定时器
+                // 以 Normal 优先级持续派发, 会永久饿死 Background 优先级的回调。
+                InitializeBackgroundServices(startTime);
 
                 ProcessItem _selectedTreeNode = rootProcessNode;
 
@@ -293,6 +244,14 @@ namespace DaemonKit
                             rootProcessNode.SyncSettings(AppSettings);
                             saveConfig();
                             Utils.SyncSettings();
+
+                            // 应用端口覆盖和认证设置
+                            CommonVars.ApplyPortOverrides(
+                                AppSettings.CustomMetaPort,
+                                AppSettings.CustomControlPort,
+                                AppSettings.CustomFileTransferPort,
+                                AppSettings.AuthToken
+                            );
 
                             // 同步设置到 PowerSavingService
                             _powerSavingService.EnableIdleAutoPowerSaving =
@@ -350,7 +309,7 @@ namespace DaemonKit
                                 }
                                 catch (Exception ex)
                                 {
-                                    NLogger.Error($"切换触摸屏状态时发生异常: {ex.Message}");
+                                    NLogger.Error("切换触摸屏状态时发生异常: {Message}", ex.Message);
                                     MessageBox.Show(
                                         $"切换触摸屏失败: {ex.Message}",
                                         "错误",
@@ -426,6 +385,28 @@ namespace DaemonKit
                 ViewModel.DeleteTreeNode.Subscribe(_ =>
                 {
                     _selectedTreeNode.Parent!.RemoveChild(_selectedTreeNode);
+                    saveConfig();
+                });
+
+                // 清空进程树
+                ViewModel.ClearProcessTree.Subscribe(_ =>
+                {
+                    if (rootProcessNode == null || rootProcessNode.Children == null || rootProcessNode.Children.Count == 0)
+                        return;
+
+                    var result = MessageBox.Show(
+                        $"确定要清空进程树中的所有 {rootProcessNode.Children.Count} 个子节点吗？\n此操作不可撤销。",
+                        "清空进程树",
+                        MessageBoxButton.YesNo,
+                        MessageBoxImage.Warning
+                    );
+                    if (result != MessageBoxResult.Yes)
+                        return;
+
+                    // 先停止所有进程
+                    rootProcessNode.KillNode();
+                    rootProcessNode.Children.Clear();
+                    NLogger.Info("[进程树] 已清空所有子节点");
                     saveConfig();
                 });
 
@@ -541,7 +522,7 @@ namespace DaemonKit
                         this.WindowState = System.Windows.WindowState.Minimized;
                         if (overlay.ShowDialog() == true)
                         {
-                            NLogger.Info($"拾取颜色: {overlay.Result}");
+                            NLogger.Info("拾取颜色: {Result}", overlay.Result);
                             MessageBox.Show(
                                 $"颜色 {overlay.Result} 已复制到剪贴板",
                                 "拾取成功",
@@ -570,7 +551,7 @@ namespace DaemonKit
                         this.WindowState = System.Windows.WindowState.Minimized;
                         if (overlay.ShowDialog() == true)
                         {
-                            NLogger.Info($"截图保存: {overlay.Result}");
+                            NLogger.Info("截图保存: {Result}", overlay.Result);
                             MessageBox.Show(
                                 $"截图已保存并复制到剪贴板\n{overlay.Result}",
                                 "截图成功",
@@ -619,7 +600,7 @@ namespace DaemonKit
                         }
                         catch (Exception ex)
                         {
-                            NLogger.Error($"切换触摸屏状态异常: {ex.Message}");
+                            NLogger.Error("切换触摸屏状态异常: {Message}", ex.Message);
                             MessageBox.Show(
                                 $"切换触摸屏失败: {ex.Message}",
                                 "错误",
@@ -685,7 +666,6 @@ namespace DaemonKit
                             | SetWindowPosFlags.SWP_FRAMECHANGED
                     );
                     WinAPI.ShowWindow(helper.Handle, (int)CMDShow.SW_SHOWNORMAL);
-                    NLogger.Info("显示主面板");
                 });
 
                 ViewModel.HideWindow.Subscribe(_ =>
@@ -693,7 +673,6 @@ namespace DaemonKit
                     if (this.Visibility == Visibility.Hidden)
                         return;
                     this.Visibility = Visibility.Hidden;
-                    NLogger.Info("隐藏主面板");
                 });
 
                 ViewModel.Quit.Subscribe(_ =>
@@ -732,6 +711,7 @@ namespace DaemonKit
                     .ObserveOn(RxApp.MainThreadScheduler)
                     .Subscribe(async _ =>
                     {
+                        _uiCheckpoint = "1s_clock+schedule";
                         this.clockText.Text = DateTime.Now.ToString("yyyy-MM-dd H:mm:ss");
 
                         // TODO 执行结点计划任务
@@ -758,25 +738,32 @@ namespace DaemonKit
 
                             scheduleItem.MarkAsExecuted();
                         }
+                        _uiCheckpoint = "idle";
                     });
 
                 // 空闲监控已迁移到 IdleMonitorService，在 loadConfig 后启动
 
                 // 网络广播和命令接收已迁移到 NetworkBroadcastService
-                _networkBroadcastService = new NetworkBroadcastService();
+                _networkBroadcastService = Locator.Current.GetService<NetworkBroadcastService>()!;
                 _networkBroadcastService.Start(rootProcessNode, AppSettings.DaemonInterval);
 
                 // 启动P2P文件传输服务器（应用级，不依赖联调面板打开）
-                try
+                // 在后台线程启动，因为端口被占用时可能需要重试等待
+                _p2pService.UpdateMaxConcurrentTransfers(AppSettings.MaxConcurrentTransfers);
+                _p2pService.MachineInfoProvider = () =>
+                    _networkBroadcastService.CurrentMachineInfo;
+                System.Threading.Tasks.Task.Run(() =>
                 {
-                    _p2pService.UpdateMaxConcurrentTransfers(AppSettings.MaxConcurrentTransfers);
-                    _p2pService.StartServer();
-                    NLogger.Info("[P2P] 文件传输服务已随应用启动，端口: 7009");
-                }
-                catch (Exception ex)
-                {
-                    NLogger.Error($"[P2P] 启动文件传输服务失败: {ex.Message}");
-                }
+                    try
+                    {
+                        _p2pService.StartServer();
+                        NLogger.Info("[P2P] 文件传输服务已随应用启动");
+                    }
+                    catch (Exception ex)
+                    {
+                        NLogger.Error("[P2P] 启动文件传输服务失败: {Message}", ex.Message);
+                    }
+                });
 
                 // 订阅传输服务事件 → 委托给TransferTaskManager统一管理
                 // 使用Buffer替代GroupBy+Sample，避免每个TaskId创建永久定时器导致泄漏
@@ -811,7 +798,12 @@ namespace DaemonKit
                 Observable
                     .Interval(TimeSpan.FromMilliseconds(500))
                     .ObserveOn(RxApp.MainThreadScheduler)
-                    .Subscribe(_ => UpdateTransferStatusBar())
+                    .Subscribe(_ =>
+                    {
+                        _uiCheckpoint = "500ms_statusBar";
+                        UpdateTransferStatusBar();
+                        _uiCheckpoint = "idle";
+                    })
                     .DisposeWith(disposables);
 
                 // 设置硬件信息就绪回调，自动更新硬件信息显示
@@ -834,27 +826,40 @@ namespace DaemonKit
                     .ObserveOn(RxApp.MainThreadScheduler)
                     .Subscribe(_command =>
                     {
-                        NLogger.Info($"收到远程命令: EventID={_command.EventID}");
+                        NLogger.Info("收到远程命令: EventID={EventID}", _command.EventID);
+
+                        // 提取发送方IP（用于ACK回复）
+                        var senderIP = _command.Data?.Value<string>("requesterIP");
 
                         if (_command.EventID == Command.RESTART)
                         {
                             NLogger.Info("执行系统重启命令");
+                            SendAck(senderIP, Command.RESTART);
                             ViewModel.RestartSystem.Execute().Subscribe();
                         }
                         else if (_command.EventID == Command.SHUTDOWN)
                         {
                             NLogger.Info("执行系统关机命令");
+                            SendAck(senderIP, Command.SHUTDOWN);
                             ViewModel.ShutdownSystem.Execute().Subscribe();
                         }
                         else if (_command.EventID == Command.RESTART_NODE_TREE)
                         {
                             NLogger.Info("执行重启进程树命令");
+                            SendAck(senderIP, Command.RESTART_NODE_TREE);
                             rootProcessNode.RunNode();
                         }
                         else if (_command.EventID == Command.STOP)
                         {
                             NLogger.Info("执行停止进程树命令");
+                            SendAck(senderIP, Command.STOP);
                             rootProcessNode.KillNode();
+                        }
+                        else if (_command.EventID == Command.BOOT)
+                        {
+                            NLogger.Info("执行启动进程树命令");
+                            SendAck(senderIP, Command.BOOT);
+                            rootProcessNode.RunNode();
                         }
                         else if (_command.EventID == Command.EXPORT_PACKAGE)
                         {
@@ -957,7 +962,7 @@ namespace DaemonKit
                                 }
                                 catch (Exception ex)
                                 {
-                                    NLogger.Error($"远程导出进程包失败: {ex.Message}");
+                                    NLogger.Error("远程导出进程包失败: {Message}", ex.Message);
 
                                     // 发送失败通知
                                     var requesterIP = _command.Data?.Value<string>("requesterIP");
@@ -1033,7 +1038,7 @@ namespace DaemonKit
 
                                 if (_processNode == null)
                                 {
-                                    NLogger.Warn($"未找到进程节点: {_processPath}");
+                                    NLogger.Warn("未找到进程节点: {ProcessPath}", _processPath);
                                     return;
                                 }
 
@@ -1041,7 +1046,7 @@ namespace DaemonKit
                             }
                             catch (Exception ex)
                             {
-                                NLogger.Error($"处理心跳命令异常: {ex.Message}");
+                                NLogger.Error("处理心跳命令异常: {Message}", ex.Message);
                             }
                         }
                         else if (_command.EventID == Command.EXPORT_PACKAGE_PROGRESS)
@@ -1059,7 +1064,7 @@ namespace DaemonKit
                             }
                             catch (Exception ex)
                             {
-                                NLogger.Warn($"处理导出进度通知异常: {ex.Message}");
+                                NLogger.Warn("处理导出进度通知异常: {Message}", ex.Message);
                             }
                         }
                         else if (_command.EventID == Command.EXPORT_PACKAGE_COMPLETED)
@@ -1107,7 +1112,7 @@ namespace DaemonKit
                             }
                             catch (Exception ex)
                             {
-                                NLogger.Error($"处理导出完成通知异常: {ex.Message}");
+                                NLogger.Error("处理导出完成通知异常: {Message}", ex.Message);
                             }
                         }
                         else if (_command.EventID == Command.PUSH_PACKAGE_TO_REQUESTER)
@@ -1141,7 +1146,7 @@ namespace DaemonKit
 
                                     if (!System.IO.File.Exists(filePath))
                                     {
-                                        NLogger.Error($"[PUSH] 要推送的文件不存在: {filePath}");
+                                        NLogger.Error("[PUSH] 要推送的文件不存在: {FilePath}", filePath);
                                         return;
                                     }
 
@@ -1172,7 +1177,7 @@ namespace DaemonKit
                                         }
                                         catch (Exception ex)
                                         {
-                                            NLogger.Error($"[PUSH] 文件推送失败: {ex.Message}");
+                                            NLogger.Error("[PUSH] 文件推送失败: {Message}", ex.Message);
                                         }
                                     }
                                     else
@@ -1182,102 +1187,11 @@ namespace DaemonKit
                                 }
                                 catch (Exception ex)
                                 {
-                                    NLogger.Error($"[PUSH] 推送文件异常: {ex.Message}");
+                                    NLogger.Error("[PUSH] 推送文件异常: {Message}", ex.Message);
                                 }
                             });
                         }
-                        else if (_command.EventID == Command.LIST_SHARED_FILES)
-                        {
-                            // 远程设备请求本机共享文件列表（UDP）
-                            var transferService = _p2pService;
-                            _ = System.Threading.Tasks.Task.Run(() =>
-                            {
-                                try
-                                {
-                                    var requesterIP = _command.Data?.Value<string>("requesterIP");
-                                    var requestId = _command.Data?.Value<string>("requestId");
-
-                                    if (
-                                        string.IsNullOrEmpty(requesterIP)
-                                        || string.IsNullOrEmpty(requestId)
-                                    )
-                                    {
-                                        NLogger.Warn("[LIST_SHARED_FILES] 缺少必要参数");
-                                        return;
-                                    }
-
-                                    NLogger.Info(
-                                        $"[LIST_SHARED_FILES] 收到来自 {requesterIP} 的文件列表请求, requestId={requestId}"
-                                    );
-
-                                    // 获取本机共享文件列表
-                                    var files =
-                                        transferService?.GetSharedFiles()
-                                        ?? new List<SharedFileInfo>();
-
-                                    // 通过UDP返回文件列表
-                                    var responseCommand = new Command
-                                    {
-                                        EventID = Command.LIST_SHARED_FILES_RESPONSE,
-                                        Data = new Newtonsoft.Json.Linq.JObject
-                                        {
-                                            ["requestId"] = requestId,
-                                            ["files"] = Newtonsoft.Json.Linq.JArray.FromObject(
-                                                files
-                                            )
-                                        }
-                                    };
-
-                                    var json = JsonConvert.SerializeObject(responseCommand);
-                                    var data = System.Text.Encoding.UTF8.GetBytes(json);
-                                    using (var udpClient = new System.Net.Sockets.UdpClient())
-                                    {
-                                        udpClient.Send(
-                                            data,
-                                            data.Length,
-                                            requesterIP,
-                                            CommonVars.ControlPort
-                                        );
-                                    }
-
-                                    NLogger.Info(
-                                        $"[LIST_SHARED_FILES] 已回复 {files.Count} 个文件信息给 {requesterIP}"
-                                    );
-                                }
-                                catch (Exception ex)
-                                {
-                                    NLogger.Error($"[LIST_SHARED_FILES] 处理文件列表请求异常: {ex.Message}");
-                                }
-                            });
-                        }
-                        else if (_command.EventID == Command.LIST_SHARED_FILES_RESPONSE)
-                        {
-                            // 收到远程设备回复的共享文件列表
-                            try
-                            {
-                                var requestId = _command.Data?.Value<string>("requestId");
-                                var filesToken = _command.Data?["files"];
-                                var files =
-                                    filesToken != null
-                                        ? filesToken.ToObject<SharedFileInfo[]>()
-                                        : Array.Empty<SharedFileInfo>();
-
-                                NLogger.Info(
-                                    $"[LIST_SHARED_FILES_RESPONSE] 收到文件列表响应, requestId={requestId}, 文件数={files?.Length ?? 0}"
-                                );
-
-                                if (!string.IsNullOrEmpty(requestId))
-                                {
-                                    _table?.ViewModel?.OnListSharedFilesResponse(requestId, files);
-                                }
-                            }
-                            catch (Exception ex)
-                            {
-                                NLogger.Error(
-                                    $"[LIST_SHARED_FILES_RESPONSE] 处理文件列表响应异常: {ex.Message}"
-                                );
-                            }
-                        }
+                        // 文件列表请求/响应已迁移到 TCP 通道（P2PFileTransferService.HandleListFilesRequest）
                         else if (_command.EventID == Command.PUSH_DOWNLOAD_FILES)
                         {
                             // 远程设备要求本机主动推送指定文件（从文件浏览对话框发起的下载）
@@ -1364,15 +1278,251 @@ namespace DaemonKit
                                 }
                                 catch (Exception ex)
                                 {
-                                    NLogger.Error($"[PUSH_DOWNLOAD_FILES] 推送文件异常: {ex.Message}");
+                                    NLogger.Error(
+                                        "[PUSH_DOWNLOAD_FILES] 推送文件异常: {Message}",
+                                        ex.Message
+                                    );
                                 }
                             });
                         }
+                        // ── 音频控制 ────────────────────────────────────────────
+                        else if (_command.EventID == Command.SET_VOLUME)
+                        {
+                            var volume = _command.Data?.Value<int>("volume") ?? -1;
+                            if (volume >= 0 && volume <= 100)
+                            {
+                                NLogger.Info("执行远程设置音量命令: {Volume}%", volume);
+                                SendAck(senderIP, Command.SET_VOLUME);
+                                ViewModel.SystemVolume = volume;
+                            }
+                            else
+                            {
+                                NLogger.Warn("SET_VOLUME 参数无效: {Volume}", volume);
+                            }
+                        }
+                        else if (_command.EventID == Command.MUTE)
+                        {
+                            NLogger.Info("执行远程静音命令");
+                            SendAck(senderIP, Command.MUTE);
+                            WinAPI.SetMute(true);
+                            ViewModel.IsMuted = true;
+                        }
+                        else if (_command.EventID == Command.UNMUTE)
+                        {
+                            NLogger.Info("执行远程取消静音命令");
+                            SendAck(senderIP, Command.UNMUTE);
+                            WinAPI.SetMute(false);
+                            ViewModel.IsMuted = false;
+                        }
+                        else if (_command.EventID == Command.TOGGLE_MUTE)
+                        {
+                            NLogger.Info("执行远程切换静音命令");
+                            SendAck(senderIP, Command.TOGGLE_MUTE);
+                            ViewModel.ToggleMute();
+                        }
+                        else if (_command.EventID == Command.VOLUME_UP)
+                        {
+                            NLogger.Info("执行远程音量步进增加命令");
+                            SendAck(senderIP, Command.VOLUME_UP);
+                            ViewModel.VolumeStepUp();
+                        }
+                        else if (_command.EventID == Command.VOLUME_DOWN)
+                        {
+                            NLogger.Info("执行远程音量步进减少命令");
+                            SendAck(senderIP, Command.VOLUME_DOWN);
+                            ViewModel.VolumeStepDown();
+                        }
+                        // ── 节能模式 ────────────────────────────────────────────
+                        else if (_command.EventID == Command.ENTER_POWER_SAVING)
+                        {
+                            NLogger.Info("执行远程开启节能模式命令");
+                            SendAck(senderIP, Command.ENTER_POWER_SAVING);
+                            _ = System.Threading.Tasks.Task.Run(async () =>
+                            {
+                                try
+                                {
+                                    var vm = _powerSavingService?.ViewModel;
+                                    if (vm == null)
+                                    {
+                                        // 确保 PowerSavingService 已初始化
+                                        Dispatcher.Invoke(() =>
+                                        {
+                                            _powerSavingService.GetOrCreateWindow(AppSettings);
+                                            ViewModel.PowerSaving = _powerSavingService.ViewModel;
+                                        });
+                                        vm = _powerSavingService?.ViewModel;
+                                    }
+                                    if (vm != null)
+                                    {
+                                        var cmd = vm.GetType().GetProperty("ApplyPowerSavingCommand")
+                                            ?.GetValue(vm) as ReactiveUI.ReactiveCommand<Unit, Unit>;
+                                        if (cmd != null && await cmd.CanExecute.FirstAsync())
+                                            await cmd.Execute();
+                                    }
+                                }
+                                catch (Exception ex)
+                                {
+                                    NLogger.Error("远程开启节能模式失败: {Message}", ex.Message);
+                                }
+                            });
+                        }
+                        else if (_command.EventID == Command.EXIT_POWER_SAVING)
+                        {
+                            NLogger.Info("执行远程退出节能模式命令");
+                            SendAck(senderIP, Command.EXIT_POWER_SAVING);
+                            _ = System.Threading.Tasks.Task.Run(async () =>
+                            {
+                                try
+                                {
+                                    var vm = _powerSavingService?.ViewModel;
+                                    if (vm != null)
+                                    {
+                                        var cmd = vm.GetType().GetProperty("RestoreNormalCommand")
+                                            ?.GetValue(vm) as ReactiveUI.ReactiveCommand<Unit, Unit>;
+                                        if (cmd != null && await cmd.CanExecute.FirstAsync())
+                                            await cmd.Execute();
+                                    }
+                                }
+                                catch (Exception ex)
+                                {
+                                    NLogger.Error("远程退出节能模式失败: {Message}", ex.Message);
+                                }
+                            });
+                        }
+                        // ── 显示器控制 ──────────────────────────────────────────
+                        else if (_command.EventID == Command.MONITOR_OFF)
+                        {
+                            NLogger.Info("执行远程关闭显示器命令");
+                            SendAck(senderIP, Command.MONITOR_OFF);
+                            WinAPI.TurnOffMonitor();
+                        }
+                        else if (_command.EventID == Command.MONITOR_ON)
+                        {
+                            NLogger.Info("执行远程唤醒显示器命令");
+                            SendAck(senderIP, Command.MONITOR_ON);
+                            WinAPI.WakeUpMonitor();
+                        }
+                        // ── 系统功能 ────────────────────────────────────────────
+                        else if (_command.EventID == Command.TAKE_SCREENSHOT)
+                        {
+                            NLogger.Info("执行远程触发截图命令");
+                            SendAck(senderIP, Command.TAKE_SCREENSHOT);
+                            ViewModel.TakeScreenshot.Execute().Subscribe();
+                        }
+                        else if (_command.EventID == Command.DISABLE_DESKTOP)
+                        {
+                            NLogger.Info("执行远程关闭桌面进程命令");
+                            SendAck(senderIP, Command.DISABLE_DESKTOP);
+                            try
+                            {
+                                WinAPI.OpenProcess("taskkill.exe", "/f /im explorer.exe");
+                                AppSettings.DisableExplorer = true;
+                                saveConfig();
+                            }
+                            catch (Exception ex)
+                            {
+                                NLogger.Error("远程关闭桌面进程失败: {Message}", ex.Message);
+                            }
+                        }
+                        else if (_command.EventID == Command.ENABLE_DESKTOP)
+                        {
+                            NLogger.Info("执行远程启用桌面进程命令");
+                            SendAck(senderIP, Command.ENABLE_DESKTOP);
+                            try
+                            {
+                                WinAPI.OpenProcess("explorer.exe", "");
+                                AppSettings.DisableExplorer = false;
+                                saveConfig();
+                            }
+                            catch (Exception ex)
+                            {
+                                NLogger.Error("远程启用桌面进程失败: {Message}", ex.Message);
+                            }
+                        }
+                        else if (_command.EventID == Command.TOGGLE_TOUCH)
+                        {
+                            NLogger.Info("执行远程切换触摸屏命令");
+                            SendAck(senderIP, Command.TOGGLE_TOUCH);
+                            try
+                            {
+                                AppSettings.DisableTouchScreen = !AppSettings.DisableTouchScreen;
+                                if (DeviceManager.SetTouchScreenEnabled(!AppSettings.DisableTouchScreen))
+                                {
+                                    NLogger.Info($"远程触摸屏已{(AppSettings.DisableTouchScreen ? "禁用" : "启用")}");
+                                    saveConfig();
+                                }
+                                else
+                                {
+                                    AppSettings.DisableTouchScreen = !AppSettings.DisableTouchScreen;
+                                    NLogger.Warn("远程切换触摸屏失败");
+                                }
+                            }
+                            catch (Exception ex)
+                            {
+                                NLogger.Error("远程切换触摸屏异常: {Message}", ex.Message);
+                            }
+                        }
                         else
                         {
-                            NLogger.Warn($"收到未知命令: EventID={_command.EventID}");
+                            NLogger.Warn("收到未知命令: EventID={EventID}", _command.EventID);
                         }
                     });
+
+                // UI 线程响应性看门狗：后台线程定期检查 Dispatcher 是否卡住
+                var uiThreadId = System.Threading.Thread.CurrentThread.ManagedThreadId;
+                NLogger.Debug("[看门狗] UI线程ID={ThreadId}", uiThreadId);
+                System.Threading.Tasks.Task.Run(async () =>
+                {
+                    // 先等3秒让启动完成
+                    await System.Threading.Tasks.Task.Delay(3000);
+                    bool dumpWritten = false;
+                    for (int watchdogTick = 0; watchdogTick < 120; watchdogTick++) // 监控10分钟
+                    {
+                        var checkpoint = _uiCheckpoint;
+                        var responded = false;
+                        Dispatcher.InvokeAsync(() => { responded = true; },
+                            System.Windows.Threading.DispatcherPriority.Send);
+                        await System.Threading.Tasks.Task.Delay(2000); // 给 Dispatcher 2秒响应
+                        if (!responded)
+                        {
+                            // 连续快速采样3次以精确定位
+                            var cp1 = _uiCheckpoint;
+                            await System.Threading.Tasks.Task.Delay(500);
+                            var cp2 = _uiCheckpoint;
+                            await System.Threading.Tasks.Task.Delay(500);
+                            var cp3 = _uiCheckpoint;
+                            NLogger.Warn(
+                                "[看门狗] UI线程无响应！tick={Tick}, 检查点=[{CP0}]->[{CP1}]->[{CP2}]->[{CP3}]",
+                                watchdogTick, checkpoint, cp1, cp2, cp3);
+
+                            // 首次检测到卡死时，写一个 MiniDump 以便分析堆栈
+                            if (!dumpWritten)
+                            {
+                                dumpWritten = true;
+                                try
+                                {
+                                    var dumpPath = System.IO.Path.Combine(
+                                        AppPathes.LogsDir,
+                                        $"DaemonKit_hang_{DateTime.Now:yyyyMMdd_HHmmss}.dmp");
+                                    using var fs = new System.IO.FileStream(dumpPath,
+                                        System.IO.FileMode.Create, System.IO.FileAccess.ReadWrite);
+                                    var proc = System.Diagnostics.Process.GetCurrentProcess();
+                                    MiniDumpWriteDump(
+                                        proc.Handle, (uint)proc.Id,
+                                        fs.SafeFileHandle.DangerousGetHandle(),
+                                        2 /* MiniDumpWithFullMemory */,
+                                        IntPtr.Zero, IntPtr.Zero, IntPtr.Zero);
+                                    NLogger.Warn("[看门狗] 已生成 dump 文件: {DumpPath}", dumpPath);
+                                }
+                                catch (Exception dumpEx)
+                                {
+                                    NLogger.Warn("[看门狗] 生成 dump 失败: {Msg}", dumpEx.Message);
+                                }
+                            }
+                        }
+                        await System.Threading.Tasks.Task.Delay(3000); // 两次检查间隔
+                    }
+                });
 
                 this.Events()
                     .Closed.Subscribe(_ =>
@@ -1439,1537 +1589,48 @@ namespace DaemonKit
 
         #endregion
 
-        #region Log Display with Color Coding
-
-        private string _lastLogContent = string.Empty;
+        #region 命令ACK
 
         /// <summary>
-        /// 更新��志显示，根据警告级别添加颜色
+        /// 向发送方回复命令确认应答
         /// </summary>
-        private void UpdateLogBox(List<string> messages)
+        private void SendAck(string targetIP, int originalEventId)
         {
-            if (messages == null || messages.Count == 0)
+            if (string.IsNullOrEmpty(targetIP))
                 return;
 
-            var newContent = string.Join("\r\n", messages);
-            if (newContent == _lastLogContent)
-                return;
-
-            _lastLogContent = newContent;
-
-            var document = new System.Windows.Documents.FlowDocument();
-            var paragraph = new System.Windows.Documents.Paragraph();
-
-            foreach (var message in messages)
-            {
-                var run = new System.Windows.Documents.Run(message + "\r\n");
-
-                // 根据日志级别设置颜色 (NLog格式: [Info], [Warn], [Error], [Debug])
-                if (message.Contains("[Error]") || message.Contains("[Fatal]"))
-                {
-                    run.Foreground = new SolidColorBrush(Color.FromRgb(0xF4, 0x43, 0x36)); // #F44336 红色
-                    run.FontWeight = FontWeights.Medium;
-                }
-                else if (message.Contains("[Warn]"))
-                {
-                    run.Foreground = new SolidColorBrush(Color.FromRgb(0xFF, 0x98, 0x00)); // #FF9800 橙色
-                }
-                else if (message.Contains("[Info]"))
-                {
-                    run.Foreground = new SolidColorBrush(Color.FromRgb(0x61, 0x61, 0x61)); // #616161 深灰
-                }
-                else if (message.Contains("[Debug]") || message.Contains("[Trace]"))
-                {
-                    run.Foreground = new SolidColorBrush(Color.FromRgb(0x9E, 0x9E, 0x9E)); // #9E9E9E 浅灰
-                }
-                else
-                {
-                    run.Foreground = new SolidColorBrush(Color.FromRgb(0x61, 0x61, 0x61)); // 默认颜色
-                }
-
-                paragraph.Inlines.Add(run);
-            }
-            document.Blocks.Add(paragraph);
-            logBox.Document = document;
-            logBox.ScrollToEnd();
-        }
-
-        #endregion
-
-        #region Hardware Info
-
-        static readonly HardwareInfo hardwareInfo = new HardwareInfo();
-
-        // 硬件信息富文本样式
-        private static readonly SolidColorBrush HardwareLabelBrush = new SolidColorBrush(
-            Color.FromRgb(0x42, 0x42, 0x42)
-        );
-        private static readonly SolidColorBrush HardwareValueBrush = new SolidColorBrush(
-            Color.FromRgb(0x37, 0x47, 0x4F)
-        );
-        private static readonly SolidColorBrush HardwareSecondaryBrush = new SolidColorBrush(
-            Color.FromRgb(0x75, 0x75, 0x75)
-        );
-
-        static MainWindow()
-        {
-            // 冻结画刷以提高性能
-            HardwareLabelBrush.Freeze();
-            HardwareValueBrush.Freeze();
-            HardwareSecondaryBrush.Freeze();
-        }
-
-        /// <summary>
-        /// 拉取硬件信息
-        /// </summary>
-        private void FetchHardwareInfo()
-        {
-            UpdateHardwareInfoBox("⏳ 硬件信息读取中...");
-
-            Utils
-                .FetchHardwareInfo()
-                .Subscribe(_text =>
-                {
-                    UpdateHardwareInfoBox(_text);
-                });
-        }
-
-        /// <summary>
-        /// 更新硬件信息显示（富文本格式）
-        /// </summary>
-        private void UpdateHardwareInfoBox(string text)
-        {
-            var document = new System.Windows.Documents.FlowDocument();
-            var paragraph = new System.Windows.Documents.Paragraph();
-            paragraph.LineHeight = 1.8;
-            paragraph.Margin = new Thickness(0);
-
-            var lines = text.Split(new[] { "\r\n", "\n" }, StringSplitOptions.None);
-
-            foreach (var line in lines)
-            {
-                if (string.IsNullOrWhiteSpace(line))
-                {
-                    paragraph.Inlines.Add(new System.Windows.Documents.LineBreak());
-                    continue;
-                }
-
-                // 检查是否是标签行（以冒号结尾，且冒号后没有内容或只有空格）
-                if (
-                    line.EndsWith(":")
-                    || (
-                        line.Contains(":")
-                        && line.Substring(line.IndexOf(':') + 1).Trim().Length == 0
-                    )
-                )
-                {
-                    // 标签行 - 深灰色，粗体，14号字
-                    var labelRun = new System.Windows.Documents.Run(line + "\r\n")
-                    {
-                        Foreground = HardwareLabelBrush,
-                        FontWeight = FontWeights.SemiBold,
-                        FontSize = 14
-                    };
-                    paragraph.Inlines.Add(labelRun);
-                }
-                else
-                {
-                    // 值行 - 蓝色，13号字
-                    var valueRun = new System.Windows.Documents.Run(line + "\r\n")
-                    {
-                        Foreground = HardwareValueBrush,
-                        FontSize = 13
-                    };
-                    paragraph.Inlines.Add(valueRun);
-                }
-            }
-
-            document.Blocks.Add(paragraph);
-            hardwareInfoBox.Document = document;
-        }
-
-        #endregion
-
-        #region Configuration Management
-
-        /// <summary>
-        /// 加载拓展菜单
-        /// </summary>
-        private void loadExtensions()
-        {
-            if (!System.IO.File.Exists(AppPathes.ExtensionConfigPath))
-            {
-                USerialization.SerializeXML(new ExtensionConfig(), AppPathes.ExtensionConfigPath);
-            }
-
             try
             {
-                var _extConfig = USerialization.DeserializeXML<ExtensionConfig>(
-                    AppPathes.ExtensionConfigPath
-                );
-                var _sysMgrMenu = new MenuItem { Header = "系统" };
-                var _toolMenu = new MenuItem { Header = "工具" };
-
-                // 统计 System 和 Tool 类别的项数，用于添加分隔线
-                int systemItemCount = _extConfig.Extensions.Count(e => e.Group == "System");
-                int systemBasicCount = 2; // 前两项：控制面板、任务管理器
-                bool systemSeparatorAdded = false;
-
-                _extConfig.Extensions
-                    .WithIndex()
-                    .ToList()
-                    .ForEach(_extention =>
+                var ackCommand = new Command
+                {
+                    EventID = Command.ACK,
+                    Data = new Newtonsoft.Json.Linq.JObject
                     {
-                        var _menuItem = new MenuItem { Header = _extention.item.Name };
-
-                        Action<(Extension item, int index)> _handleMenuClick = (_ext) =>
-                        {
-                            var _extensionPath = Path.Combine(
-                                AppPathes.ExtensionPath,
-                                _ext.item.Path
-                            );
-                            if (
-                                !Path.IsPathRooted(_ext.item.Path)
-                                && System.IO.File.Exists(_extensionPath)
-                            )
-                            {
-                                WinAPI.OpenProcess(_extensionPath, _ext.item.Args, _ext.item.RunAs);
-                            }
-                            else
-                            {
-                                WinAPI.OpenProcess(_ext.item.Path, _ext.item.Args, _ext.item.RunAs);
-                            }
-                        };
-
-                        _menuItem
-                            .Events()
-                            .Click.Subscribe(_ =>
-                            {
-                                _handleMenuClick(_extention);
-                            });
-
-                        var _menuCommand = ReactiveCommand.Create<
-                            (Extension item, int index),
-                            (Extension item, int index)
-                        >(_param => _param);
-                        _menuCommand.Subscribe(_ext =>
-                        {
-                            _handleMenuClick(_ext);
-                        });
-
-                        //_menuItem.InputGestureText = string.Format ("Ctrl+F{0}", _extention.index + 1);
-                        InputBindings.Add(
-                            new KeyBinding
-                            {
-                                Command = _menuCommand,
-                                Key = Key.F1 + _extention.index,
-                                Modifiers = ModifierKeys.Control,
-                                CommandParameter = _extention
-                            }
-                        );
-                        if (_extention.item.Group == "System")
-                        {
-                            // 在基础系统工具和高级设置项之间添加分隔线
-                            if (
-                                _sysMgrMenu.Items.Count == systemBasicCount
-                                && !systemSeparatorAdded
-                                && systemItemCount > systemBasicCount
-                            )
-                            {
-                                _sysMgrMenu.Items.Add(new Separator());
-                                systemSeparatorAdded = true;
-                            }
-                            _sysMgrMenu.Items.Add(_menuItem);
-                        }
-                        else
-                        {
-                            _toolMenu.Items.Add(_menuItem);
-                        }
-                    });
-
-                this.MainMenu.Items.Insert(2, _sysMgrMenu);
-                this.MainMenu.Items.Insert(3, _toolMenu);
-            }
-            catch (System.Exception) { }
-        }
-
-        /// <summary>
-        /// 加载配置文件
-        /// </summary>
-        private void loadConfig()
-        {
-            if (!System.IO.File.Exists(AppPathes.TreeViewDataPath))
-            {
-                if (!Directory.Exists(Path.GetDirectoryName(AppPathes.TreeViewDataPath)))
-                    Directory.CreateDirectory(Path.GetDirectoryName(AppPathes.TreeViewDataPath));
-                if (System.IO.File.Exists(AppPathes.TreeViewDataPath_Backup))
-                {
-                    System.IO.File.Copy(
-                        AppPathes.TreeViewDataPath_Backup,
-                        AppPathes.TreeViewDataPath,
-                        true
-                    );
-                }
-                else
-                {
-                    rootProcessNode = new ProcessItem
-                    {
-                        MetaData = new ProcessMetaData
-                        {
-                            Name = "[ 进程树 ]",
-                            Delay = 0,
-                            Path = string.Empty
-                        }
-                    };
-                    USerialization.SerializeXML(rootProcessNode, AppPathes.TreeViewDataPath);
-                }
-            }
-            if (
-                System.IO.File.ReadAllText(AppPathes.TreeViewDataPath).Length == 0
-                && System.IO.File.Exists(AppPathes.TreeViewDataPath_Backup)
-            )
-            {
-                System.IO.File.Copy(
-                    AppPathes.TreeViewDataPath_Backup,
-                    AppPathes.TreeViewDataPath,
-                    true
-                );
-            }
-            rootProcessNode = USerialization.DeserializeXML<ProcessItem>(
-                AppPathes.TreeViewDataPath
-            );
-            rootProcessNode.SyncRelationships();
-
-            // 将 rootProcessNode 传递给 ViewModel 以便 XAML 绑定
-            ViewModel.RootProcessNode = rootProcessNode;
-
-            if (!System.IO.File.Exists(AppPathes.AppSettingPath))
-            {
-                USerialization.SerializeXML(new AppSettings(), AppPathes.AppSettingPath);
-            }
-            if (
-                System.IO.File.ReadAllText(AppPathes.AppSettingPath).Length == 0
-                && System.IO.File.Exists(AppPathes.AppSettingPath_Backup)
-            )
-            {
-                System.IO.File.Copy(
-                    AppPathes.AppSettingPath_Backup,
-                    AppPathes.AppSettingPath,
-                    true
-                );
-            }
-            AppSettings = USerialization.DeserializeXML<AppSettings>(AppPathes.AppSettingPath);
-
-            // 加载全局计划任务配置
-            if (!System.IO.File.Exists(AppPathes.GlobalSchedulePath))
-            {
-                // 首次运行或升级，从 rootProcessNode 迁移数据
-                NLogger.Info("未找到全局计划任务配置，尝试迁移旧数据...");
-                GlobalSchedule = MigrateScheduleTasksToGlobal(rootProcessNode);
-                USerialization.SerializeXML(GlobalSchedule, AppPathes.GlobalSchedulePath);
-                NLogger.Info($"已迁移 {GlobalSchedule.ScheduleTasks.Count} 个计划任务到全局配置");
-            }
-            else
-            {
-                if (
-                    System.IO.File.ReadAllText(AppPathes.GlobalSchedulePath).Length == 0
-                    && System.IO.File.Exists(AppPathes.GlobalSchedulePath_Backup)
-                )
-                {
-                    System.IO.File.Copy(
-                        AppPathes.GlobalSchedulePath_Backup,
-                        AppPathes.GlobalSchedulePath,
-                        true
-                    );
-                }
-                GlobalSchedule = USerialization.DeserializeXML<GlobalScheduleConfig>(
-                    AppPathes.GlobalSchedulePath
-                );
-            }
-
-            // 验证全局配置
-            if (!GlobalSchedule.Validate(out string validationError))
-            {
-                NLogger.Warn($"全局计划任务配置验证失败: {validationError}");
-            }
-
-            // 将全局配置传递给 ViewModel
-            ViewModel.GlobalSchedule = GlobalSchedule;
-
-            Utils.SyncSettings();
-            rootProcessNode.SyncSettings(AppSettings);
-
-            // 根据配置决定是否注册全局快捷键
-            if (AppSettings.EnableGlobalHotKey)
-            {
-                Utils.RegisterHotKey(this, AppSettings);
-                NLogger.Info("已注册全局快捷键");
-            }
-
-            // 根据配置决定是否禁用触摸屏
-            if (AppSettings.DisableTouchScreen)
-            {
-                try
-                {
-                    if (DeviceManager.SetTouchScreenEnabled(false))
-                    {
-                        NLogger.Info("触摸屏已禁用");
+                        ["ackEvt"] = originalEventId,
+                        ["machineName"] = Environment.MachineName,
+                        ["timestamp"] = DateTime.Now.ToString("o")
                     }
-                    else
-                    {
-                        NLogger.Warn("触摸屏禁用失败");
-                    }
-                }
-                catch (Exception ex)
-                {
-                    NLogger.Error($"初始化触摸屏状态时发生异常: {ex.Message}");
-                }
-            }
-
-            // 初始化服务层（确保 AppSettings 已加载）
-            _powerSavingService.Initialize(AppSettings);
-            _idleMonitorService = new IdleMonitorService(_powerSavingService, AppSettings);
-            _idleMonitorService.StartMonitoring();
-
-            if (ViewModel != null)
-            {
-                ViewModel.PowerSaving = _powerSavingService.ViewModel;
-            }
-
-            NLogger.Info("服务层已初始化");
-        }
-
-        // 数据持久化
-        private void saveConfig()
-        {
-            try
-            {
-                // 尝试保存配置，如果文件被锁定则重试
-                SaveConfigWithRetry(() =>
-                {
-                    USerialization.SerializeXML(rootProcessNode, AppPathes.TreeViewDataPath);
-                    USerialization.SerializeXML(AppSettings, AppPathes.AppSettingPath);
-                    USerialization.SerializeXML(GlobalSchedule, AppPathes.GlobalSchedulePath);
-                });
-
-                // 备份配置文件（只备份成功保存的文件）
-                try
-                {
-                    System.IO.File.Copy(
-                        AppPathes.TreeViewDataPath,
-                        AppPathes.TreeViewDataPath_Backup,
-                        true
-                    );
-                }
-                catch (Exception ex)
-                {
-                    NLogger.Warn($"备份 TreeView 配置失败: {ex.Message}");
-                }
-
-                try
-                {
-                    System.IO.File.Copy(
-                        AppPathes.ExtensionConfigPath,
-                        AppPathes.ExtensionConfigPath_Backup,
-                        true
-                    );
-                }
-                catch (Exception ex)
-                {
-                    NLogger.Warn($"备份扩展配置失败: {ex.Message}");
-                }
-
-                try
-                {
-                    System.IO.File.Copy(
-                        AppPathes.AppSettingPath,
-                        AppPathes.AppSettingPath_Backup,
-                        true
-                    );
-                }
-                catch (Exception ex)
-                {
-                    NLogger.Warn($"备份应用设置失败: {ex.Message}");
-                }
-
-                try
-                {
-                    System.IO.File.Copy(
-                        AppPathes.GlobalSchedulePath,
-                        AppPathes.GlobalSchedulePath_Backup,
-                        true
-                    );
-                }
-                catch (Exception ex)
-                {
-                    NLogger.Warn($"备份全局计划失败: {ex.Message}");
-                }
-
-                NLogger.Info("配置文件保存成功.");
-            }
-            catch (Exception ex)
-            {
-                NLogger.Error($"保存配��文件失败: {ex.Message}");
-            }
-        }
-
-        /// <summary>
-        /// 只保存 AppSettings，不保存其他配置（用于节能模式配置频繁更新的场景）
-        /// </summary>
-        private void SaveAppSettingsOnly()
-        {
-            try
-            {
-                SaveConfigWithRetry(() =>
-                {
-                    USerialization.SerializeXML(AppSettings, AppPathes.AppSettingPath);
-                });
-
-                // 备份应用设置
-                try
-                {
-                    System.IO.File.Copy(
-                        AppPathes.AppSettingPath,
-                        AppPathes.AppSettingPath_Backup,
-                        true
-                    );
-                }
-                catch (Exception ex)
-                {
-                    NLogger.Warn($"备份应用设置失败: {ex.Message}");
-                }
-            }
-            catch (Exception ex)
-            {
-                NLogger.Error($"保存应用设置失败: {ex.Message}");
-            }
-        }
-
-        /// <summary>
-        /// 带重试机制的配置保存
-        /// </summary>
-        private void SaveConfigWithRetry(
-            System.Action saveAction,
-            int maxRetries = 3,
-            int delayMs = 50
-        )
-        {
-            Exception lastException = null;
-
-            for (int i = 0; i < maxRetries; i++)
-            {
-                try
-                {
-                    saveAction();
-                    return; // 保存成功，直接返回
-                }
-                catch (System.IO.IOException ex) when (ex.HResult == -2147024864) // 0x80070020: File is in use
-                {
-                    lastException = ex;
-                    if (i < maxRetries - 1)
-                    {
-                        // 等待后重试
-                        System.Threading.Thread.Sleep(delayMs);
-                    }
-                }
-            }
-
-            // 所有重试都失败了，抛出最后一个异常
-            if (lastException != null)
-            {
-                throw lastException;
-            }
-        }
-
-        /// <summary>
-        /// 迁移旧的计划任务数据到全局配置
-        /// 从进程树的所有节点收集任务，合并到全局配置中
-        /// </summary>
-        private GlobalScheduleConfig MigrateScheduleTasksToGlobal(ProcessItem rootNode)
-        {
-            var globalConfig = GlobalScheduleConfig.CreateDefault();
-
-            // 保留根节点的启用状态
-            globalConfig.ScheduleTasksEnabled = rootNode.ScheduleTasksEnabled;
-
-            // 递归收集所有节点的任务
-            CollectTasksFromNode(rootNode, globalConfig.ScheduleTasks, rootNode);
-
-            return globalConfig;
-        }
-
-        /// <summary>
-        /// 递归收集节点的计划任务
-        /// </summary>
-        private void CollectTasksFromNode(
-            ProcessItem node,
-            List<ScheduleTaskConfig> globalTasks,
-            ProcessItem rootNode
-        )
-        {
-            if (node.ScheduleTaskConfigs != null && node.ScheduleTaskConfigs.Count > 0)
-            {
-                foreach (var task in node.ScheduleTaskConfigs)
-                {
-                    var migratedTask = task.Clone();
-
-                    // 设置目标节点信息（对于节点级操作）
-                    if (migratedTask.IsNodeLevelAction())
-                    {
-                        migratedTask.TargetNodeId = node.Name; // 使用Name作为标识
-                        migratedTask.TargetNodeName = node.Name;
-                    }
-
-                    globalTasks.Add(migratedTask);
-                }
-            }
-
-            // 递归处理子节点
-            if (node.Children != null)
-            {
-                foreach (var child in node.Children)
-                {
-                    CollectTasksFromNode(child, globalTasks, rootNode);
-                }
-            }
-        }
-
-        #endregion
-
-        #region Window Lifecycle & Hotkey Handling
-
-        private HwndSource _source;
-
-        protected override void OnSourceInitialized(EventArgs e)
-        {
-            base.OnSourceInitialized(e);
-            var helper = new WindowInteropHelper(this);
-            _source = HwndSource.FromHwnd(helper.Handle);
-            _source.AddHook(HwndHook);
-            // 快捷键注册移至loadConfig之后，确保AppSettings已加载
-        }
-
-        protected override void OnClosing(CancelEventArgs e)
-        {
-            ViewModel.HideWindow.Execute().Subscribe();
-            e.Cancel = true;
-            base.OnClosing(e);
-        }
-
-        private IntPtr HwndHook(
-            IntPtr hwnd,
-            int msg,
-            IntPtr wParam,
-            IntPtr lParam,
-            ref bool handled
-        )
-        {
-            const int WM_HOTKEY = 0x0312;
-            const int WM_QUERYENDSESSION = 0x0011;
-            const int WM_ENDSESSION = 0x0016;
-            switch (msg)
-            {
-                case WM_HOTKEY:
-                    var hotkeyId = wParam.ToInt32();
-
-                    if (hotkeyId == 88)
-                    {
-                        handled = true;
-                        ViewModel.Quit.Execute().Subscribe();
-                    }
-                    if (hotkeyId == 99)
-                    {
-                        handled = true;
-                        if (
-                            this.Visibility == Visibility.Hidden
-                            || this.WindowState == System.Windows.WindowState.Minimized
-                        )
-                        {
-                            ViewModel.ShowWindow.Execute().Subscribe();
-                        }
-                    }
-                    else if (hotkeyId == HOTKEY_ID)
-                    {
-                        if (!AppSettings.EnableGlobalHotKey || !AppSettings.EnableScreenshot)
-                        {
-                            break;
-                        }
-                        // Alt+X 快捷键被按下，触发截图
-                        handled = true;
-                        Observable
-                            .Return(Unit.Default)
-                            .ObserveOn(RxApp.MainThreadScheduler)
-                            .Subscribe(_ => TriggerScreenshot());
-                    }
-                    else if (hotkeyId == 9001)
-                    { //Alt+C
-                        if (!AppSettings.EnableGlobalHotKey)
-                        {
-                            break;
-                        }
-                        // Alt+C 快捷键被按下，触发拾色
-                        handled = true;
-                        Observable
-                            .Return(Unit.Default)
-                            .ObserveOn(RxApp.MainThreadScheduler)
-                            .Subscribe(_ => ViewModel.PickColor.Execute().Subscribe());
-                    }
-                    else if (hotkeyId == 100)
-                    { //Ctrl+D
-                        if (!AppSettings.EnableGlobalHotKey || !AppSettings.EnableToggleWindow)
-                        {
-                            break;
-                        }
-                        handled = true;
-                        if (
-                            this.Visibility == Visibility.Hidden
-                            || this.WindowState == System.Windows.WindowState.Minimized
-                        )
-                        {
-                            ViewModel.ShowWindow.Execute().Subscribe();
-                        }
-                        else
-                        {
-                            ViewModel.HideWindow.Execute().Subscribe();
-                        }
-                    }
-                    else if (hotkeyId == 101)
-                    { //Ctrl+R
-                        if (!AppSettings.EnableGlobalHotKey || !AppSettings.EnableStartTree)
-                        {
-                            break;
-                        }
-                        handled = true;
-                        ViewModel.RunNodeTree.Execute().Subscribe();
-                    }
-                    else if (hotkeyId == 102)
-                    { //Ctrl+W
-                        if (!AppSettings.EnableGlobalHotKey || !AppSettings.EnableStopTree)
-                        {
-                            break;
-                        }
-                        handled = true;
-                        ViewModel.KillNodeTree.Execute().Subscribe();
-                    }
-                    else if (hotkeyId == 103)
-                    {
-                        if (!AppSettings.EnableGlobalHotKey || !AppSettings.EnableDesktopOn)
-                        {
-                            break;
-                        }
-                        handled = true;
-                        ViewModel.RunProcess.Execute(ViewModel.OpenFileExplorer_args).Subscribe();
-                    }
-                    else if (hotkeyId == 104)
-                    {
-                        if (!AppSettings.EnableGlobalHotKey || !AppSettings.EnableDesktopOff)
-                        {
-                            break;
-                        }
-                        handled = true;
-                        ViewModel.RunProcess.Execute(ViewModel.KillFileExplorer_args).Subscribe();
-                    }
-                    else if (hotkeyId == 105)
-                    {
-                        if (
-                            !AppSettings.EnableGlobalHotKey
-                            || !AppSettings.EnableScheduleToggleHotKey
-                        )
-                        {
-                            break;
-                        }
-
-                        handled = true;
-                        GlobalSchedule.ScheduleTasksEnabled = !GlobalSchedule.ScheduleTasksEnabled;
-                        saveConfig();
-                        NLogger.Info(
-                            $"全局计划任务已{(GlobalSchedule.ScheduleTasksEnabled ? "启用" : "禁用")}（快捷键切换）"
-                        );
-                    }
-                    break;
-                case WM_QUERYENDSESSION:
-                    break;
-                case WM_ENDSESSION:
-                    break;
-            }
-            return IntPtr.Zero;
-        }
-
-        #endregion
-
-        #region 计划任务执行逻辑
-
-        /// <summary>
-        /// 检查是否是每天首次启动
-        /// </summary>
-        private static void CheckFirstStartToday()
-        {
-            var markerFile = Path.Combine(Path.GetTempPath(), "DaemonKit_LastStartDate.txt");
-            var today = DateTime.Now.Date.ToString("yyyy-MM-dd");
-
-            if (File.Exists(markerFile))
-            {
-                var lastStartDate = File.ReadAllText(markerFile).Trim();
-                isFirstStartToday = (lastStartDate != today);
-            }
-            else
-            {
-                isFirstStartToday = true;
-            }
-
-            // 更新标记文件
-            File.WriteAllText(markerFile, today);
-            NLogger.Info($"程序启动时间: {appStartTime}, 是否当日首次启动: {isFirstStartToday}");
-        }
-
-        /// <summary>
-        /// 启动计划任务监控
-        /// </summary>
-        private void StartScheduleTaskMonitor()
-        {
-            // 使用新的任务调度引擎进行任务检查和执行
-            Observable
-                .Timer(TimeSpan.Zero, TimeSpan.FromSeconds(1))
-                .ObserveOn(RxApp.MainThreadScheduler)
-                .Subscribe(async _ =>
-                {
-                    // 新引擎检查新格式的任务
-                    if (_scheduleTaskEngine != null)
-                    {
-                        await _scheduleTaskEngine.CheckAndExecutePendingTasks();
-                    }
-                });
-        }
-
-        /// <summary>
-        /// 执行计划任务
-        /// </summary>
-        private async void ExecuteScheduleTask(ScheduleItem item)
-        {
-            item.MarkAsExecuted();
-            NLogger.Info($"开始执行任务: {item.TaskType}");
-
-            try
-            {
-                switch (item.TaskType)
-                {
-                    case ScheduleTaskType.Shutdown:
-                        await ExecuteShutdownTask();
-                        break;
-                    case ScheduleTaskType.Restart:
-                        await ExecuteRestartTask();
-                        break;
-                    case ScheduleTaskType.RestartApp:
-                        await ExecuteRestartAppTask();
-                        break;
-                    case ScheduleTaskType.Start:
-                        rootProcessNode.RunNode();
-                        break;
-                    case ScheduleTaskType.Stop:
-                        rootProcessNode.KillNode();
-                        break;
-                }
-            }
-            catch (Exception ex)
-            {
-                NLogger.Error($"任务执行失败: {ex.Message}");
-                MessageBox.Show(
-                    $"任务执行失败: {ex.Message}",
-                    "错误",
-                    MessageBoxButton.OK,
-                    MessageBoxImage.Error
-                );
-            }
-        }
-
-        /// <summary>
-        /// 执行关���任务
-        /// </summary>
-        private async System.Threading.Tasks.Task ExecuteShutdownTask()
-        {
-            if (AppSettings.EnableCountdownConfirm)
-            {
-                var confirmed = await ShowCountdownConfirm("系统关机", "系统将在倒计时结束后关机");
-                if (!confirmed)
-                    return;
-            }
-
-            NLogger.Info("执行关机命令");
-            // 调试模式 - 暂时注释真正的关机命令
-            //Process.Start("shutdown", "/s /t 0");
-            NLogger.Info("系统关机命令已确认（调试模式，未真正执行）");
-        }
-
-        /// <summary>
-        /// 执行电脑重启任务
-        /// </summary>
-        private async System.Threading.Tasks.Task ExecuteRestartTask()
-        {
-            if (AppSettings.EnableCountdownConfirm)
-            {
-                var confirmed = await ShowCountdownConfirm("系统重启", "系统将在倒计时结束后重启");
-                if (!confirmed)
-                    return;
-            }
-
-            NLogger.Info("执行重启命令");
-            // 调试模式 - 暂时注释真正的重启命令
-            //Process.Start("shutdown", "/r /t 0");
-            NLogger.Info("系统重启命令已确认（调试模式，未真正执行）");
-        }
-
-        /// <summary>
-        /// 执行程序重启任务
-        /// </summary>
-        private async System.Threading.Tasks.Task ExecuteRestartAppTask()
-        {
-            if (AppSettings.EnableCountdownConfirm)
-            {
-                var confirmed = await ShowCountdownConfirm("程序重启", "程序将在倒计时结束后重启");
-                if (!confirmed)
-                    return;
-            }
-
-            NLogger.Info("执行程序重启命令");
-            RestartApplication();
-        }
-
-        /// <summary>
-        /// 显示倒计时确认对话框
-        /// </summary>
-        private async System.Threading.Tasks.Task<bool> ShowCountdownConfirm(
-            string title,
-            string message
-        )
-        {
-            var tcs = new TaskCompletionSource<bool>();
-
-            await Dispatcher.InvokeAsync(() =>
-            {
-                // 若已有倒计时弹窗，则重置倒计时并复用，避免重复弹窗
-                if (_activeCountdownDialog != null && _activeCountdownDialog.IsVisible)
-                {
-                    _countdownAwaiters.Add(tcs);
-                    _activeCountdownDialog.ResetCountdown(10);
-                    _activeCountdownDialog.Activate();
-                    return;
-                }
-
-                _countdownAwaiters.Clear();
-                _countdownAwaiters.Add(tcs);
-
-                _activeCountdownDialog = new CountdownConfirmDialog
-                {
-                    ViewModel = new CountdownConfirmViewModel(title, message, 10)
                 };
-
-                _activeCountdownDialog.Closed += CountdownDialog_Closed;
-                _activeCountdownDialog.ShowDialog();
-            });
-
-            return await tcs.Task;
-        }
-
-        private void CountdownDialog_Closed(object? sender, EventArgs e)
-        {
-            bool result = (_activeCountdownDialog?.DialogResult ?? false) == true;
-
-            foreach (var waiter in _countdownAwaiters)
-            {
-                waiter.TrySetResult(result);
-            }
-
-            _countdownAwaiters.Clear();
-
-            if (_activeCountdownDialog != null)
-            {
-                _activeCountdownDialog.Closed -= CountdownDialog_Closed;
-                _activeCountdownDialog = null;
-            }
-        }
-
-        private async System.Threading.Tasks.Task<bool> ConfirmSchedulePowerActionAsync(
-            Models.ScheduleTaskAction action
-        )
-        {
-            if (!AppSettings.EnableCountdownConfirm)
-            {
-                return true;
-            }
-
-            return action switch
-            {
-                Models.ScheduleTaskAction.ShutdownSystem
-                    => await ShowCountdownConfirm("系统关机", "系统将在倒计时结束后关机"),
-                Models.ScheduleTaskAction.RestartSystem
-                    => await ShowCountdownConfirm("系统重启", "系统将在倒计时结束后重启"),
-                _ => true
-            };
-        }
-
-        /// <summary>
-        /// 重启应用程序
-        /// </summary>
-        private void RestartApplication()
-        {
-            try
-            {
-                // 获取当前程序路径
-                var exePath = Process.GetCurrentProcess().MainModule.FileName;
-
-                // 启动新实例
-                Process.Start(
-                    new ProcessStartInfo
-                    {
-                        FileName = exePath,
-                        UseShellExecute = true,
-                        Verb = "runas" // 以管理员权限运行
-                    }
-                );
-
-                // 退出当前实例
-                Application.Current.Shutdown();
+                var json = JsonConvert.SerializeObject(ackCommand);
+                var data = System.Text.Encoding.UTF8.GetBytes(json);
+                using var udpClient = new System.Net.Sockets.UdpClient();
+                udpClient.Send(data, data.Length, targetIP, CommonVars.ControlPort);
             }
             catch (Exception ex)
             {
-                NLogger.Error($"程序重启失败: {ex.Message}");
-                MessageBox.Show(
-                    $"程序重启失败: {ex.Message}",
-                    "错误",
-                    MessageBoxButton.OK,
-                    MessageBoxImage.Error
-                );
-            }
-        }
-
-        // GetIdleDuration 和 HandleIdleTimeout 已迁移到 IdleMonitorService
-
-        private void TriggerScreenshot()
-        {
-            try
-            {
-                var overlay = PickerOverlay.GetInstance();
-                // 如果已经在显示中，直接激活并返回，防止多实例
-                if (overlay.IsVisible)
-                {
-                    overlay.Activate();
-                    return;
-                }
-
-                overlay.Mode = PickerOverlay.PickerMode.Screenshot;
-                this.WindowState = System.Windows.WindowState.Minimized;
-                if (overlay.ShowDialog() == true)
-                {
-                    NLogger.Info($"截图保存: {overlay.Result}");
-                }
-                this.WindowState = System.Windows.WindowState.Minimized;
-            }
-            catch (Exception ex)
-            {
-                NLogger.Error($"截图失败: {ex.Message}");
-            }
-        }
-
-        private void OpenScreenshotFolder_Click(object sender, RoutedEventArgs e)
-        {
-            try
-            {
-                var screenshotPath = AppPathes.ScreenshotsDir;
-                if (!Directory.Exists(screenshotPath))
-                {
-                    Directory.CreateDirectory(screenshotPath);
-                }
-                WinAPI.OpenProcess("explorer.exe", screenshotPath);
-                NLogger.Info($"打开截图文件夹: {screenshotPath}");
-            }
-            catch (Exception ex)
-            {
-                NLogger.Error($"打开截图文件夹失败: {ex.Message}");
-            }
-        }
-
-        private void ExportConfig_Click(object sender, RoutedEventArgs e)
-        {
-            try
-            {
-                // 检查是否已有导入/导出在进行
-                if (_isImporting)
-                {
-                    MessageBox.Show(
-                        "导入正在进行中，请等待导入完成后再进行导出",
-                        "提示",
-                        MessageBoxButton.OK,
-                        MessageBoxImage.Information
-                    );
-                    return;
-                }
-
-                if (_isExporting)
-                {
-                    MessageBox.Show(
-                        "导出已在进行中，请等待完成",
-                        "提示",
-                        MessageBoxButton.OK,
-                        MessageBoxImage.Information
-                    );
-                    return;
-                }
-
-                // 传入包含根节点的列表，确保导出时能看到并选择根节点
-                var exportDialog = new ExportDialog(new[] { rootProcessNode }) { Owner = this };
-
-                // 设置导出标志
-                _isExporting = true;
-
-                exportDialog.ShowDialog();
-
-                // 导出完成，重置标志
-                _isExporting = false;
-            }
-            catch (Exception ex)
-            {
-                _isExporting = false;
-                NLogger.Error($"打开导出对话框失败: {ex.Message}");
-                MessageBox.Show(
-                    $"打开导出对话框失败：{ex.Message}",
-                    "错误",
-                    MessageBoxButton.OK,
-                    MessageBoxImage.Error
-                );
-            }
-        }
-
-        private void ImportConfig_Click(object sender, RoutedEventArgs e)
-        {
-            try
-            {
-                // 检查是否已有导入/导出在进行
-                if (_isExporting)
-                {
-                    MessageBox.Show(
-                        "导出正在进行中，请等待导出完成后再进行导入",
-                        "提示",
-                        MessageBoxButton.OK,
-                        MessageBoxImage.Information
-                    );
-                    return;
-                }
-
-                if (_isImporting)
-                {
-                    MessageBox.Show(
-                        "导入已在进行中，请等待完成",
-                        "提示",
-                        MessageBoxButton.OK,
-                        MessageBoxImage.Information
-                    );
-                    return;
-                }
-
-                // 设置导入标志
-                _isImporting = true;
-
-                var importDialog = new ImportDialog { Owner = this };
-                importDialog.ShowDialog();
-
-                // 导入完成，重置标志
-                _isImporting = false;
-
-                if (importDialog.DialogResult == true)
-                {
-                    // 重新加载进程树
-                    try
-                    {
-                        loadConfig();
-                        NLogger.Info("导入后已重新加载进程树配置");
-                    }
-                    catch (Exception ex)
-                    {
-                        NLogger.Error($"导入后重新加载配置失败: {ex.Message}");
-                        MessageBox.Show(
-                            $"重新加载配置失败：{ex.Message}",
-                            "错误",
-                            MessageBoxButton.OK,
-                            MessageBoxImage.Error
-                        );
-                    }
-                }
-            }
-            catch (Exception ex)
-            {
-                _isImporting = false;
-                NLogger.Error($"打开导入对话框失败: {ex.Message}");
-                MessageBox.Show(
-                    $"打开导入对话框失败：{ex.Message}",
-                    "错误",
-                    MessageBoxButton.OK,
-                    MessageBoxImage.Error
-                );
-            }
-        }
-
-        /// <summary>
-        /// 打开备份管理窗口
-        /// </summary>
-        private void OpenBackupManager_Click(object sender, RoutedEventArgs e)
-        {
-            try
-            {
-                var backupWindow = new BackupManagerWindow { Owner = this };
-                backupWindow.ShowDialog();
-
-                // 如果有恢复操作，可能需要重新加载配置
-                // 由恢复操作自行处理
-            }
-            catch (Exception ex)
-            {
-                NLogger.Error($"打开备份管理窗口失败: {ex.Message}");
-                MessageBox.Show(
-                    $"打开备份管理窗口失败：{ex.Message}",
-                    "错误",
-                    MessageBoxButton.OK,
-                    MessageBoxImage.Error
-                );
-            }
-        }
-
-        private void OpenHotkeySettings_Click(object sender, RoutedEventArgs e)
-        {
-            var oldHotKeyEnabled = AppSettings.EnableGlobalHotKey;
-            var hotkeyWindow = new HotkeySettingsWindow { Owner = this };
-            hotkeyWindow.ViewModel.LoadFrom(AppSettings);
-            var result = hotkeyWindow.ShowDialog();
-            if (result == true)
-            {
-                hotkeyWindow.ViewModel.ApplyTo(AppSettings);
-                saveConfig();
-
-                if (AppSettings.EnableGlobalHotKey)
-                {
-                    Utils.RegisterHotKey(this, AppSettings);
-                    NLogger.Info("已启用全局快捷键");
-                }
-                else
-                {
-                    Utils.UnRegisterHotKey(this);
-                    if (oldHotKeyEnabled)
-                    {
-                        NLogger.Info("已禁用全局快捷键");
-                    }
-                }
+                NLogger.Warn("发送ACK失败: {Message}", ex.Message);
             }
         }
 
         #endregion
 
-        #region 软件包操作进度处理
+        #region P/Invoke
 
-        private Window _currentPackageDialog;
-
-        /// <summary>
-        /// 处理软件包操作进度更新
-        /// </summary>
-        private void OnPackageProgressUpdate(PackageProgressInfo progressInfo)
-        {
-            if (progressInfo.IsActive)
-            {
-                // 更新进度文本和百分比
-                PackageProgressText.Text =
-                    progressInfo.OperationType == PackageOperationType.Export
-                        ? "正在打包..."
-                        : "正在安装...";
-                PackageProgressPercentage.Text = $"{progressInfo.ProgressPercentage:F0}%";
-
-                // 更新对话框引用（如果提供）
-                if (progressInfo.DialogInstance != null)
-                {
-                    _currentPackageDialog = progressInfo.DialogInstance as Window;
-                }
-
-                // 如果有对话框引用且窗口是隐藏的，显示状态栏进度
-                if (_currentPackageDialog != null && !_currentPackageDialog.IsVisible)
-                {
-                    PackageProgressItem.Visibility = Visibility.Visible;
-                }
-            }
-            else
-            {
-                // 操作完成，隐藏进度并清空引用
-                PackageProgressItem.Visibility = Visibility.Collapsed;
-                _currentPackageDialog = null;
-            }
-        }
-
-        /// <summary>
-        /// 点击进度按钮唤起对话框
-        /// </summary>
-        private void PackageProgressButton_Click(object sender, RoutedEventArgs e)
-        {
-            if (_currentPackageDialog != null)
-            {
-                // 检查窗口是否已关闭（PresentationSource为null表示窗口已关闭）
-                if (System.Windows.PresentationSource.FromVisual(_currentPackageDialog) == null)
-                {
-                    // 窗口已关闭，清理状态栏
-                    HidePackageProgressInStatusBar();
-                    return;
-                }
-
-                // 显示窗口
-                _currentPackageDialog.Show();
-                _currentPackageDialog.WindowState = System.Windows.WindowState.Normal;
-                _currentPackageDialog.Activate();
-
-                // 禁用主窗口，恢复模态效果
-                this.IsEnabled = false;
-            }
-        }
-
-        /// <summary>
-        /// 显示状态栏进度指示器（用于进度窗口隐藏时）
-        /// </summary>
-        public void ShowPackageProgressInStatusBar()
-        {
-            // 直接设置为可见，因为隐藏时一定有活动的进度
-            PackageProgressItem.Visibility = Visibility.Visible;
-        }
-
-        /// <summary>
-        /// 隐藏状态栏软件包操作进度并清空引用
-        /// </summary>
-        public void HidePackageProgressInStatusBar()
-        {
-            PackageProgressItem.Visibility = Visibility.Collapsed;
-            _currentPackageDialog = null;
-        }
-
-        /// <summary>
-        /// 打开传输列表窗口（单例模式）
-        /// </summary>
-        /// <param name="tabIndex">要激活的Tab索引：0=上传, 1=下载, -1=保持不变（默认）</param>
-        public void ShowTransferListWindow(int tabIndex = -1)
-        {
-            if (_transferListWindow != null)
-            {
-                // 窗口已存在，检查是否被关闭了
-                if (System.Windows.PresentationSource.FromVisual(_transferListWindow) != null)
-                {
-                    // 切换到指定Tab
-                    if (
-                        tabIndex >= 0
-                        && _transferListWindow.DataContext
-                            is ViewModels.TransferListViewModel existingVm
-                    )
-                    {
-                        existingVm.SelectedTabIndex = tabIndex;
-                    }
-                    _transferListWindow.Activate();
-                    return;
-                }
-                _transferListWindow = null;
-            }
-
-            var vm = new ViewModels.TransferListViewModel(_transferTaskManager, _p2pService);
-            if (tabIndex >= 0)
-            {
-                vm.SelectedTabIndex = tabIndex;
-            }
-            _transferListWindow = new Views.TransferListWindow(vm);
-            _transferListWindow.Owner = this;
-            _transferListWindow.Show();
-        }
-
-        /// <summary>
-        /// 打开资源库窗口（单例模式），可选预设设备过滤
-        /// </summary>
-        private void ShowResourceLibraryWindow(string deviceFilter = null)
-        {
-            if (_resourceLibraryWindow != null)
-            {
-                if (System.Windows.PresentationSource.FromVisual(_resourceLibraryWindow) != null)
-                {
-                    // 窗口已存在，如果有过滤条件则更新搜索
-                    if (
-                        !string.IsNullOrEmpty(deviceFilter)
-                        && _resourceLibraryWindow.DataContext
-                            is ViewModels.ResourceLibraryViewModel existingVM
-                    )
-                    {
-                        existingVM.SearchText = deviceFilter;
-                    }
-                    _resourceLibraryWindow.Activate();
-                    return;
-                }
-                _resourceLibraryWindow = null;
-            }
-
-            var panelVM = _table?.ViewModel;
-            if (panelVM == null)
-            {
-                DNHper.NLogger.Warn("[资源库] 联调面板ViewModel未初始化");
-                return;
-            }
-
-            var vm = new ViewModels.ResourceLibraryViewModel(panelVM);
-            if (!string.IsNullOrEmpty(deviceFilter))
-            {
-                vm.SearchText = deviceFilter;
-            }
-            _resourceLibraryWindow = new Views.ResourceLibraryWindow(vm);
-            _resourceLibraryWindow.Show();
-        }
-
-        /// <summary>
-        /// 更新状态栏传输状态显示
-        /// </summary>
-        private void UpdateTransferStatusBar()
-        {
-            var activeCount = _transferTaskManager.ActiveCount;
-            if (activeCount > 0)
-            {
-                TransferStatusItem.Visibility = Visibility.Visible;
-                var speed = _transferTaskManager.TotalSpeedDisplay;
-                var upload = _transferTaskManager.UploadCount;
-                var download = _transferTaskManager.DownloadCount;
-                var parts = new System.Collections.Generic.List<string>();
-                if (upload > 0)
-                    parts.Add($"↑{upload}");
-                if (download > 0)
-                    parts.Add($"↓{download}");
-                TransferStatusText.Text = $"{string.Join(" ", parts)} {speed}";
-            }
-            else
-            {
-                TransferStatusItem.Visibility = Visibility.Collapsed;
-            }
-        }
-
-        /// <summary>
-        /// 点击状态栏传输指示器打开传输列表窗口
-        /// </summary>
-        private void TransferStatusButton_Click(object sender, RoutedEventArgs e)
-        {
-            ShowTransferListWindow();
-        }
-
-        #endregion
-
-        #region 远程导出进程包
-
-        /// <summary>
-        /// 导出进程包到共享文件夹（用于远程下载）
-        /// </summary>
-        private async System.Threading.Tasks.Task<string> ExportPackageToSharedFolderAsync(
-            ProcessItem rootNode,
-            IProgress<string> statusProgress = null
-        )
-        {
-            try
-            {
-                // 确保共享目录存在
-                var sharedDir = Utilities.AppPathes.SharedFilesDir;
-                if (!System.IO.Directory.Exists(sharedDir))
-                {
-                    System.IO.Directory.CreateDirectory(sharedDir);
-                }
-
-                // 生成导出文件名
-                var timestamp = DateTime.Now.ToString("yyyyMMdd_HHmmss");
-                var projectName = rootNode?.MetaData?.Name ?? Environment.MachineName;
-                // 清理非法文件名字符
-                projectName = string.Join(
-                    "_",
-                    projectName.Split(System.IO.Path.GetInvalidFileNameChars())
-                );
-                var packageName = $"{projectName}_{timestamp}.dkp.zip";
-                var packagePath = System.IO.Path.Combine(sharedDir, packageName);
-
-                NLogger.Info($"[Remote Export] 开始导出进程包到共享目录: {packagePath}");
-
-                // 获取所有配置文件
-                var configFiles = new List<string>
-                {
-                    Utilities.AppPathes.TreeViewDataPath,
-                    Utilities.AppPathes.AppSettingPath,
-                    Utilities.AppPathes.GlobalSchedulePath,
-                    Utilities.AppPathes.ScheduleConfigPath,
-                    Utilities.AppPathes.HotkeyConfigPath,
-                    Utilities.AppPathes.ExtensionConfigPath
-                }
-                    .Where(System.IO.File.Exists)
-                    .ToList();
-
-                // 收集进程树所有节点
-                var allNodes = new List<ProcessItem> { rootNode };
-                CollectAllNodes(rootNode, allNodes);
-
-                // 执行导出（包含程序文件，完整备份）
-                var success = await Services.ExportImportService.ExportPackageAsync(
-                    packagePath,
-                    configFiles,
-                    allNodes,
-                    includeAllPrograms: true, // 远程导出时包含程序文件，完整备份
-                    description: $"远程导出 - {Environment.MachineName} - {DateTime.Now:yyyy-MM-dd HH:mm:ss}",
-                    statusProgress: statusProgress
-                );
-
-                if (success)
-                {
-                    NLogger.Info($"[Remote Export] 进程包导出成功: {packagePath}");
-                    return packageName; // 返回文件名供通知使用
-                }
-                else
-                {
-                    NLogger.Error($"[Remote Export] 进程包导出失败");
-                    return null;
-                }
-            }
-            catch (Exception ex)
-            {
-                NLogger.Error($"[Remote Export] 导出进程包异常: {ex.Message}");
-                throw;
-            }
-        }
-
-        /// <summary>
-        /// 获取与远程IP通信的本地IP地址
-        /// </summary>
-        private string GetLocalIPForRemote(string remoteIP)
-        {
-            try
-            {
-                using (
-                    var socket = new System.Net.Sockets.Socket(
-                        System.Net.Sockets.AddressFamily.InterNetwork,
-                        System.Net.Sockets.SocketType.Dgram,
-                        0
-                    )
-                )
-                {
-                    socket.Connect(remoteIP, 65530);
-                    var endPoint = socket.LocalEndPoint as System.Net.IPEndPoint;
-                    return endPoint?.Address.ToString() ?? "127.0.0.1";
-                }
-            }
-            catch
-            {
-                return "127.0.0.1";
-            }
-        }
-
-        /// <summary>
-        /// 递归收集所有子节点
-        /// </summary>
-        private void CollectAllNodes(ProcessItem node, List<ProcessItem> nodes)
-        {
-            if (node?.Children == null)
-                return;
-            foreach (var child in node.Children)
-            {
-                nodes.Add(child);
-                CollectAllNodes(child, nodes);
-            }
-        }
+        [System.Runtime.InteropServices.DllImport("dbghelp.dll", EntryPoint = "MiniDumpWriteDump",
+            CallingConvention = System.Runtime.InteropServices.CallingConvention.StdCall, SetLastError = true)]
+        private static extern bool MiniDumpWriteDump(
+            IntPtr hProcess, uint processId, IntPtr hFile, uint dumpType,
+            IntPtr exceptionParam, IntPtr userStreamParam, IntPtr callbackParam);
 
         #endregion
     }

@@ -15,7 +15,8 @@
     Height="650"
     Width="500"
     ResizeMode="NoResize"
-    Topmost="True">
+    Topmost="True"
+    FontFamily="{DynamicResource MaterialDesignFont}">
     <Window.Resources>
         <BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter"/>
         <!-- 自定义滚动条样式 -->

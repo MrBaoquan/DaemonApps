@@ -165,7 +165,7 @@ namespace DaemonKit.ViewModels
                     }
                     catch (Exception ex)
                     {
-                        DNHper.NLogger.Error($"[P2P] 恢复任务失败: {ex.Message}");
+                        DNHper.NLogger.Error("[P2P] 恢复任务失败: {ErrorMessage}", ex.Message);
                     }
                 }
             });
@@ -209,7 +209,7 @@ namespace DaemonKit.ViewModels
                         }
                         catch (Exception ex)
                         {
-                            DNHper.NLogger.Error($"[P2P] 恢复任务失败: {ex.Message}");
+                            DNHper.NLogger.Error("[P2P] 恢复任务失败: {ErrorMessage}", ex.Message);
                         }
                     }
                 }
@@ -250,7 +250,7 @@ namespace DaemonKit.ViewModels
                 }
                 catch (Exception ex)
                 {
-                    DNHper.NLogger.Error($"[传输] 打开文件位置失败: {ex.Message}");
+                    DNHper.NLogger.Error("[传输] 打开文件位置失败: {ErrorMessage}", ex.Message);
                 }
             });
 
@@ -268,24 +268,24 @@ namespace DaemonKit.ViewModels
                     }
                     if (!File.Exists(filePath))
                     {
-                        NLogger.Warn($"[传输] 部署文件不存在: {filePath}");
+                        NLogger.Warn("[传输] 部署文件不存在: {FilePath}", filePath);
                         return;
                     }
 
-                    NLogger.Info($"[传输] 部署进程包: {filePath}");
+                    NLogger.Info("[传输] 部署进程包: {FilePath}", filePath);
                     var mainWindow = System.Windows.Application.Current.MainWindow;
                     var importDialog = new Views.ImportDialog(filePath) { Owner = mainWindow };
                     importDialog.ShowDialog();
 
                     if (importDialog.DialogResult == true)
                     {
-                        NLogger.Info($"[传输] 部署完成: {task.FileName}");
+                        NLogger.Info("[传输] 部署完成: {FileName}", task.FileName);
                         ReactiveUI.MessageBus.Current.SendMessage("ReloadConfig");
                     }
                 }
                 catch (Exception ex)
                 {
-                    NLogger.Error($"[传输] 部署失败: {ex.Message}");
+                    NLogger.Error("[传输] 部署失败: {ErrorMessage}", ex.Message);
                 }
             });
 
@@ -303,11 +303,11 @@ namespace DaemonKit.ViewModels
                     }
                     if (!File.Exists(filePath))
                     {
-                        NLogger.Warn($"[传输] 更新包文件不存在: {filePath}");
+                        NLogger.Warn("[传输] 更新包文件不存在: {FilePath}", filePath);
                         return;
                     }
 
-                    NLogger.Info($"[传输] 应用节点更新包: {filePath}");
+                    NLogger.Info("[传输] 应用节点更新包: {FilePath}", filePath);
                     var mainWindow =
                         System.Windows.Application.Current.MainWindow as DaemonKit.MainWindow;
                     var allNodes = new System.Collections.Generic.List<ProcessItem>();
@@ -326,12 +326,12 @@ namespace DaemonKit.ViewModels
 
                     if (dialog.DialogResult == true)
                     {
-                        NLogger.Info($"[传输] 更新完成: {task.FileName}");
+                        NLogger.Info("[传输] 更新完成: {FileName}", task.FileName);
                     }
                 }
                 catch (Exception ex)
                 {
-                    NLogger.Error($"[传输] 应用更新失败: {ex.Message}");
+                    NLogger.Error("[传输] 应用更新失败: {ErrorMessage}", ex.Message);
                 }
             });
 

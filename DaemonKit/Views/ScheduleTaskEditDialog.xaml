@@ -14,7 +14,8 @@
         Width="500"
         Background="White"
         WindowStartupLocation="CenterOwner"
-        ResizeMode="NoResize">
+        ResizeMode="NoResize"
+        FontFamily="{DynamicResource MaterialDesignFont}">
 
     <Window.Resources>
         <converters:ScheduleTriggerTypeToStringConverter x:Key="ScheduleTriggerTypeToStringConverter"/>

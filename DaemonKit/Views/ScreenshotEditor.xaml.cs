@@ -10,6 +10,7 @@ using System.Windows.Shapes;
 using Microsoft.Win32;
 using DaemonKit.Models;
 using DaemonKit.Utilities;
+using DNHper;
 
 namespace DaemonKit
 {
@@ -219,11 +220,11 @@ namespace DaemonKit
                     try
                     {
                         Clipboard.SetImage(ColorPicker.BitmapToBitmapSource(_editingBitmap));
-                        DNHper.NLogger.Info($"截图已保存: {dialog.FileName}，并已复制到剪贴板");
+                        DNHper.NLogger.Info("截图已保存: {FileName}，并已复制到剪贴板", dialog.FileName);
                     }
                     catch (Exception ex)
                     {
-                        DNHper.NLogger.Warn($"无法复制到剪贴板: {ex.Message}");
+                        DNHper.NLogger.Warn("无法复制到剪贴板: {ErrorMessage}", ex.Message);
                     }
 
                     StatusText.Text = $"已保存: {System.IO.Path.GetFileName(dialog.FileName)}";
@@ -237,7 +238,7 @@ namespace DaemonKit
                         MessageBoxButton.OK,
                         MessageBoxImage.Error
                     );
-                    DNHper.NLogger.Error($"截图保存失败: {ex.Message}");
+                    DNHper.NLogger.Error("截图保存失败: {ErrorMessage}", ex.Message);
                 }
             }
         }
@@ -264,7 +265,10 @@ namespace DaemonKit
                 {
                     Directory.CreateDirectory(screenshotsFolder);
                 }
-                catch { }
+                catch (Exception ex)
+                {
+                    NLogger.Warn("创建截图目录失败: {ErrorMessage}", ex.Message);
+                }
             }
 
             return screenshotsFolder;

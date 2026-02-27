@@ -60,7 +60,7 @@ namespace DaemonKit.Services
                     CheckForCrash();
                 });
 
-            NLogger.Info($"崩溃检测服务已启动（检测间隔: {_checkInterval}ms）");
+            NLogger.Info("崩溃检测服务已启动（检测间隔: {CheckInterval}ms）", _checkInterval);
         }
 
         /// <summary>
@@ -81,7 +81,7 @@ namespace DaemonKit.Services
 
                 if (_rootProcessNode.IsRuning && crashWindows.Count > 0)
                 {
-                    NLogger.Warn($"检测到 {crashWindows.Count} 个崩溃进程窗口");
+                    NLogger.Warn("检测到 {Count} 个崩溃进程窗口", crashWindows.Count);
 
                     // 关闭所有崩溃窗口
                     crashWindows.ForEach(crashWindow =>
@@ -89,13 +89,15 @@ namespace DaemonKit.Services
                         try
                         {
                             NLogger.Info(
-                                $"关闭崩溃进程: {crashWindow.MainWindowTitle} (PID: {crashWindow.Id})"
+                                "关闭崩溃进程: {MainWindowTitle} (PID: {Id})",
+                                crashWindow.MainWindowTitle,
+                                crashWindow.Id
                             );
                             crashWindow.Kill();
                         }
                         catch (Exception ex)
                         {
-                            NLogger.Error($"关闭崩溃进程失败: {ex.Message}");
+                            NLogger.Error("关闭崩溃进程失败: {ErrorMessage}", ex.Message);
                         }
                     });
 
@@ -117,7 +119,7 @@ namespace DaemonKit.Services
             }
             catch (Exception ex)
             {
-                NLogger.Error($"崩溃检测异常: {ex.Message}");
+                NLogger.Error("崩溃检测异常: {ErrorMessage}", ex.Message);
             }
         }
 

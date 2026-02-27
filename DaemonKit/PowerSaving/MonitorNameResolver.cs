@@ -32,12 +32,12 @@ namespace DaemonKit.PowerSaving
                 var match = Regex.Match(devicePath, @"DISPLAY#([^#]+)#", RegexOptions.IgnoreCase);
                 if (!match.Success)
                 {
-                    NLogger.Debug($"[MonitorName] 无法从路径提取硬件ID: {devicePath}");
+                    NLogger.Debug("[MonitorName] 无法从路径提取硬件ID: {DevicePath}", devicePath);
                     return null;
                 }
 
                 var hardwareId = match.Groups[1].Value;
-                NLogger.Debug($"[MonitorName] 硬件ID: {hardwareId}");
+                NLogger.Debug("[MonitorName] 硬件ID: {HardwareId}", hardwareId);
 
                 // 在注册表中查找对应的EDID
                 // HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Enum\DISPLAY\{hardwareId}
@@ -47,7 +47,7 @@ namespace DaemonKit.PowerSaving
 
                 if (displayKey == null)
                 {
-                    NLogger.Debug($"[MonitorName] 未找到注册表键: DISPLAY\\{hardwareId}");
+                    NLogger.Debug("[MonitorName] 未找到注册表键: DISPLAY\\{HardwareId}", hardwareId);
                     return null;
                 }
 
@@ -67,13 +67,13 @@ namespace DaemonKit.PowerSaving
                     if (edidData == null || edidData.Length < 128)
                         continue;
 
-                    NLogger.Debug($"[MonitorName] 成功读取EDID，长度: {edidData.Length} 字节");
+                    NLogger.Debug("[MonitorName] 成功读取EDID，长度: {Length} 字节", edidData.Length);
 
                     // 解析EDID获取显示器名称
                     var name = ParseEdidMonitorName(edidData);
                     if (!string.IsNullOrWhiteSpace(name))
                     {
-                        NLogger.Info($"[MonitorName] 成功解析显示器名称: {name}");
+                        NLogger.Info("[MonitorName] 成功解析显示器名称: {Name}", name);
                         return name;
                     }
                 }
@@ -82,7 +82,7 @@ namespace DaemonKit.PowerSaving
             }
             catch (Exception ex)
             {
-                NLogger.Error($"[MonitorName] 解析失败: {ex.Message}");
+                NLogger.Error("[MonitorName] 解析失败: {ErrorMessage}", ex.Message);
             }
 
             return null;
@@ -129,7 +129,7 @@ namespace DaemonKit.PowerSaving
                             .TakeWhile(b => b != 0x0A && b != 0x00)
                             .ToArray();
                         monitorName = Encoding.ASCII.GetString(nameBytes).Trim();
-                        NLogger.Debug($"[MonitorName] EDID监视器名称: {monitorName}");
+                        NLogger.Debug("[MonitorName] EDID监视器名称: {MonitorName}", monitorName);
                         break;
                     }
                 }
@@ -157,7 +157,7 @@ namespace DaemonKit.PowerSaving
             }
             catch (Exception ex)
             {
-                NLogger.Error($"[MonitorName] EDID解析失败: {ex.Message}");
+                NLogger.Error("[MonitorName] EDID解析失败: {ErrorMessage}", ex.Message);
                 return null;
             }
         }
@@ -182,12 +182,12 @@ namespace DaemonKit.PowerSaving
                 char c3 = (char)('A' + (id & 0x1F) - 1);
 
                 var manufacturerId = new string(new[] { c1, c2, c3 });
-                NLogger.Debug($"[MonitorName] EDID制造商ID: {manufacturerId}");
+                NLogger.Debug("[MonitorName] EDID制造商ID: {ManufacturerId}", manufacturerId);
                 return manufacturerId;
             }
             catch (Exception ex)
             {
-                NLogger.Error($"[MonitorName] 制造商ID解析失败: {ex.Message}");
+                NLogger.Error("[MonitorName] 制造商ID解析失败: {ErrorMessage}", ex.Message);
                 return null;
             }
         }

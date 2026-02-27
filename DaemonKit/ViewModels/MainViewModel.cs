@@ -157,6 +157,10 @@ namespace DaemonKit
                 () => { },
                 outputScheduler: RxApp.MainThreadScheduler
             );
+            ClearProcessTree = ReactiveCommand.Create(
+                () => { },
+                outputScheduler: RxApp.MainThreadScheduler
+            );
 
             OpenScheduleWindow = ReactiveCommand.Create(
                 () => { },
@@ -272,5 +276,6 @@ namespace DaemonKit
         public ReactiveCommand<Unit, Unit> RestartSystem { get; protected set; }
         public ReactiveCommand<Unit, Unit> ToggleTouchScreen { get; protected set; }
         public ReactiveCommand<ProcessItem, ProcessItem> ExportNodePackage { get; protected set; }
+        public ReactiveCommand<Unit, Unit> ClearProcessTree { get; protected set; }
     }
 }

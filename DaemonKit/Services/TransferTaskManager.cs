@@ -756,11 +756,11 @@ namespace DaemonKit.Services
 
                 var json = JsonConvert.SerializeObject(completedItems, Formatting.Indented);
                 File.WriteAllText(HistoryFilePath, json);
-                NLogger.Info($"[传输] 已保存 {completedItems.Count} 条传输历史");
+                NLogger.Info("[传输] 已保存 {Count} 条传输历史", completedItems.Count);
             }
             catch (Exception ex)
             {
-                NLogger.Error($"[传输] 保存传输历史失败: {ex.Message}");
+                NLogger.Error("[传输] 保存传输历史失败: {ErrorMessage}", ex.Message);
             }
         }
 
@@ -802,11 +802,11 @@ namespace DaemonKit.Services
                     .ToList();
 
                 _taskCache.AddOrUpdate(items);
-                NLogger.Info($"[传输] 已恢复 {items.Count} 条传输历史");
+                NLogger.Info("[传输] 已恢复 {Count} 条传输历史", items.Count);
             }
             catch (Exception ex)
             {
-                NLogger.Error($"[传输] 加载传输历史失败: {ex.Message}");
+                NLogger.Error("[传输] 加载传输历史失败: {ErrorMessage}", ex.Message);
             }
         }
 

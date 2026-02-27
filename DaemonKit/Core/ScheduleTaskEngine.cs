@@ -93,13 +93,13 @@ namespace DaemonKit.Core
                     TaskExecuting?.Invoke(this, context);
                     await ExecuteTask(context);
                     context.IsSuccess = true;
-                    NLogger.Info($"任务执行成功: [{taskConfig.Name}] - {taskConfig.Action}");
+                    NLogger.Info("任务执行成功: [{Name}] - {Action}", taskConfig.Name, taskConfig.Action);
                 }
                 catch (Exception ex)
                 {
                     context.IsSuccess = false;
                     context.ErrorMessage = ex.Message;
-                    NLogger.Error($"任务执行失败: [{taskConfig.Name}] - {ex.Message}");
+                    NLogger.Error("任务执行失败: [{Name}] - {Message}", taskConfig.Name, ex.Message);
                 }
                 finally
                 {
@@ -188,7 +188,7 @@ namespace DaemonKit.Core
         /// <summary>
         /// 判断任务是否应该执行
         /// </summary>
-        private bool ShouldExecuteTask(
+        internal bool ShouldExecuteTask(
             ProcessItem processNode,
             ScheduleTaskConfig taskConfig,
             DateTime now
@@ -236,7 +236,11 @@ namespace DaemonKit.Core
         /// <summary>
         /// 每天指定时间执行
         /// </summary>
-        private bool ShouldExecuteDaily(string taskKey, ScheduleTaskConfig taskConfig, DateTime now)
+        internal bool ShouldExecuteDaily(
+            string taskKey,
+            ScheduleTaskConfig taskConfig,
+            DateTime now
+        )
         {
             if (!DateTime.TryParse(taskConfig.DailyTime, out var dailyTime))
                 return false;
@@ -254,7 +258,11 @@ namespace DaemonKit.Core
             if (!_lastExecuteTime.ContainsKey(taskKey) && _appStartTime > scheduleTime)
             {
                 _lastExecuteTime[taskKey] = scheduleTime;
-                NLogger.Info($"任务 '{taskConfig.Name}' 当天计划时间已过（{dailyTime:HH:mm:ss}），启动时不补跑");
+                NLogger.Info(
+                    "任务 '{Name}' 当天计划时间已过（{DailyTime}），启动时不补跑",
+                    taskConfig.Name,
+                    dailyTime.ToString("HH:mm:ss")
+                );
                 return false;
             }
 
@@ -273,7 +281,7 @@ namespace DaemonKit.Core
         /// <summary>
         /// 每天首次启动后延迟X秒执行
         /// </summary>
-        private bool ShouldExecuteOncePerDayAfterStart(
+        internal bool ShouldExecuteOncePerDayAfterStart(
             string taskKey,
             ScheduleTaskConfig taskConfig,
             DateTime now
@@ -312,7 +320,7 @@ namespace DaemonKit.Core
         /// <summary>
         /// 每次启动后延迟X秒执行（不限制频率）
         /// </summary>
-        private bool ShouldExecuteEveryStartupAfterDelay(
+        internal bool ShouldExecuteEveryStartupAfterDelay(
             string taskKey,
             ScheduleTaskConfig taskConfig,
             DateTime now
@@ -336,7 +344,7 @@ namespace DaemonKit.Core
         /// <summary>
         /// 启动后每隔X秒循环执行（周期性执行）
         /// </summary>
-        private bool ShouldExecuteIntervalAfterStartup(
+        internal bool ShouldExecuteIntervalAfterStartup(
             string taskKey,
             ScheduleTaskConfig taskConfig,
             DateTime now
@@ -380,7 +388,7 @@ namespace DaemonKit.Core
 
                 case ScheduleTaskAction.RestartProcess:
                     processNode.KillNode();
-                    Thread.Sleep(500);
+                    await Task.Delay(500);
                     processNode.RunNode();
                     context.Result = $"已重启进程: {processNode.Name}";
                     break;
@@ -461,7 +469,7 @@ namespace DaemonKit.Core
             }
             catch (Exception ex)
             {
-                NLogger.Error($"执行鼠标点击失败: {ex.Message}");
+                NLogger.Error("执行鼠标点击失败: {Message}", ex.Message);
             }
         }
 
@@ -486,7 +494,7 @@ namespace DaemonKit.Core
                     var command =
                         commandProperty.GetValue(viewModel)
                         as ReactiveUI.ReactiveCommand<Unit, Unit>;
-                    if (command != null && command.CanExecute.FirstAsync().Wait())
+                    if (command != null && await command.CanExecute.FirstAsync())
                     {
                         await command.Execute();
                         NLogger.Info("节能模式已开启");
@@ -499,7 +507,7 @@ namespace DaemonKit.Core
             }
             catch (Exception ex)
             {
-                NLogger.Error($"开启节能模式失败: {ex.Message}");
+                NLogger.Error("开启节能模式失败: {Message}", ex.Message);
                 throw;
             }
         }
@@ -525,7 +533,7 @@ namespace DaemonKit.Core
                     var command =
                         commandProperty.GetValue(viewModel)
                         as ReactiveUI.ReactiveCommand<Unit, Unit>;
-                    if (command != null && command.CanExecute.FirstAsync().Wait())
+                    if (command != null && await command.CanExecute.FirstAsync())
                     {
                         await command.Execute();
                         NLogger.Info("节能模式已退出");
@@ -538,7 +546,7 @@ namespace DaemonKit.Core
             }
             catch (Exception ex)
             {
-                NLogger.Error($"退出节能模式失败: {ex.Message}");
+                NLogger.Error("退出节能模式失败: {Message}", ex.Message);
                 throw;
             }
         }
@@ -576,11 +584,11 @@ namespace DaemonKit.Core
                     screenshot.Dispose();
                     graphics.Dispose();
 
-                    NLogger.Info($"截图已保存: {filePath}");
+                    NLogger.Info("截图已保存: {FilePath}", filePath);
                 }
                 catch (Exception ex)
                 {
-                    NLogger.Error($"截图保存失败: {ex.Message}");
+                    NLogger.Error("截图保存失败: {Message}", ex.Message);
                 }
             });
         }
@@ -588,7 +596,7 @@ namespace DaemonKit.Core
         /// <summary>
         /// 标记任务已执行
         /// </summary>
-        private void MarkTaskExecuted(
+        internal void MarkTaskExecuted(
             ProcessItem processNode,
             ScheduleTaskConfig taskConfig,
             DateTime now
@@ -653,7 +661,7 @@ namespace DaemonKit.Core
             }
             catch (Exception ex)
             {
-                NLogger.Warn($"首次启动标记初始化失败: {ex.Message}");
+                NLogger.Warn("首次启动标记初始化失败: {Message}", ex.Message);
                 return true;
             }
         }
@@ -661,7 +669,7 @@ namespace DaemonKit.Core
         /// <summary>
         /// 获取任务唯一标识
         /// </summary>
-        private string GetTaskKey(ProcessItem processNode, ScheduleTaskConfig taskConfig)
+        internal string GetTaskKey(ProcessItem processNode, ScheduleTaskConfig taskConfig)
         {
             return $"{processNode.NodePath}#{taskConfig.Name}";
         }

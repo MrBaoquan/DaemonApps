@@ -46,7 +46,7 @@ namespace DaemonKit.ViewModels
         }
 
         /// <summary>
-        /// 统一包清单（新格式，同时兼容旧 metadata.json 转换）
+        /// 包清单
         /// </summary>
         public PackageManifest Manifest
         {
@@ -239,7 +239,7 @@ namespace DaemonKit.ViewModels
             {
                 PackagePath = openDialog.FileName;
 
-                // 读取统一清单（优先 manifest.json，回退 metadata.json）
+                // 读取包清单
                 try
                 {
                     StatusMessage = "读取包信息...";
@@ -639,11 +639,14 @@ namespace DaemonKit.ViewModels
                             {
                                 IsActive = false,
                                 OperationType = PackageOperationType.Import,
-                                StatusMessage = "导入完成！请重启应用以加载新配置",
+                                StatusMessage = "导入完成",
                                 ProgressPercentage = 100,
                                 DialogInstance = progressWindow
                             }
                         );
+
+                        // 通知主窗口执行热重载（手动导入不自动启动进程树）
+                        ReactiveUI.MessageBus.Current.SendMessage(false, "TreeBundleImportCompleted");
                     }
                     else
                     {

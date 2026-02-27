@@ -51,7 +51,7 @@ namespace DaemonKit.PowerSaving
 
             if (candidates.Count == 0)
             {
-                NLogger.Error($"[MonitorEnumerator] 未找到任何监视器");
+                NLogger.Error("[MonitorEnumerator] 未找到任何监视器");
                 return IntPtr.Zero;
             }
 
@@ -83,7 +83,7 @@ namespace DaemonKit.PowerSaving
             }
 
             // 策略4：使用第一个监视器作为fallback
-            NLogger.Warn($"[MonitorEnumerator] 无法确定监视器匹配，使用第一个作为fallback");
+            NLogger.Warn("[MonitorEnumerator] 无法确定监视器匹配，使用第一个作为fallback");
             return candidates[0].Handle;
         }
 

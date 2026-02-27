@@ -81,7 +81,10 @@ namespace DaemonKit.PowerSaving
                 {
                     // 串口模式：返回缓存的上次设置值（协议无专门读取命令）
                     currentBrightness = _lastSetBrightness;
-                    DNHper.NLogger.Info($"[KSV-LED] 串口模式返回缓存亮度: {currentBrightness}");
+                    DNHper.NLogger.Info(
+                        "[KSV-LED] 串口模式返回缓存亮度: {CurrentBrightness}",
+                        currentBrightness
+                    );
                 }
 
                 // 将 0-255 映射回 0-100
@@ -90,7 +93,7 @@ namespace DaemonKit.PowerSaving
             }
             catch (Exception ex)
             {
-                DNHper.NLogger.Error($"[KSV-LED] 读取亮度失败: {ex.Message}");
+                DNHper.NLogger.Error("[KSV-LED] 读取亮度失败: {ErrorMessage}", ex.Message);
                 return new BrightnessInfo(0, 50, 100); // 返回默认值
             }
         }
@@ -107,7 +110,9 @@ namespace DaemonKit.PowerSaving
                 byte hexBrightness = (byte)(brightness * 255 / 100);
 
                 DNHper.NLogger.Debug(
-                    $"[KSV-LED] SetBrightnessAsync: 输入百分比={brightness}%, 计算后的0-255值={hexBrightness}"
+                    "[KSV-LED] SetBrightnessAsync: 输入百分比={Brightness}%, 计算后的0-255值={HexBrightness}",
+                    brightness,
+                    hexBrightness
                 );
 
                 if (_connectionType == "serial")
@@ -121,7 +126,7 @@ namespace DaemonKit.PowerSaving
             }
             catch (Exception ex)
             {
-                DNHper.NLogger.Error($"[KSV-LED] 设置亮度失败: {ex.Message}");
+                DNHper.NLogger.Error("[KSV-LED] 设置亮度失败: {ErrorMessage}", ex.Message);
                 return false;
             }
         }
@@ -147,14 +152,21 @@ namespace DaemonKit.PowerSaving
                             StopBits.One
                         );
                         _serialPort.Open();
-                        DNHper.NLogger.Info($"[KSV-LED] 串口 {_portOrIp} 已打开，波特率 {_baudRateOrPort}");
+                        DNHper.NLogger.Info(
+                            "[KSV-LED] 串口 {PortOrIp} 已打开，波特率 {BaudRateOrPort}",
+                            _portOrIp,
+                            _baudRateOrPort
+                        );
                     }
 
                     // 构造串口指令：E9 00 93 [亮度] 00 [校验和] 0D 0A
                     byte[] command = BuildSerialCommand(0x93, brightness);
 
                     _serialPort.Write(command, 0, command.Length);
-                    DNHper.NLogger.Info($"[KSV-LED] 串口发送亮度指令: {BitConverter.ToString(command)}");
+                    DNHper.NLogger.Info(
+                        "[KSV-LED] 串口发送亮度指令: {CommandData}",
+                        BitConverter.ToString(command)
+                    );
 
                     // 等待硬件处理
                     await Task.Delay(50, ct);
@@ -166,7 +178,8 @@ namespace DaemonKit.PowerSaving
                     byte[] saveCommand = BuildSerialCommand(0x95, 0x00);
                     _serialPort.Write(saveCommand, 0, saveCommand.Length);
                     DNHper.NLogger.Info(
-                        $"[KSV-LED] 串口发送固化指令: {BitConverter.ToString(saveCommand)}"
+                        "[KSV-LED] 串口发送固化指令: {SaveCommandData}",
+                        BitConverter.ToString(saveCommand)
                     );
 
                     return true;
@@ -174,7 +187,10 @@ namespace DaemonKit.PowerSaving
                 catch (Exception ex)
                 {
                     DNHper.NLogger.Warn(
-                        $"[KSV-LED] 串口设置亮度失败 (尝试 {attempt}/{maxRetries}): {ex.Message}"
+                        "[KSV-LED] 串口设置亮度失败 (尝试 {Attempt}/{MaxRetries}): {ErrorMessage}",
+                        attempt,
+                        maxRetries,
+                        ex.Message
                     );
 
                     // 关闭失效的串口连接
@@ -188,7 +204,7 @@ namespace DaemonKit.PowerSaving
                     // 最后一次重试失败
                     if (attempt >= maxRetries)
                     {
-                        DNHper.NLogger.Error($"[KSV-LED] 串口设置亮度失败，已重试 {maxRetries} 次");
+                        DNHper.NLogger.Error("[KSV-LED] 串口设置亮度失败，已重试 {MaxRetries} 次", maxRetries);
                         return false;
                     }
 
@@ -222,20 +238,29 @@ namespace DaemonKit.PowerSaving
                         // 发送设备连接指令（网口协议要求，仅在建立新连接时发送一次）
                         await SendDeviceConnectCommandAsync(ct);
                         _tcpConnectCommandSent = true;
-                        DNHper.NLogger.Info($"[KSV-LED] TCP 连接已建立 {_portOrIp}:{_baudRateOrPort}");
-                        DNHper.NLogger.Info($"[KSV-LED] 提示: 请确认该地址为KSV系列LED控制器（KSV24c/KSV12c等）");
+                        DNHper.NLogger.Info(
+                            "[KSV-LED] TCP 连接已建立 {PortOrIp}:{BaudRateOrPort}",
+                            _portOrIp,
+                            _baudRateOrPort
+                        );
+                        DNHper.NLogger.Info("[KSV-LED] 提示: 请确认该地址为KSV系列LED控制器（KSV24c/KSV12c等）");
                     }
 
                     // 构造网口指令（长帧格式，第21字节为亮度）
                     byte[] command = BuildTcpCommand(brightness, 0x40); // 对比度默认 64
 
-                    DNHper.NLogger.Info($"[KSV-LED] TCP 目标地址: {_portOrIp}:{_baudRateOrPort}");
+                    DNHper.NLogger.Info(
+                        "[KSV-LED] TCP 目标地址: {PortOrIp}:{BaudRateOrPort}",
+                        _portOrIp,
+                        _baudRateOrPort
+                    );
                     DNHper.NLogger.Debug(
-                        $"[KSV-LED] TCP 发送亮度指令数据: {BitConverter.ToString(command)}"
+                        "[KSV-LED] TCP 发送亮度指令数据: {CommandData}",
+                        BitConverter.ToString(command)
                     );
 
                     await _networkStream!.WriteAsync(command, 0, command.Length, ct);
-                    DNHper.NLogger.Info($"[KSV-LED] TCP 发送亮度指令，亮度值: {brightness}");
+                    DNHper.NLogger.Info("[KSV-LED] TCP 发送亮度指令，亮度值: {Brightness}", brightness);
 
                     // 等待并检查是否有响应数据（协议未明确要求响应，但某些设备可能返回）
                     await Task.Delay(50, ct);
@@ -249,20 +274,23 @@ namespace DaemonKit.PowerSaving
                             ct
                         );
                         DNHper.NLogger.Debug(
-                            $"[KSV-LED] TCP 接收设置亮度响应 (长度: {responseBytesRead}): {BitConverter.ToString(responseBuffer, 0, responseBytesRead)}"
+                            "[KSV-LED] TCP 接收设置亮度响应 (长度: {ResponseBytesRead}): {ResponseData}",
+                            responseBytesRead,
+                            BitConverter.ToString(responseBuffer, 0, responseBytesRead)
                         );
 
                         // 检查是否为有效KSV响应
                         if (responseBytesRead > 0 && responseBytesRead < 18)
                         {
                             DNHper.NLogger.Warn(
-                                $"[KSV-LED] 收到异常响应 (长度: {responseBytesRead})，可能连接了非KSV设备"
+                                "[KSV-LED] 收到异常响应 (长度: {ResponseBytesRead})，可能连接了非KSV设备",
+                                responseBytesRead
                             );
                         }
                     }
                     else
                     {
-                        DNHper.NLogger.Debug($"[KSV-LED] TCP 设置亮度无响应数据（符合预期）");
+                        DNHper.NLogger.Debug("[KSV-LED] TCP 设置亮度无响应数据（符合预期）");
                     }
 
                     return true;
@@ -270,7 +298,10 @@ namespace DaemonKit.PowerSaving
                 catch (Exception ex)
                 {
                     DNHper.NLogger.Warn(
-                        $"[KSV-LED] TCP 设置亮度失败 (尝试 {attempt}/{maxRetries}): {ex.Message}"
+                        "[KSV-LED] TCP 设置亮度失败 (尝试 {Attempt}/{MaxRetries}): {ErrorMessage}",
+                        attempt,
+                        maxRetries,
+                        ex.Message
                     );
 
                     // 关闭失效的 TCP 连接
@@ -291,7 +322,7 @@ namespace DaemonKit.PowerSaving
                     // 最后一次重试失败
                     if (attempt >= maxRetries)
                     {
-                        DNHper.NLogger.Error($"[KSV-LED] TCP 设置亮度失败，已重试 {maxRetries} 次");
+                        DNHper.NLogger.Error("[KSV-LED] TCP 设置亮度失败，已重试 {MaxRetries} 次", maxRetries);
                         return false;
                     }
 
@@ -362,7 +393,13 @@ namespace DaemonKit.PowerSaving
             frame[21] = brightness; // 亮度值（在后）
 
             DNHper.NLogger.Debug(
-                $"[KSV-LED] BuildTcpCommand: 亮度字节=0x{brightness:X2}({brightness}), 对比度字节=0x{contrast:X2}({contrast}), 帧数据[20-21]=0x{frame[20]:X2}{frame[21]:X2}"
+                "[KSV-LED] BuildTcpCommand: 亮度字节=0x{BrightnessHex}({Brightness}), 对比度字节=0x{ContrastHex}({Contrast}), 帧数据[20-21]=0x{Frame20Hex}{Frame21Hex}",
+                brightness.ToString("X2"),
+                brightness,
+                contrast.ToString("X2"),
+                contrast,
+                frame[20].ToString("X2"),
+                frame[21].ToString("X2")
             );
 
             // 固定包尾
@@ -409,7 +446,7 @@ namespace DaemonKit.PowerSaving
             }
             catch (Exception ex)
             {
-                DNHper.NLogger.Warn($"[KSV-LED] 释放资源时出错: {ex.Message}");
+                DNHper.NLogger.Warn("[KSV-LED] 释放资源时出错: {ErrorMessage}", ex.Message);
             }
         }
 
@@ -440,7 +477,9 @@ namespace DaemonKit.PowerSaving
                         catch (OperationCanceledException)
                         {
                             DNHper.NLogger.Error(
-                                $"[KSV-LED] TCP 连接超时 {_portOrIp}:{_baudRateOrPort}（2秒）"
+                                "[KSV-LED] TCP 连接超时 {PortOrIp}:{BaudRateOrPort}（2秒）",
+                                _portOrIp,
+                                _baudRateOrPort
                             );
                             _tcpClient.Dispose();
                             _tcpClient = null;
@@ -456,7 +495,11 @@ namespace DaemonKit.PowerSaving
                         await SendDeviceConnectCommandAsync(ct);
                         _tcpConnectCommandSent = true;
                     }
-                    DNHper.NLogger.Info($"[KSV-LED] TCP 连接已建立 {_portOrIp}:{_baudRateOrPort}");
+                    DNHper.NLogger.Info(
+                        "[KSV-LED] TCP 连接已建立 {PortOrIp}:{BaudRateOrPort}",
+                        _portOrIp,
+                        _baudRateOrPort
+                    );
                 }
 
                 // 清空接收缓冲区（避免旧数据干扰）
@@ -468,19 +511,24 @@ namespace DaemonKit.PowerSaving
                         await _networkStream.ReadAsync(discardBuffer, 0, discardBuffer.Length, ct);
                         await Task.Delay(10, ct); // 等待可能的后续数据
                     }
-                    DNHper.NLogger.Debug($"[KSV-LED] TCP 已清空接收缓冲区");
+                    DNHper.NLogger.Debug("[KSV-LED] TCP 已清空接收缓冲区");
                 }
 
                 // 构造网口读取指令（0x22 命令）
                 byte[] readCommand = BuildTcpReadCommand();
 
-                DNHper.NLogger.Info($"[KSV-LED] TCP 目标地址: {_portOrIp}:{_baudRateOrPort}");
+                DNHper.NLogger.Info(
+                    "[KSV-LED] TCP 目标地址: {PortOrIp}:{BaudRateOrPort}",
+                    _portOrIp,
+                    _baudRateOrPort
+                );
                 DNHper.NLogger.Debug(
-                    $"[KSV-LED] TCP 发送读取指令数据: {BitConverter.ToString(readCommand)}"
+                    "[KSV-LED] TCP 发送读取指令数据: {ReadCommandData}",
+                    BitConverter.ToString(readCommand)
                 );
 
                 await _networkStream.WriteAsync(readCommand, 0, readCommand.Length, ct);
-                DNHper.NLogger.Info($"[KSV-LED] TCP 发送读取亮度指令");
+                DNHper.NLogger.Info("[KSV-LED] TCP 发送读取亮度指令");
 
                 // 等待设备响应
                 await Task.Delay(50, ct);
@@ -490,15 +538,22 @@ namespace DaemonKit.PowerSaving
                 int bytesRead = await _networkStream.ReadAsync(response, 0, response.Length, ct);
 
                 DNHper.NLogger.Debug(
-                    $"[KSV-LED] TCP 原始响应 (长度: {bytesRead}): {BitConverter.ToString(response, 0, bytesRead)}"
+                    "[KSV-LED] TCP 原始响应 (长度: {BytesRead}): {ResponseData}",
+                    bytesRead,
+                    BitConverter.ToString(response, 0, bytesRead)
                 );
 
                 if (bytesRead < 18)
                 {
-                    DNHper.NLogger.Error($"[KSV-LED] TCP 响应数据不足 (实际: {bytesRead} 字节，预期: 26 字节)");
-                    DNHper.NLogger.Error($"[KSV-LED] 可能原因: 连接到了错误的设备或设备不支持KSV协议");
                     DNHper.NLogger.Error(
-                        $"[KSV-LED] 请检查目标地址 {_portOrIp}:{_baudRateOrPort} 是否为正确的KSV LED设备"
+                        "[KSV-LED] TCP 响应数据不足 (实际: {BytesRead} 字节，预期: 26 字节)",
+                        bytesRead
+                    );
+                    DNHper.NLogger.Error("[KSV-LED] 可能原因: 连接到了错误的设备或设备不支持KSV协议");
+                    DNHper.NLogger.Error(
+                        "[KSV-LED] 请检查目标地址 {PortOrIp}:{BaudRateOrPort} 是否为正确的KSV LED设备",
+                        _portOrIp,
+                        _baudRateOrPort
                     );
                     return 50; // 默认值
                 }
@@ -532,23 +587,27 @@ namespace DaemonKit.PowerSaving
                     byte contrast = response[validPacketIndex + 16]; // 对比度
                     byte brightness = response[validPacketIndex + 17]; // 亮度
                     DNHper.NLogger.Info(
-                        $"[KSV-LED] TCP 读取成功（偏移{validPacketIndex}），亮度: {brightness}, 对比度: {contrast}"
+                        "[KSV-LED] TCP 读取成功（偏移{ValidPacketIndex}），亮度: {Brightness}, 对比度: {Contrast}",
+                        validPacketIndex,
+                        brightness,
+                        contrast
                     );
                     return brightness;
                 }
                 else
                 {
-                    DNHper.NLogger.Error($"[KSV-LED] TCP 响应格式错误: 未找到有效的KSV协议帧头 (D2-02-96-49)");
+                    DNHper.NLogger.Error("[KSV-LED] TCP 响应格式错误: 未找到有效的KSV协议帧头 (D2-02-96-49)");
                     DNHper.NLogger.Error(
-                        $"[KSV-LED] 收到数据: {BitConverter.ToString(response, 0, bytesRead)}"
+                        "[KSV-LED] 收到数据: {ResponseData}",
+                        BitConverter.ToString(response, 0, bytesRead)
                     );
-                    DNHper.NLogger.Error($"[KSV-LED] 这不是有效的KSV LED控制器响应，请确认设备类型和连接地址");
+                    DNHper.NLogger.Error("[KSV-LED] 这不是有效的KSV LED控制器响应，请确认设备类型和连接地址");
                     return 50;
                 }
             }
             catch (Exception ex)
             {
-                DNHper.NLogger.Error($"[KSV-LED] TCP 读取亮度失败: {ex.Message}");
+                DNHper.NLogger.Error("[KSV-LED] TCP 读取亮度失败: {ErrorMessage}", ex.Message);
                 return 50;
             }
         }

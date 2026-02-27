@@ -404,7 +404,7 @@ namespace DaemonKit
                 }
                 catch (Exception ex)
                 {
-                    NLogger.Error($"保存计划任务配置失败: {ex.Message}");
+                    NLogger.Error("保存计划任务配置失败: {ErrorMessage}", ex.Message);
                 }
             }
         }

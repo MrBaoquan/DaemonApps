@@ -212,7 +212,11 @@ namespace DaemonKit.Core
 
                     if (successCount > 0)
                     {
-                        NLogger.Info($"触摸屏已{(enable ? "启用" : "禁用")}（{successCount} 个设备）");
+                        NLogger.Info(
+                            "触摸屏已{Status}（{SuccessCount} 个设备）",
+                            enable ? "启用" : "禁用",
+                            successCount
+                        );
                     }
                     else
                     {
@@ -228,7 +232,7 @@ namespace DaemonKit.Core
             }
             catch (Exception ex)
             {
-                NLogger.Error($"设置触摸屏状态异常: {ex.Message}");
+                NLogger.Error("设置触摸屏状态异常: {ErrorMessage}", ex.Message);
                 return false;
             }
         }

@@ -70,7 +70,7 @@ namespace DaemonKit
             }
             catch (Exception ex)
             {
-                NLogger.Error($"音量控制初始化失败: {ex.Message}");
+                NLogger.Error("音量控制初始化失败: {Message}", ex.Message);
             }
         }
 
@@ -90,12 +90,12 @@ namespace DaemonKit
 
                 if (!success)
                 {
-                    NLogger.Warn($"设置系统音量失败: {volumePercent}%");
+                    NLogger.Warn("设置系统音量失败: {VolumePercent}%", volumePercent);
                 }
             }
             catch (Exception ex)
             {
-                NLogger.Error($"设置系统音量异常: {ex.Message}");
+                NLogger.Error("设置系统音量异常: {Message}", ex.Message);
             }
         }
 
@@ -120,7 +120,7 @@ namespace DaemonKit
             }
             catch (Exception ex)
             {
-                NLogger.Error($"获取系统音量异常: {ex.Message}");
+                NLogger.Error("获取系统音量异常: {Message}", ex.Message);
                 return 50; // 默认返回50%
             }
         }
@@ -140,7 +140,7 @@ namespace DaemonKit
             }
             catch (Exception ex)
             {
-                NLogger.Error($"切换静音状态失败: {ex.Message}");
+                NLogger.Error("切换静音状态失败: {Message}", ex.Message);
             }
         }
 
@@ -160,7 +160,7 @@ namespace DaemonKit
             }
             catch (Exception ex)
             {
-                NLogger.Error($"音量步进增加失败: {ex.Message}");
+                NLogger.Error("音量步进增加失败: {Message}", ex.Message);
             }
         }
 
@@ -180,7 +180,7 @@ namespace DaemonKit
             }
             catch (Exception ex)
             {
-                NLogger.Error($"音量步进减少失败: {ex.Message}");
+                NLogger.Error("音量步进减少失败: {Message}", ex.Message);
             }
         }
     }

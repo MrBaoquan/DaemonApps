@@ -9,7 +9,8 @@
         WindowStyle="ToolWindow"
         Background="{DynamicResource MaterialDesignPaper}"
         MinWidth="420"
-        MinHeight="320">
+        MinHeight="320"
+        FontFamily="{DynamicResource MaterialDesignFont}">
         <Border Padding="16"
                 Background="{DynamicResource MaterialDesignPaper}">
                 <StackPanel>

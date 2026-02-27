@@ -74,7 +74,7 @@ namespace DaemonKit
         /// </summary>
         private async void StartBroadcastListener()
         {
-            NLogger.Info($"[设备发现] 开始监听广播，端口: {CommonVars.MetaPort}");
+            NLogger.Info("[设备发现] 开始监听广播，端口: {MetaPort}", CommonVars.MetaPort);
 
             try
             {
@@ -107,13 +107,13 @@ namespace DaemonKit
                     }
                     catch (Exception e)
                     {
-                        NLogger.Error($"广播接收错误: {e.Message}");
+                        NLogger.Error("广播接收错误: {ErrorMessage}", e.Message);
                     }
                 }
             }
             catch (Exception ex)
             {
-                NLogger.Error($"启动广播监听失败: {ex.Message}");
+                NLogger.Error("启动广播监听失败: {ErrorMessage}", ex.Message);
             }
         }
 

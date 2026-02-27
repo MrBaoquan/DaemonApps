@@ -3,16 +3,21 @@
                     xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes">
 
         <!-- 根节点右键菜单 -->
-        <ContextMenu x:Key="RootMenu">
+        <ContextMenu x:Key="RootMenu"
+                     FontFamily="{DynamicResource MaterialDesignFont}">
                 <MenuItem Header="设置备注"
                           Command="{Binding RelativeSource={RelativeSource FindAncestor, AncestorType={x:Type Window}, AncestorLevel=1}, Path=DataContext.EnableNameInput}"
                           CommandParameter="{Binding RelativeSource={RelativeSource Self},Path=DataContext}"/>
                 <MenuItem Header="添加子节点"
                           Command="{Binding RelativeSource={RelativeSource FindAncestor, AncestorType={x:Type Window}, AncestorLevel=1}, Path=DataContext.AddTreeNode}"/>
+                <Separator/>
+                <MenuItem Header="清空进程树"
+                          Command="{Binding RelativeSource={RelativeSource FindAncestor, AncestorType={x:Type Window}, AncestorLevel=1}, Path=DataContext.ClearProcessTree}"/>
         </ContextMenu>
 
         <!-- 子节点右键菜单 -->
-        <ContextMenu x:Key="ChildMenu">
+        <ContextMenu x:Key="ChildMenu"
+                     FontFamily="{DynamicResource MaterialDesignFont}">
                 <MenuItem Header="打开所在文件夹"
                           Command="{Binding RelativeSource={RelativeSource FindAncestor, AncestorType={x:Type Window}, AncestorLevel=1}, Path=DataContext.ShowInExplorer}"/>
                 <MenuItem Header="编辑结点信息"

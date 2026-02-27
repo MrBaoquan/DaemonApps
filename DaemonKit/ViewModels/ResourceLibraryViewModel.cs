@@ -261,7 +261,7 @@ namespace DaemonKit.ViewModels
                             }
                             catch (Exception ex)
                             {
-                                DNHper.NLogger.Error($"[P2P] 恢复下载失败: {ex.Message}");
+                                DNHper.NLogger.Error("[P2P] 恢复下载失败: {ErrorMessage}", ex.Message);
                             }
                         });
                     }
@@ -586,7 +586,11 @@ namespace DaemonKit.ViewModels
                     }
                     catch (Exception ex)
                     {
-                        NLogger.Warn($"[资源库] 扫描设备 {device.Name ?? device.ID} 失败: {ex.Message}");
+                        NLogger.Warn(
+                            "[资源库] 扫描设备 {DeviceName} 失败: {ErrorMessage}",
+                            device.Name ?? device.ID,
+                            ex.Message
+                        );
                         System.Windows.Application.Current?.Dispatcher?.Invoke(() =>
                         {
                             ScannedDeviceCount++;
@@ -607,7 +611,7 @@ namespace DaemonKit.ViewModels
             }
             catch (Exception ex)
             {
-                NLogger.Error($"[资源库] 扫描失败: {ex.Message}");
+                NLogger.Error("[资源库] 扫描失败: {ErrorMessage}", ex.Message);
                 StatusText = "扫描失败，请重试";
             }
             finally
@@ -658,11 +662,19 @@ namespace DaemonKit.ViewModels
                     {
                         // 一次性发送该设备所有文件的下载请求
                         await DownloadFilesFromDevice(deviceIP, fileNames);
-                        NLogger.Info($"[资源库] 批量请求 {deviceIP} 推送 {fileNames.Length} 个文件");
+                        NLogger.Info(
+                            "[资源库] 批量请求 {DeviceIP} 推送 {FileCount} 个文件",
+                            deviceIP,
+                            fileNames.Length
+                        );
                     }
                     catch (Exception ex)
                     {
-                        NLogger.Error($"[资源库] 批量请求失败 ({deviceIP}): {ex.Message}");
+                        NLogger.Error(
+                            "[资源库] 批量请求失败 ({DeviceIP}): {ErrorMessage}",
+                            deviceIP,
+                            ex.Message
+                        );
                         foreach (var file in deviceFiles)
                         {
                             // 清理占位符任务
@@ -687,7 +699,7 @@ namespace DaemonKit.ViewModels
             }
             catch (Exception ex)
             {
-                NLogger.Error($"[资源库] 批量下载失败: {ex.Message}");
+                NLogger.Error("[资源库] 批量下载失败: {ErrorMessage}", ex.Message);
                 StatusText = "批量下载请求失败";
             }
         }
@@ -732,7 +744,11 @@ namespace DaemonKit.ViewModels
                     _panelVM.TaskManager.RemoveTask(file.TransferTaskId);
                 file.TransferTaskId = string.Empty;
                 file.DownloadState = ResourceDownloadState.Failed;
-                NLogger.Error($"[资源库] 下载请求失败 ({file.FileName}): {ex.Message}");
+                NLogger.Error(
+                    "[资源库] 下载请求失败 ({FileName}): {ErrorMessage}",
+                    file.FileName,
+                    ex.Message
+                );
                 StatusText = $"下载请求失败: {ex.Message}";
             }
         }
@@ -760,7 +776,9 @@ namespace DaemonKit.ViewModels
                     if (matchedTask != null)
                     {
                         NLogger.Info(
-                            $"[资源库] 事件订阅已匹配传输任务: {file.FileName} -> {file.TransferTaskId}"
+                            "[资源库] 事件订阅已匹配传输任务: {FileName} -> {TransferTaskId}",
+                            file.FileName,
+                            file.TransferTaskId
                         );
                         if (matchedTask.IsFinished)
                         {
@@ -786,7 +804,11 @@ namespace DaemonKit.ViewModels
                 )
                 {
                     file.TransferTaskId = taskItem.TaskId;
-                    NLogger.Info($"[资源库] 已匹配传输任务: {file.FileName} -> {taskItem.TaskId}");
+                    NLogger.Info(
+                        "[资源库] 已匹配传输任务: {FileName} -> {TaskId}",
+                        file.FileName,
+                        taskItem.TaskId
+                    );
 
                     // 清理占位符
                     if (!string.IsNullOrEmpty(placeholderTaskId))
@@ -862,7 +884,7 @@ namespace DaemonKit.ViewModels
             }
             else
             {
-                NLogger.Warn($"[资源库] 传输任务匹配超时: {file.FileName}");
+                NLogger.Warn("[资源库] 传输任务匹配超时: {FileName}", file.FileName);
                 // 保持Pending状态，让用户可以重新下载
                 file.DownloadState = ResourceDownloadState.Failed;
                 file.DownloadSpeed = string.Empty;
@@ -893,11 +915,11 @@ namespace DaemonKit.ViewModels
 
                 if (!File.Exists(receivedPath))
                 {
-                    NLogger.Warn($"[资源库] 部署文件不存在: {receivedPath}");
+                    NLogger.Warn("[资源库] 部署文件不存在: {ReceivedPath}", receivedPath);
                     return;
                 }
 
-                NLogger.Info($"[资源库] 进程包已下载，自动打开导入对话框: {receivedPath}");
+                NLogger.Info("[资源库] 进程包已下载，自动打开导入对话框: {ReceivedPath}", receivedPath);
 
                 await System.Windows.Application.Current.Dispatcher.InvokeAsync(() =>
                 {
@@ -908,7 +930,7 @@ namespace DaemonKit.ViewModels
                     if (importDialog.DialogResult == true)
                     {
                         StatusText = $"已成功部署 {file.FileName}";
-                        NLogger.Info($"[资源库] 部署完成: {file.FileName}");
+                        NLogger.Info("[资源库] 部署完成: {FileName}", file.FileName);
 
                         // 通知主窗口重新加载配置
                         ReactiveUI.MessageBus.Current.SendMessage("ReloadConfig");
@@ -921,7 +943,7 @@ namespace DaemonKit.ViewModels
             }
             catch (Exception ex)
             {
-                NLogger.Error($"[资源库] 部署失败 ({file.FileName}): {ex.Message}");
+                NLogger.Error("[资源库] 部署失败 ({FileName}): {ErrorMessage}", file.FileName, ex.Message);
                 StatusText = $"部署失败: {ex.Message}";
             }
         }
@@ -941,11 +963,11 @@ namespace DaemonKit.ViewModels
 
                 if (!File.Exists(receivedPath))
                 {
-                    NLogger.Warn($"[资源库] 更新包文件不存在: {receivedPath}");
+                    NLogger.Warn("[资源库] 更新包文件不存在: {ReceivedPath}", receivedPath);
                     return;
                 }
 
-                NLogger.Info($"[资源库] 节点更新包已下载，打开应用对话框: {receivedPath}");
+                NLogger.Info("[资源库] 节点更新包已下载，打开应用对话框: {ReceivedPath}", receivedPath);
 
                 await System.Windows.Application.Current.Dispatcher.InvokeAsync(() =>
                 {
@@ -969,7 +991,7 @@ namespace DaemonKit.ViewModels
                     if (dialog.DialogResult == true)
                     {
                         StatusText = $"已成功应用更新 {file.FileName}";
-                        NLogger.Info($"[资源库] 更新完成: {file.FileName}");
+                        NLogger.Info("[资源库] 更新完成: {FileName}", file.FileName);
                     }
                     else
                     {
@@ -979,7 +1001,11 @@ namespace DaemonKit.ViewModels
             }
             catch (Exception ex)
             {
-                NLogger.Error($"[资源库] 应用更新失败 ({file.FileName}): {ex.Message}");
+                NLogger.Error(
+                    "[资源库] 应用更新失败 ({FileName}): {ErrorMessage}",
+                    file.FileName,
+                    ex.Message
+                );
                 StatusText = $"更新失败: {ex.Message}";
             }
         }
@@ -1039,7 +1065,7 @@ namespace DaemonKit.ViewModels
                         }
                         else
                         {
-                            NLogger.Info($"[资源库] 本地文件MD5不匹配，可能已过期: {file.FileName}");
+                            NLogger.Info("[资源库] 本地文件MD5不匹配，可能已过期: {FileName}", file.FileName);
                         }
                     }
                     else if (localInfo.Length == file.FileSize)
@@ -1061,7 +1087,7 @@ namespace DaemonKit.ViewModels
 
             if (matchResults.Count > 0)
             {
-                NLogger.Info($"[资源库] 通过本地校验恢复 {matchResults.Count} 个文件的下载状态");
+                NLogger.Info("[资源库] 通过本地校验恢复 {MatchCount} 个文件的下载状态", matchResults.Count);
             }
         }
 
@@ -1079,7 +1105,11 @@ namespace DaemonKit.ViewModels
             }
             catch (Exception ex)
             {
-                NLogger.Warn($"[资源库] 计算文件MD5失败 ({Path.GetFileName(filePath)}): {ex.Message}");
+                NLogger.Warn(
+                    "[资源库] 计算文件MD5失败 ({FileName}): {ErrorMessage}",
+                    Path.GetFileName(filePath),
+                    ex.Message
+                );
                 return string.Empty;
             }
         }

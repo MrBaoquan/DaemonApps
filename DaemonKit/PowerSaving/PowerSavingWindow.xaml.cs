@@ -41,7 +41,9 @@ namespace DaemonKit.PowerSaving
             if (DataContext is PowerSavingViewModel vm)
             {
                 DNHper.NLogger.Info(
-                    $"[PowerSaving] 点击正常模式按钮，当前 IsBusy={vm.IsBusy}, IsPowerSavingMode={vm.IsPowerSavingMode}"
+                    "[PowerSaving] 点击正常模式按钮，当前 IsBusy={IsBusy}, IsPowerSavingMode={IsPowerSavingMode}",
+                    vm.IsBusy,
+                    vm.IsPowerSavingMode
                 );
 
                 // 如果已经是正常模式，不需要再次执行
@@ -56,7 +58,11 @@ namespace DaemonKit.PowerSaving
                     .Execute()
                     .Subscribe(
                         _ => { },
-                        ex => DNHper.NLogger.Error($"[PowerSaving] 切换正常模式失败: {ex.Message}")
+                        ex =>
+                            DNHper.NLogger.Error(
+                                "[PowerSaving] 切换正常模式失败: {ErrorMessage}",
+                                ex.Message
+                            )
                     );
             }
         }
@@ -72,7 +78,9 @@ namespace DaemonKit.PowerSaving
             if (DataContext is PowerSavingViewModel vm)
             {
                 DNHper.NLogger.Info(
-                    $"[PowerSaving] 点击省电模式按钮，当前 IsBusy={vm.IsBusy}, IsPowerSavingMode={vm.IsPowerSavingMode}"
+                    "[PowerSaving] 点击省电模式按钮，当前 IsBusy={IsBusy}, IsPowerSavingMode={IsPowerSavingMode}",
+                    vm.IsBusy,
+                    vm.IsPowerSavingMode
                 );
 
                 // 如果已经是省电模式，不需要再次执行
@@ -87,7 +95,11 @@ namespace DaemonKit.PowerSaving
                     .Execute()
                     .Subscribe(
                         _ => { },
-                        ex => DNHper.NLogger.Error($"[PowerSaving] 切换省电模式失败: {ex.Message}")
+                        ex =>
+                            DNHper.NLogger.Error(
+                                "[PowerSaving] 切换省电模式失败: {ErrorMessage}",
+                                ex.Message
+                            )
                     );
             }
         }

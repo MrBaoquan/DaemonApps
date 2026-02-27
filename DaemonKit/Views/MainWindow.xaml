@@ -54,7 +54,7 @@
                             IconSource="/Resources/logo.ico"
                             ToolTipText="运维管家持续守护中...">
                 <tb:TaskbarIcon.ContextMenu>
-                    <ContextMenu>
+                    <ContextMenu FontFamily="{DynamicResource MaterialDesignFont}">
                         <MenuItem Header="打开面板"
                                   Command="{Binding ShowWindow}">
                             <MenuItem.Icon>
@@ -114,7 +114,8 @@
                           IsMainMenu="True"
                           Background="Transparent"
                           BorderThickness="0"
-                          Padding="8,0">
+                          Padding="8,0"
+                          FontFamily="{DynamicResource MaterialDesignFont}">
                         <MenuItem Header="_文件">
                             <MenuItem Header="进程目录"
                                       InputGestureText="Ctrl+1"
@@ -805,7 +806,7 @@
                                              BorderBrush="Transparent"
                                              Background="Transparent"
                                              IsReadOnly="True"
-                                             FontFamily="Microsoft YaHei, Segoe UI"
+                                             FontFamily="{DynamicResource MaterialDesignFont}"
                                              IsUndoEnabled="False"
                                              FocusVisualStyle="{x:Null}">
                                     <RichTextBox.Document>

@@ -154,7 +154,7 @@ namespace DaemonKit.ViewModels
                 }
 
                 var ip = _targetMachine?.IPs?.FirstOrDefault() ?? _targetMachine?.ID;
-                NLogger.Info($"[P2P] 正在从 {ip} 获取远程文件列表 (UDP)");
+                NLogger.Info("[P2P] 正在从 {Ip} 获取远程文件列表 (UDP)", ip);
 
                 // 通过UDP获取远程文件列表
                 var remoteFiles = await _fileListProvider();
@@ -175,18 +175,18 @@ namespace DaemonKit.ViewModels
                 if (Files.Count > 0)
                 {
                     StatusText = $"共 {Files.Count} 个远程文件";
-                    NLogger.Info($"[P2P] 获取远程文件列表成功，共 {Files.Count} 个文件");
+                    NLogger.Info("[P2P] 获取远程文件列表成功，共 {Count} 个文件", Files.Count);
                 }
                 else
                 {
                     StatusText = "远程设备暂无共享文件";
-                    NLogger.Warn($"[P2P] 远程设备 {ip} 没有共享文件或请求超时");
+                    NLogger.Warn("[P2P] 远程设备 {Ip} 没有共享文件或请求超时", ip);
                 }
                 UpdateSelectionStatus();
             }
             catch (Exception ex)
             {
-                NLogger.Error($"获取远程文件列表失败: {ex.Message}");
+                NLogger.Error("获取远程文件列表失败: {ErrorMessage}", ex.Message);
                 StatusText = "获取文件列表失败，请重试";
             }
             finally
@@ -215,7 +215,7 @@ namespace DaemonKit.ViewModels
             }
             catch (Exception ex)
             {
-                NLogger.Error($"下载文件失败: {ex.Message}");
+                NLogger.Error("下载文件失败: {ErrorMessage}", ex.Message);
                 StatusText = "下载失败";
             }
         }

@@ -44,6 +44,14 @@ namespace DaemonKit
         // 传输设置
         public int MaxConcurrentTransfers { get; set; } = 4;
 
+        // 网络端口设置（0 表示使用默认值）
+        public int CustomMetaPort { get; set; } = 0;
+        public int CustomControlPort { get; set; } = 0;
+        public int CustomFileTransferPort { get; set; } = 0;
+
+        // 认证设置（空字符串表示不启用认证）
+        public string AuthToken { get; set; } = string.Empty;
+
         // 节能模式设置
         public bool PowerSavingModeEnabled { get; set; } = false;
         public byte PowerSavingNormalBrightness { get; set; } = 100;
@@ -103,6 +111,10 @@ namespace DaemonKit
                         EnableIdleAutoPowerSaving = EnableIdleAutoPowerSaving,
                         IdleAutoPowerSavingThresholdMinutes = IdleAutoPowerSavingThresholdMinutes,
                         MaxConcurrentTransfers = MaxConcurrentTransfers,
+                        CustomMetaPort = CustomMetaPort,
+                        CustomControlPort = CustomControlPort,
+                        CustomFileTransferPort = CustomFileTransferPort,
+                        AuthToken = AuthToken,
                         PowerSavingModeEnabled = PowerSavingModeEnabled,
                         PowerSavingNormalBrightness = PowerSavingNormalBrightness,
                         PowerSavingLowBrightness = PowerSavingLowBrightness,
@@ -142,6 +154,10 @@ namespace DaemonKit
             EnableIdleAutoPowerSaving = settings.EnableIdleAutoPowerSaving;
             IdleAutoPowerSavingThresholdMinutes = settings.IdleAutoPowerSavingThresholdMinutes;
             MaxConcurrentTransfers = settings.MaxConcurrentTransfers;
+            CustomMetaPort = settings.CustomMetaPort;
+            CustomControlPort = settings.CustomControlPort;
+            CustomFileTransferPort = settings.CustomFileTransferPort;
+            AuthToken = settings.AuthToken;
             PowerSavingModeEnabled = settings.PowerSavingModeEnabled;
             PowerSavingNormalBrightness = settings.PowerSavingNormalBrightness;
             PowerSavingLowBrightness = settings.PowerSavingLowBrightness;
@@ -276,6 +292,34 @@ namespace DaemonKit
         {
             get => maxConcurrentTransfers;
             set => this.RaiseAndSetIfChanged(ref maxConcurrentTransfers, Math.Clamp(value, 1, 16));
+        }
+
+        private int customMetaPort = 0;
+        public int CustomMetaPort
+        {
+            get => customMetaPort;
+            set => this.RaiseAndSetIfChanged(ref customMetaPort, Math.Max(value, 0));
+        }
+
+        private int customControlPort = 0;
+        public int CustomControlPort
+        {
+            get => customControlPort;
+            set => this.RaiseAndSetIfChanged(ref customControlPort, Math.Max(value, 0));
+        }
+
+        private int customFileTransferPort = 0;
+        public int CustomFileTransferPort
+        {
+            get => customFileTransferPort;
+            set => this.RaiseAndSetIfChanged(ref customFileTransferPort, Math.Max(value, 0));
+        }
+
+        private string authToken = string.Empty;
+        public string AuthToken
+        {
+            get => authToken;
+            set => this.RaiseAndSetIfChanged(ref authToken, value ?? string.Empty);
         }
 
         private int startUpDelay = 0;

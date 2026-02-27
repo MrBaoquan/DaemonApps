@@ -19,6 +19,7 @@
     Width="1400"
     MinWidth="1000"
     MinHeight="600"
+    FontFamily="{DynamicResource MaterialDesignFont}"
     WindowStartupLocation="CenterScreen">
 
     <Window.Resources>
