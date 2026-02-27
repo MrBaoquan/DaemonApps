@@ -211,7 +211,8 @@ namespace DaemonKit.PowerSaving
                                 else
                                 {
                                     DNHper.NLogger.Warn(
-                                        $"[PowerSaving] 启动时设置失败: {display.Identity.DisplayName}"
+                                        "[PowerSaving] 启动时设置失败: {DisplayName}",
+                                        display.Identity.DisplayName
                                     );
                                     return false;
                                 }
@@ -219,7 +220,9 @@ namespace DaemonKit.PowerSaving
                             catch (Exception ex)
                             {
                                 DNHper.NLogger.Error(
-                                    $"[PowerSaving] 启动时设置异常: {display.Identity.DisplayName}, {ex.Message}"
+                                    "[PowerSaving] 启动时设置异常: {DisplayName}, {ErrorMessage}",
+                                    display.Identity.DisplayName,
+                                    ex.Message
                                 );
                                 return false;
                             }
@@ -233,7 +236,11 @@ namespace DaemonKit.PowerSaving
                     // 更新显示器亮度显示
                     await SyncDisplayBrightnessAsync();
 
-                    DNHper.NLogger.Info($"[PowerSaving] 启动时亮度设置完成: 成功 {successCount}/{totalCount}");
+                    DNHper.NLogger.Info(
+                        "[PowerSaving] 启动时亮度设置完成: 成功 {SuccessCount}/{TotalCount}",
+                        successCount,
+                        totalCount
+                    );
                 }
                 else
                 {
@@ -358,7 +365,10 @@ namespace DaemonKit.PowerSaving
                     catch (OperationCanceledException)
                     {
                         // 超时：设置默认亮度范围，不中断扫描流程
-                        DNHper.NLogger.Warn($"[PowerSaving] 获取显示器 {display.FriendlyName} 亮度超时（3秒）");
+                        DNHper.NLogger.Warn(
+                            "[PowerSaving] 获取显示器 {FriendlyName} 亮度超时（3秒）",
+                            display.FriendlyName
+                        );
                         item.CurrentBrightness = null;
                         item.Minimum = 0;
                         item.Maximum = 100;
@@ -367,7 +377,9 @@ namespace DaemonKit.PowerSaving
                     {
                         // 其他错误：设置默认值
                         DNHper.NLogger.Warn(
-                            $"[PowerSaving] 获取显示器 {display.FriendlyName} 亮度失败: {ex.Message}"
+                            "[PowerSaving] 获取显示器 {FriendlyName} 亮度失败: {ErrorMessage}",
+                            display.FriendlyName,
+                            ex.Message
                         );
                         item.CurrentBrightness = null;
                         item.Minimum = 0;
@@ -470,7 +482,8 @@ namespace DaemonKit.PowerSaving
                             else
                             {
                                 DNHper.NLogger.Warn(
-                                    $"[PowerSaving] 设置失败: {display.Identity.DisplayName}"
+                                    "[PowerSaving] 设置失败: {DisplayName}",
+                                    display.Identity.DisplayName
                                 );
                                 return false;
                             }
@@ -482,7 +495,9 @@ namespace DaemonKit.PowerSaving
                         catch (Exception ex)
                         {
                             DNHper.NLogger.Error(
-                                $"[PowerSaving] 设置异常: {display.Identity.DisplayName}, {ex.Message}"
+                                "[PowerSaving] 设置异常: {DisplayName}, {ErrorMessage}",
+                                display.Identity.DisplayName,
+                                ex.Message
                             );
                             return false;
                         }
@@ -506,12 +521,15 @@ namespace DaemonKit.PowerSaving
                 });
 
                 DNHper.NLogger.Info(
-                    $"[PowerSaving] 后台亮度设置完成: {modeName}, 成功 {successCount}/{totalCount}"
+                    "[PowerSaving] 后台亮度设置完成: {ModeName}, 成功 {SuccessCount}/{TotalCount}",
+                    modeName,
+                    successCount,
+                    totalCount
                 );
             }
             catch (Exception ex)
             {
-                DNHper.NLogger.Error($"[PowerSaving] 后台亮度设置异常: {ex.Message}");
+                DNHper.NLogger.Error("[PowerSaving] 后台亮度设置异常: {ErrorMessage}", ex.Message);
                 await System.Windows.Application.Current.Dispatcher.InvokeAsync(() =>
                 {
                     StatusMessage = $"设置{modeName}时出错: {ex.Message}";
@@ -537,7 +555,9 @@ namespace DaemonKit.PowerSaving
                         catch (Exception ex)
                         {
                             DNHper.NLogger.Error(
-                                $"[PowerSaving] 应用自定义亮度异常: {display.Identity.DisplayName}, {ex.Message}"
+                                "[PowerSaving] 应用自定义亮度异常: {DisplayName}, {ErrorMessage}",
+                                display.Identity.DisplayName,
+                                ex.Message
                             );
                             return false;
                         }
@@ -564,7 +584,7 @@ namespace DaemonKit.PowerSaving
             catch (Exception ex)
             {
                 StatusMessage = ex.Message;
-                DNHper.NLogger.Error($"[PowerSaving] 执行失败: {ex.Message}");
+                DNHper.NLogger.Error("[PowerSaving] 执行失败: {ErrorMessage}", ex.Message);
             }
             finally
             {
@@ -606,7 +626,9 @@ namespace DaemonKit.PowerSaving
                         catch (Exception ex)
                         {
                             DNHper.NLogger.Error(
-                                $"[PowerSaving] 同步模式亮度异常: {display.Identity.DisplayName}, {ex.Message}"
+                                "[PowerSaving] 同步模式亮度异常: {DisplayName}, {ErrorMessage}",
+                                display.Identity.DisplayName,
+                                ex.Message
                             );
                             return false;
                         }
@@ -623,7 +645,7 @@ namespace DaemonKit.PowerSaving
             }
             catch (Exception ex)
             {
-                DNHper.NLogger.Warn($"[PowerSaving] 同步当前模式亮度失败: {ex.Message}");
+                DNHper.NLogger.Warn("[PowerSaving] 同步当前模式亮度失败: {ErrorMessage}", ex.Message);
             }
         }
 
@@ -652,7 +674,7 @@ namespace DaemonKit.PowerSaving
             }
             catch (Exception ex)
             {
-                DNHper.NLogger.Warn($"[PowerSaving] 同步显示器亮度失败: {ex.Message}");
+                DNHper.NLogger.Warn("[PowerSaving] 同步显示器亮度失败: {ErrorMessage}", ex.Message);
             }
         }
     }
@@ -798,16 +820,18 @@ namespace DaemonKit.PowerSaving
                     }
 
                     DNHper.NLogger.Info(
-                        $"[PowerSaving] 串口列表已更新: {string.Join(", ", currentPorts)}"
+                        "[PowerSaving] 串口列表已更新: {PortList}",
+                        string.Join(", ", currentPorts)
                     );
                     DNHper.NLogger.Info(
-                        $"[PowerSaving] 串口列表已更新: {string.Join(", ", currentPorts)}"
+                        "[PowerSaving] 串口列表已更新: {PortList}",
+                        string.Join(", ", currentPorts)
                     );
                 }
             }
             catch (Exception ex)
             {
-                DNHper.NLogger.Warn($"[PowerSaving] 检测串口列表变化失败: {ex.Message}");
+                DNHper.NLogger.Warn("[PowerSaving] 检测串口列表变化失败: {ErrorMessage}", ex.Message);
             }
         }
 
@@ -1060,7 +1084,7 @@ namespace DaemonKit.PowerSaving
             {
                 IsConnected = false;
                 ConnectionStatus = $"失败: {ex.Message}";
-                DNHper.NLogger.Error($"[PowerSaving] 连接测试异常: {ex.Message}");
+                DNHper.NLogger.Error("[PowerSaving] 连接测试异常: {ErrorMessage}", ex.Message);
             }
             finally
             {

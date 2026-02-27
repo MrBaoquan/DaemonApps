@@ -15,6 +15,7 @@
         WindowStartupLocation="CenterScreen"
         ResizeMode="CanResize"
         Background="{DynamicResource MaterialDesignPaper}"
+        FontFamily="{DynamicResource MaterialDesignFont}"
         TextElement.Foreground="{DynamicResource MaterialDesignBody}">
 
     <Window.Resources>

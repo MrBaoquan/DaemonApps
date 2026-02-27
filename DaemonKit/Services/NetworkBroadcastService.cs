@@ -18,8 +18,7 @@ namespace DaemonKit.Services
     /// 网络广播服务
     /// 职责：
     /// 1. UDP 广播设备信息 (MachineInfo)
-    /// 2. 接收远程控制命令 (Command)
-    /// 3. 接收心跳命令 (Heartbeat)
+    /// 2. 接收远程控制命令和心跳 (Command) — 统一通过 ControlPort 接收
     /// </summary>
     public class NetworkBroadcastService : IDisposable
     {
@@ -55,7 +54,7 @@ namespace DaemonKit.Services
                 }
                 catch (Exception ex)
                 {
-                    NLogger.Warn($"[Network] 硬件信息预热失败: {ex.Message}");
+                    NLogger.Warn("[Network] 硬件信息预热失败: {Message}", ex.Message);
                 }
             });
         }
@@ -78,6 +77,18 @@ namespace DaemonKit.Services
         /// </summary>
         public IObservable<Command> CommandStream { get; private set; } =
             Observable.Empty<Command>();
+
+        /// <summary>
+        /// 获取当前设备信息快照（供其他服务读取，如 P2P MachineInfo 响应）
+        /// </summary>
+        public MachineInfo CurrentMachineInfo
+        {
+            get
+            {
+                UpdateMachineInfo();
+                return _machineInfo;
+            }
+        }
 
         /// <summary>
         /// 启动网络广播和命令接收
@@ -112,7 +123,7 @@ namespace DaemonKit.Services
                     }
                     catch (Exception ex)
                     {
-                        NLogger.Error($"设备信息广播异常: {ex.Message}");
+                        NLogger.Error("设备信息广播异常: {Message}", ex.Message);
                     }
                 });
 
@@ -184,7 +195,7 @@ namespace DaemonKit.Services
         }
 
         /// <summary>
-        /// 启动命令接收器
+        /// 启动命令接收器（控制指令和心跳统一通过 ControlPort 接收）
         /// </summary>
         private void StartCommandReceiver()
         {
@@ -195,7 +206,6 @@ namespace DaemonKit.Services
                 var cts = new CancellationTokenSource();
 
                 UdpClient? commandClient = null;
-                UdpClient? heartbeatClient = null;
 
                 var disposable = Disposable.Create(() =>
                 {
@@ -204,21 +214,18 @@ namespace DaemonKit.Services
                     try
                     {
                         commandClient?.Close();
-                        heartbeatClient?.Close();
                     }
                     catch { }
 
                     commandClient?.Dispose();
-                    heartbeatClient?.Dispose();
                     cts.Dispose();
                 });
 
                 try
                 {
                     commandClient = new UdpClient(CommonVars.ControlPort);
-                    heartbeatClient = new UdpClient(CommonVars.HeartbeatPort);
 
-                    // 控制命令接收任务
+                    // 统一命令接收任务（控制指令 + 心跳均走 ControlPort）
                     Task.Run(
                         async () =>
                         {
@@ -232,49 +239,27 @@ namespace DaemonKit.Services
                                     var cmdStr = Encoding.UTF8.GetString(result.Buffer);
                                     var cmd = JsonConvert.DeserializeObject<Command>(cmdStr);
 
-                                    if (cmd != null)
-                                    {
-                                        observer.OnNext(cmd);
-                                    }
-                                    else
-                                    {
-                                        NLogger.Warn("接收到无效的命令数据（反序列化为null）");
-                                    }
-                                }
-                            }
-                            catch (Exception ex)
-                            {
-                                if (!cts.Token.IsCancellationRequested)
-                                {
-                                    NLogger.Error($"接收控制命令异常: {ex.Message}");
-                                }
-                            }
-                        },
-                        cts.Token
-                    );
-
-                    // 心跳命令接收任务
-                    Task.Run(
-                        async () =>
-                        {
-                            try
-                            {
-                                while (!cts.Token.IsCancellationRequested)
-                                {
-                                    var result = await heartbeatClient
-                                        .ReceiveAsync()
-                                        .ConfigureAwait(false);
-                                    var cmdStr = Encoding.UTF8.GetString(result.Buffer);
-                                    var cmd = JsonConvert.DeserializeObject<Command>(cmdStr);
-
                                     if (cmd == null)
                                     {
-                                        NLogger.Warn("接收到无效的心跳数据（反序列化为null）");
+                                        NLogger.Warn("接收到无效的命令数据（反序列化为null）");
                                         continue;
                                     }
 
-                                    if (cmd.EventID != Command.HEARTBEAT)
-                                        continue;
+                                    // 认证校验：如果本机启用了认证，则验证令牌
+                                    if (
+                                        CommonVars.IsAuthEnabled && cmd.EventID != Command.HEARTBEAT
+                                    )
+                                    {
+                                        if (cmd.Token != CommonVars.AuthToken)
+                                        {
+                                            NLogger.Warn(
+                                                "拒绝未认证的命令: EventID={EventID}, 来源={Source}",
+                                                cmd.EventID,
+                                                result.RemoteEndPoint
+                                            );
+                                            continue;
+                                        }
+                                    }
 
                                     observer.OnNext(cmd);
                                 }
@@ -283,7 +268,7 @@ namespace DaemonKit.Services
                             {
                                 if (!cts.Token.IsCancellationRequested)
                                 {
-                                    NLogger.Error($"接收心跳命令异常: {ex.Message}");
+                                    NLogger.Error("接收控制命令异常: {Message}", ex.Message);
                                 }
                             }
                         },
@@ -298,7 +283,7 @@ namespace DaemonKit.Services
                 return disposable;
             });
 
-            NLogger.Info("命令接收服务已启动");
+            NLogger.Info("命令接收服务已启动（ControlPort={Port}）", CommonVars.ControlPort);
         }
 
         /// <summary>

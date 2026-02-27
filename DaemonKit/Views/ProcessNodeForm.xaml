@@ -14,7 +14,8 @@
     Height="630"
     Width="620"
     MinHeight="630"
-    MinWidth="620">
+    MinWidth="620"
+    FontFamily="{DynamicResource MaterialDesignFont}">
 
     <Border Background="{DynamicResource MaterialDesign.Brush.Background}"
             Padding="25,20,25,20">

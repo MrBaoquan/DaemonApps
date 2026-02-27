@@ -348,7 +348,7 @@ namespace DaemonKit.ViewModels
             catch (Exception ex)
             {
                 StatusMessage = $"加载失败: {ex.Message}";
-                NLogger.Error($"[节点包] 加载清单失败: {ex.Message}");
+                NLogger.Error("[节点包] 加载清单失败: {ErrorMessage}", ex.Message);
             }
         }
 
@@ -522,7 +522,7 @@ namespace DaemonKit.ViewModels
             catch (Exception ex)
             {
                 StatusMessage = $"更新失败: {ex.Message}";
-                NLogger.Error($"[节点包] 更新失败: {ex.Message}");
+                NLogger.Error("[节点包] 更新失败: {ErrorMessage}", ex.Message);
             }
             finally
             {
@@ -552,7 +552,7 @@ namespace DaemonKit.ViewModels
             }
 
             StatusMessage = "解压安装文件...";
-            NLogger.Info($"[节点包] 新增节点安装到: {targetDir}");
+            NLogger.Info("[节点包] 新增节点安装到: {TargetDir}", targetDir);
 
             var statusProgress = new Progress<string>(msg =>
             {
@@ -606,7 +606,7 @@ namespace DaemonKit.ViewModels
                 if (_rootNode != null)
                 {
                     _rootNode.AddChild(newNode);
-                    NLogger.Info($"[节点包] 新节点已添加: {nodeName} -> {exePath}");
+                    NLogger.Info("[节点包] 新节点已添加: {NodeName} -> {ExePath}", nodeName, exePath);
                 }
                 else
                 {
@@ -615,7 +615,7 @@ namespace DaemonKit.ViewModels
             });
 
             StatusMessage = "安装完成！节点已添加到进程树。";
-            NLogger.Info($"[节点包] 新增节点完成: {nodeName}");
+            NLogger.Info("[节点包] 新增节点完成: {NodeName}", nodeName);
 
             await Task.Delay(800);
             _closeDialog(true);
@@ -637,7 +637,7 @@ namespace DaemonKit.ViewModels
 
             // 1. 停止目标进程节点
             StatusMessage = "停止目标进程...";
-            NLogger.Info($"[节点包] 停止进程: {targetNode.MetaData.Name}");
+            NLogger.Info("[节点包] 停止进程: {ProcessName}", targetNode.MetaData.Name);
 
             // 找到第二级根节点（RootNode），停止整棵子树
             var rootNode = targetNode.RootNode;
@@ -684,7 +684,7 @@ namespace DaemonKit.ViewModels
 
             // 3. 重启进程
             StatusMessage = "重启进程...";
-            NLogger.Info($"[节点包] 重启进程: {targetNode.MetaData.Name}");
+            NLogger.Info("[节点包] 重启进程: {ProcessName}", targetNode.MetaData.Name);
 
             await Application.Current.Dispatcher.InvokeAsync(() =>
             {
@@ -692,7 +692,7 @@ namespace DaemonKit.ViewModels
             });
 
             StatusMessage = "更新完成！";
-            NLogger.Info($"[节点包] 更新完成: {targetNode.MetaData.Name}");
+            NLogger.Info("[节点包] 更新完成: {ProcessName}", targetNode.MetaData.Name);
 
             await Task.Delay(800);
             _closeDialog(true);

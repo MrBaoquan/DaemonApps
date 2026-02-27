@@ -103,7 +103,7 @@ namespace DaemonKit.ViewModels
                 var safeName = string.Join("_", BackupName.Split(Path.GetInvalidFileNameChars()));
                 var packagePath = Path.Combine(backupsDir, safeName + ".dkp.zip");
 
-                NLogger.Info($"[Backup] 开始创建备份: {packagePath}");
+                NLogger.Info("[Backup] 开始创建备份: {PackagePath}", packagePath);
 
                 // 获取主窗口的进程树根节点
                 var mainWindow = Application.Current.MainWindow as DaemonKit.MainWindow;
@@ -156,12 +156,12 @@ namespace DaemonKit.ViewModels
 
                 if (success)
                 {
-                    NLogger.Info($"[Backup] 备份创建成功: {packagePath}");
-                    MessageBox.Show(
-                        $"备份创建成功！\n\n文件路径: {packagePath}",
-                        "成功",
-                        MessageBoxButton.OK,
-                        MessageBoxImage.Information
+                    NLogger.Info("[Backup] 备份创建成功: {PackagePath}", packagePath);
+
+                    // 直接打开备份文件所在文件夹并选中文件
+                    System.Diagnostics.Process.Start(
+                        "explorer.exe",
+                        $"/select,\"{packagePath}\""
                     );
 
                     _window.DialogResult = true;
@@ -174,7 +174,7 @@ namespace DaemonKit.ViewModels
             }
             catch (Exception ex)
             {
-                NLogger.Error($"[Backup] 创建备份失败: {ex.Message}");
+                NLogger.Error("[Backup] 创建备份失败: {ErrorMessage}", ex.Message);
                 MessageBox.Show(
                     $"创建备份失败: {ex.Message}",
                     "错误",

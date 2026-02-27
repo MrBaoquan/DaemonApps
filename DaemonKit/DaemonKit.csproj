@@ -105,6 +105,7 @@
     <PackageReference Include="ReactiveUI.WPF" Version="19.5.41" />
     <PackageReference Include="SharpCompress" Version="0.37.2" />
     <PackageReference Include="System.IO.Ports" Version="8.0.0" />
+    <PackageReference Include="System.Management" Version="8.0.0" />
     <PackageReference Include="System.Reactive" Version="6.0.1" />
     <PackageReference Include="System.Reactive.Linq" Version="6.0.1" />
     <PackageReference Include="System.Threading.Tasks.Dataflow" Version="8.0.0" />
@@ -120,7 +121,22 @@
 
   <ItemGroup>
     <ProjectReference Include="..\DNHper\DNHper.csproj" />
+    <ProjectReference Include="..\DaemonGuard\DaemonGuard.csproj">
+      <ReferenceOutputAssembly>false</ReferenceOutputAssembly>
+      <Private>false</Private>
+    </ProjectReference>
   </ItemGroup>
+
+  <!-- 编译后自动复制 DaemonGuard 输出到 Guard/ 子目录 -->
+  <Target Name="CopyDaemonGuard" AfterTargets="Build">
+    <PropertyGroup>
+      <DaemonGuardOutputDir>$([MSBuild]::NormalizePath('$(MSBuildThisFileDirectory)..\DaemonGuard\bin\$(Configuration)\net8.0-windows\win-x64\'))</DaemonGuardOutputDir>
+    </PropertyGroup>
+    <ItemGroup>
+      <DaemonGuardFiles Include="$(DaemonGuardOutputDir)**\*.*" />
+    </ItemGroup>
+    <Copy SourceFiles="@(DaemonGuardFiles)" DestinationFiles="@(DaemonGuardFiles->'$(OutputPath)Guard\%(RecursiveDir)%(Filename)%(Extension)')" SkipUnchangedFiles="true" Condition="Exists('$(DaemonGuardOutputDir)')" />
+  </Target>
 
   <ItemGroup>
     <Resource Include="Resources\Icons\quit.png" />

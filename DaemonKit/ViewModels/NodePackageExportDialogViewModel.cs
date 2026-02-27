@@ -343,11 +343,10 @@ namespace DaemonKit.ViewModels
 
                 if (success)
                 {
-                    MessageBox.Show(
-                        $"节点包导出成功！\n\n保存位置：{saveDialog.FileName}",
-                        "导出完成",
-                        MessageBoxButton.OK,
-                        MessageBoxImage.Information
+                    // 直接打开导出文件所在文件夹并选中文件
+                    System.Diagnostics.Process.Start(
+                        "explorer.exe",
+                        $"/select,\"{saveDialog.FileName}\""
                     );
                     _closeDialog?.Invoke(true);
                 }

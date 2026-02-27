@@ -36,8 +36,8 @@ namespace DaemonKit.Services
         /// <summary>数据块大小 (256KB，与AsyncFileCopy一致)</summary>
         private readonly int _chunkSize = 256 * 1024;
 
-        /// <summary>默认传输端口</summary>
-        private readonly int _defaultPort = 7009;
+        /// <summary>默认传输端口（使用可配置的 CommonVars.FileTransferPort）</summary>
+        private int _defaultPort => CommonVars.FileTransferPort;
 
         /// <summary>对外暴露端口号（供UDP推送命令使用）</summary>
         public int DefaultPort => _defaultPort;
@@ -106,6 +106,9 @@ namespace DaemonKit.Services
         public IObservable<ListFilesResponse> ListFilesReceived =>
             _listFilesReceived.AsObservable();
 
+        /// <summary>本机设备信息提供器（用于响应 MACHINE_INFO_REQUEST）</summary>
+        public Func<MachineInfo?> MachineInfoProvider { get; set; }
+
         /// <summary>当前活跃任务列表</summary>
         public IReadOnlyDictionary<string, FileTransferTask> ActiveTasks => _activeTasks;
 
@@ -166,7 +169,7 @@ namespace DaemonKit.Services
             var oldSemaphore = _transferSemaphore;
             _transferSemaphore = new SemaphoreSlim(newMax, newMax);
             oldSemaphore.Dispose();
-            NLogger.Info($"[P2P] 最大并发传输数已更新为: {newMax}");
+            NLogger.Info("[P2P] 最大并发传输数已更新为: {NewMax}", newMax);
         }
 
         #endregion
@@ -174,7 +177,9 @@ namespace DaemonKit.Services
         #region 服务端（接收文件）
 
         /// <summary>
-        /// 启动文件传输服务端
+        /// 启动文件传输服务端。
+        /// 若端口被占用（如前一个进程的僵尸套接字），会等待重试，
+        /// 若仍失败则尝试备用端口（+1, +2）。
         /// </summary>
         public void StartServer(int port = 0)
         {
@@ -182,15 +187,65 @@ namespace DaemonKit.Services
                 port = _defaultPort;
 
             _serverCts = new CancellationTokenSource();
-            _serverSocket = new RouterSocket();
-            _serverSocket.Bind($"tcp://*:{port}");
 
-            NLogger.Info($"[P2P] 文件传输服务已启动，监听端口: {port}");
+            // 依次尝试: 原始端口（重试2次） → 备用端口 port+1 → 备用端口 port+2
+            var portsToTry = new[] { port, port, port + 1, port + 2 };
+            var delays = new[] { 0, 2000, 0, 0 }; // 第二次原始端口前等待2秒
 
-            // 使用Rx管道替代后台Task循环
-            _rxSubscriptions?.Dispose();
-            _rxSubscriptions = new CompositeDisposable();
-            _rxSubscriptions.Add(StartReceivePipeline(_serverCts.Token));
+            for (int i = 0; i < portsToTry.Length; i++)
+            {
+                if (delays[i] > 0)
+                    Thread.Sleep(delays[i]);
+
+                RouterSocket socket = null;
+                try
+                {
+                    socket = new RouterSocket();
+                    socket.Bind($"tcp://*:{portsToTry[i]}");
+                    _serverSocket = socket;
+
+                    if (portsToTry[i] != port)
+                    {
+                        NLogger.Warn(
+                            "[P2P] 原端口 {OrigPort} 被占用，已使用备用端口 {Port} 启动",
+                            port,
+                            portsToTry[i]
+                        );
+                    }
+
+                    NLogger.Info("[P2P] 文件传输服务已启动，监听端口: {Port}", portsToTry[i]);
+
+                    // 使用Rx管道替代后台Task循环
+                    _rxSubscriptions?.Dispose();
+                    _rxSubscriptions = new CompositeDisposable();
+                    _rxSubscriptions.Add(StartReceivePipeline(_serverCts.Token));
+                    return; // 成功
+                }
+                catch (NetMQ.AddressAlreadyInUseException)
+                {
+                    try { socket?.Close(); socket?.Dispose(); }
+                    catch { /* ignore cleanup errors */ }
+
+                    if (i < portsToTry.Length - 1)
+                    {
+                        NLogger.Warn(
+                            "[P2P] 端口 {Port} 被占用，将尝试下一个端口",
+                            portsToTry[i]
+                        );
+                    }
+                    else
+                    {
+                        NLogger.Error("[P2P] 所有端口均被占用，文件传输服务启动失败");
+                        throw;
+                    }
+                }
+                catch
+                {
+                    try { socket?.Close(); socket?.Dispose(); }
+                    catch { /* ignore cleanup errors */ }
+                    throw;
+                }
+            }
         }
 
         /// <summary>
@@ -253,7 +308,9 @@ namespace DaemonKit.Services
                                         )
                                 );
                                 NLogger.Debug(
-                                    $"[P2P Server] 收到不完整消息: FrameCount={msg.FrameCount}, {debugFrames}"
+                                    "[P2P Server] 收到不完整消息: FrameCount={FrameCount}, {DebugFrames}",
+                                    msg.FrameCount,
+                                    debugFrames
                                 );
                                 continue;
                             }
@@ -272,7 +329,10 @@ namespace DaemonKit.Services
                             {
                                 _lastRecvLogTicks = nowTicks;
                                 NLogger.Debug(
-                                    $"[P2P Server] 收到消息: type={messageType}, FrameCount={msg.FrameCount}, payloadSize={payload.Length}"
+                                    "[P2P Server] 收到消息: type={MessageType}, FrameCount={FrameCount}, payloadSize={PayloadSize}",
+                                    messageType,
+                                    msg.FrameCount,
+                                    payload.Length
                                 );
                             }
 
@@ -286,7 +346,7 @@ namespace DaemonKit.Services
                         {
                             if (ct.IsCancellationRequested)
                                 break;
-                            NLogger.Error($"[P2P] 接收消息异常: {ex.Message}");
+                            NLogger.Error("[P2P] 接收消息异常: {ErrorMessage}", ex.Message);
                         }
                     }
                     observer.OnCompleted();
@@ -313,7 +373,10 @@ namespace DaemonKit.Services
                             HandleDataChunk(m.Identity, m.Payload)
                                 .Catch<Unit, Exception>(ex =>
                                 {
-                                    NLogger.Error($"[P2P] 处理DATA_CHUNK异常: {ex.Message}");
+                                    NLogger.Error(
+                                        "[P2P] 处理DATA_CHUNK异常: {ErrorMessage}",
+                                        ex.Message
+                                    );
                                     return Observable.Empty<Unit>();
                                 })
                     )
@@ -330,7 +393,11 @@ namespace DaemonKit.Services
                             DispatchMessage(m.Identity, m.MessageType, m.Payload, ct)
                                 .Catch<Unit, Exception>(ex =>
                                 {
-                                    NLogger.Error($"[P2P] 处理消息异常 ({m.MessageType}): {ex.Message}");
+                                    NLogger.Error(
+                                        "[P2P] 处理消息异常 ({MessageType}): {ErrorMessage}",
+                                        m.MessageType,
+                                        ex.Message
+                                    );
                                     return Observable.Empty<Unit>();
                                 })
                     )
@@ -369,11 +436,17 @@ namespace DaemonKit.Services
                         HandleListFilesRequest(identity, payload);
                         return Observable.Return(Unit.Default);
                     }),
+                "MACHINE_INFO_REQUEST"
+                    => Observable.Defer(() =>
+                    {
+                        HandleMachineInfoRequest(identity);
+                        return Observable.Return(Unit.Default);
+                    }),
                 "DOWNLOAD_FILE_REQUEST" => HandleDownloadFileRequest(identity, payload),
                 _
                     => Observable.Defer(() =>
                     {
-                        NLogger.Warn($"[P2P] 未知消息类型: {messageType}");
+                        NLogger.Warn("[P2P] 未知消息类型: {MessageType}", messageType);
                         return Observable.Return(Unit.Default);
                     })
             };
@@ -485,7 +558,11 @@ namespace DaemonKit.Services
 
                 SendResumeResponse(identity, metadata.TaskId, actualOffset, true, null);
 
-                NLogger.Info($"[P2P] 开始接收文件: {metadata.FileName}, 续传位置: {actualOffset}");
+                NLogger.Info(
+                    "[P2P] 开始接收文件: {FileName}, 续传位置: {ActualOffset}",
+                    metadata.FileName,
+                    actualOffset
+                );
             }
             catch (Exception ex)
             {
@@ -499,7 +576,7 @@ namespace DaemonKit.Services
                     }
                     catch { }
                 }
-                NLogger.Error($"[P2P] 处理元数据失败: {ex.Message}");
+                NLogger.Error("[P2P] 处理元数据失败: {ErrorMessage}", ex.Message);
                 throw;
             }
         }
@@ -565,7 +642,7 @@ namespace DaemonKit.Services
                 if (!_receivingFiles.TryGetValue(taskId, out var fileStream))
                 {
                     _rejectedTaskIds.TryAdd(taskId, 0);
-                    NLogger.Warn($"[P2P] 未找到传输任务: {taskId}，后续同任务数据块将被忽略");
+                    NLogger.Warn("[P2P] 未找到传输任务: {TaskId}，后续同任务数据块将被忽略", taskId);
                     return Observable.Return(Unit.Default);
                 }
 
@@ -680,7 +757,7 @@ namespace DaemonKit.Services
                 }
                 catch (Exception socketEx)
                 {
-                    NLogger.Warn($"[P2P] 发送完成确认失败: {socketEx.Message}");
+                    NLogger.Warn("[P2P] 发送完成确认失败: {ErrorMessage}", socketEx.Message);
                 }
 
                 // 3. 标记本地任务完成
@@ -688,7 +765,9 @@ namespace DaemonKit.Services
                 task.State = TransferState.Completed;
                 _transferCompleted.OnNext(task);
                 NLogger.Info(
-                    $"[P2P] 文件接收完成: {task.FileName} ({task.TotalBytes / 1024.0 / 1024.0:F1} MB)"
+                    "[P2P] 文件接收完成: {FileName} ({SizeMB} MB)",
+                    task.FileName,
+                    (task.TotalBytes / 1024.0 / 1024.0).ToString("F1")
                 );
 
                 // 4. 小文件后台校验MD5（火烧而忘，不阻塞完成流）
@@ -707,26 +786,30 @@ namespace DaemonKit.Services
                                 )
                             )
                             {
-                                NLogger.Warn($"[P2P] 文件MD5校验不匹配（已接收）: {task.FileName}");
+                                NLogger.Warn("[P2P] 文件MD5校验不匹配（已接收）: {FileName}", task.FileName);
                             }
                         }
                         catch (Exception ex)
                         {
-                            NLogger.Debug($"[P2P] 后台MD5校验异常: {task.FileName}, {ex.Message}");
+                            NLogger.Debug(
+                                "[P2P] 后台MD5校验异常: {FileName}, {ErrorMessage}",
+                                task.FileName,
+                                ex.Message
+                            );
                         }
                     });
                 }
             }
             catch (Exception ex)
             {
-                NLogger.Error($"[P2P] 完成接收异常: {ex.Message}");
+                NLogger.Error("[P2P] 完成接收异常: {ErrorMessage}", ex.Message);
 
                 if (task.State == TransferState.Transferring && File.Exists(task.LocalPath))
                 {
                     task.State = TransferState.Completed;
                     task.EndTime = DateTime.Now;
                     _transferCompleted.OnNext(task);
-                    NLogger.Info($"[P2P] 文件接收完成（异常恢复）: {task.FileName}");
+                    NLogger.Info("[P2P] 文件接收完成（异常恢复）: {FileName}", task.FileName);
                 }
             }
             finally
@@ -758,12 +841,12 @@ namespace DaemonKit.Services
                 if (_activeTasks.TryRemove(taskId, out var task))
                 {
                     task.State = TransferState.Cancelled;
-                    NLogger.Info($"[P2P] 传输已取消: {task.FileName}");
+                    NLogger.Info("[P2P] 传输已取消: {FileName}", task.FileName);
                 }
             }
             catch (Exception ex)
             {
-                NLogger.Error($"[P2P] 处理取消请求失败: {ex.Message}");
+                NLogger.Error("[P2P] 处理取消请求失败: {ErrorMessage}", ex.Message);
             }
         }
 
@@ -789,7 +872,7 @@ namespace DaemonKit.Services
             {
                 if (!File.Exists(path))
                 {
-                    NLogger.Warn($"[P2P] 文件不存在: {path}");
+                    NLogger.Warn("[P2P] 文件不存在: {Path}", path);
                     continue;
                 }
 
@@ -816,7 +899,7 @@ namespace DaemonKit.Services
                 return batch;
             }
 
-            NLogger.Info($"[P2P] 开始发送 {batch.Tasks.Count} 个文件到 {target.Name}");
+            NLogger.Info("[P2P] 开始发送 {Count} 个文件到 {TargetName}", batch.Tasks.Count, target.Name);
 
             // 并发发送，受信号量控制
             try
@@ -829,7 +912,7 @@ namespace DaemonKit.Services
             }
             catch (Exception ex)
             {
-                NLogger.Error($"[P2P] 批量发送异常: {ex.Message}");
+                NLogger.Error("[P2P] 批量发送异常: {ErrorMessage}", ex.Message);
             }
 
             return batch;
@@ -899,20 +982,33 @@ namespace DaemonKit.Services
                                 {
                                     probe.EndConnect(probeResult);
                                     connectIP = resolvedIP;
-                                    NLogger.Info($"[P2P] 连通性检测成功: {resolvedIP}:{port}");
+                                    NLogger.Info(
+                                        "[P2P] 连通性检测成功: {ResolvedIP}:{Port}",
+                                        resolvedIP,
+                                        port
+                                    );
                                     break;
                                 }
                                 else
                                 {
                                     lastError = $"{resolvedIP} - 连接超时";
-                                    NLogger.Debug($"[P2P] 连通性检测失败: {resolvedIP}:{port} (超时)");
+                                    NLogger.Debug(
+                                        "[P2P] 连通性检测失败: {ResolvedIP}:{Port} (超时)",
+                                        resolvedIP,
+                                        port
+                                    );
                                 }
                             }
                             catch (Exception ex)
                             {
                                 lastError =
                                     $"{resolvedIP} - {ex.InnerException?.Message ?? ex.Message}";
-                                NLogger.Debug($"[P2P] 连通性检测失败: {resolvedIP}:{port} ({lastError})");
+                                NLogger.Debug(
+                                    "[P2P] 连通性检测失败: {ResolvedIP}:{Port} ({LastError})",
+                                    resolvedIP,
+                                    port,
+                                    lastError
+                                );
                             }
                         }
 
@@ -1022,7 +1118,7 @@ namespace DaemonKit.Services
                                     {
                                         task.State = TransferState.Cancelled;
                                         task.ErrorMessage = "接收方已取消传输";
-                                        NLogger.Info($"[P2P] 接收方已取消传输: {task.FileName}");
+                                        NLogger.Info("[P2P] 接收方已取消传输: {FileName}", task.FileName);
                                         _transferFailed.OnNext(task);
                                         return;
                                     }
@@ -1079,7 +1175,7 @@ namespace DaemonKit.Services
                             {
                                 task.State = TransferState.Cancelled;
                                 task.ErrorMessage = "接收方已取消传输";
-                                NLogger.Info($"[P2P] 接收方已取消传输: {task.FileName}");
+                                NLogger.Info("[P2P] 接收方已取消传输: {FileName}", task.FileName);
                                 _transferFailed.OnNext(task);
                                 return;
                             }
@@ -1100,7 +1196,7 @@ namespace DaemonKit.Services
                                     task.State = TransferState.Completed;
                                     task.EndTime = DateTime.Now;
                                     _transferCompleted.OnNext(task);
-                                    NLogger.Info($"[P2P] 文件发送完成: {task.FileName}");
+                                    NLogger.Info("[P2P] 文件发送完成: {FileName}", task.FileName);
                                 }
                                 else
                                 {
@@ -1116,7 +1212,9 @@ namespace DaemonKit.Services
                                 task.EndTime = DateTime.Now;
                                 _transferCompleted.OnNext(task);
                                 NLogger.Warn(
-                                    $"[P2P] 收到未知响应类型({completeType})，视为完成: {task.FileName}"
+                                    "[P2P] 收到未知响应类型({CompleteType})，视为完成: {FileName}",
+                                    completeType,
+                                    task.FileName
                                 );
                             }
                         }
@@ -1125,7 +1223,7 @@ namespace DaemonKit.Services
                             task.State = TransferState.Completed;
                             task.EndTime = DateTime.Now;
                             _transferCompleted.OnNext(task);
-                            NLogger.Warn($"[P2P] 未收到完成确认，但数据已全部发送，视为完成: {task.FileName}");
+                            NLogger.Warn("[P2P] 未收到完成确认，但数据已全部发送，视为完成: {FileName}", task.FileName);
                         }
                     },
                     cts.Token
@@ -1137,14 +1235,14 @@ namespace DaemonKit.Services
                 {
                     task.State = TransferState.Cancelled;
                 }
-                NLogger.Info($"[P2P] 传输已取消/暂停: {task.FileName}");
+                NLogger.Info("[P2P] 传输已取消/暂停: {FileName}", task.FileName);
             }
             catch (Exception ex)
             {
                 task.State = TransferState.Failed;
                 task.ErrorMessage = ex.Message;
                 _transferFailed.OnNext(task);
-                NLogger.Error($"[P2P] 传输失败: {task.FileName}, {ex.Message}");
+                NLogger.Error("[P2P] 传输失败: {FileName}, {ErrorMessage}", task.FileName, ex.Message);
             }
             finally
             {
@@ -1176,7 +1274,7 @@ namespace DaemonKit.Services
                 task.State = TransferState.Paused;
             }
 
-            NLogger.Info($"[P2P] 任务已暂停: {taskId}");
+            NLogger.Info("[P2P] 任务已暂停: {TaskId}", taskId);
         }
 
         /// <summary>
@@ -1193,14 +1291,14 @@ namespace DaemonKit.Services
                     activeTask.State = TransferState.Transferring;
                 }
                 pauseEvent.Set(); // 解除发送循环阻塞
-                NLogger.Info($"[P2P] 任务已恢复: {task.TaskId}");
+                NLogger.Info("[P2P] 任务已恢复: {TaskId}", task.TaskId);
                 return;
             }
 
             // 后备方案：从当前位置重新开始传输
             if (task.State != TransferState.Paused)
             {
-                NLogger.Warn($"[P2P] 任务状态不是暂停，无法恢复: {task.TaskId}");
+                NLogger.Warn("[P2P] 任务状态不是暂停，无法恢复: {TaskId}", task.TaskId);
                 return;
             }
 
@@ -1243,11 +1341,11 @@ namespace DaemonKit.Services
                         _serverSocket.SendMoreFrame("TRANSFER_CANCELLED");
                         _serverSocket.SendFrame(taskId);
                     }
-                    NLogger.Info($"[P2P] 已通知发送端取消传输: {taskId}");
+                    NLogger.Info("[P2P] 已通知发送端取消传输: {TaskId}", taskId);
                 }
                 catch (Exception ex)
                 {
-                    NLogger.Warn($"[P2P] 通知发送端取消失败: {ex.Message}");
+                    NLogger.Warn("[P2P] 通知发送端取消失败: {ErrorMessage}", ex.Message);
                 }
             }
 
@@ -1260,7 +1358,7 @@ namespace DaemonKit.Services
                 _transferFailed.OnNext(task);
             }
 
-            NLogger.Info($"[P2P] 任务已取消: {taskId}");
+            NLogger.Info("[P2P] 任务已取消: {TaskId}", taskId);
         }
 
         /// <summary>
@@ -1357,7 +1455,7 @@ namespace DaemonKit.Services
             }
             catch (Exception ex)
             {
-                NLogger.Error($"[P2P] 获取共享文件列表失败: {ex.Message}");
+                NLogger.Error("[P2P] 获取共享文件列表失败: {ErrorMessage}", ex.Message);
             }
 
             return files.OrderByDescending(f => f.LastModified).ToList();
@@ -1377,7 +1475,11 @@ namespace DaemonKit.Services
             }
             catch (Exception ex)
             {
-                NLogger.Warn($"[P2P] 计算文件MD5失败 ({Path.GetFileName(filePath)}): {ex.Message}");
+                NLogger.Warn(
+                    "[P2P] 计算文件MD5失败 ({FileName}): {ErrorMessage}",
+                    Path.GetFileName(filePath),
+                    ex.Message
+                );
                 return string.Empty;
             }
         }
@@ -1389,7 +1491,10 @@ namespace DaemonKit.Services
         {
             try
             {
-                NLogger.Info($"[P2P Server] 处理LIST_FILES_REQUEST, identity长度={identity.Length}");
+                NLogger.Info(
+                    "[P2P Server] 处理LIST_FILES_REQUEST, identity长度={IdentityLength}",
+                    identity.Length
+                );
                 var request = JsonConvert.DeserializeObject<ListFilesRequest>(
                     System.Text.Encoding.UTF8.GetString(payload)
                 );
@@ -1438,11 +1543,40 @@ namespace DaemonKit.Services
                         .SendFrame(System.Text.Encoding.UTF8.GetBytes(responseJson));
                 }
 
-                NLogger.Info($"[P2P] 响应文件列表请求，共 {files.Count} 个文件");
+                NLogger.Info("[P2P] 响应文件列表请求，共 {Count} 个文件", files.Count);
             }
             catch (Exception ex)
             {
-                NLogger.Error($"[P2P] 处理文件列表请求失败: {ex.Message}");
+                NLogger.Error("[P2P] 处理文件列表请求失败: {ErrorMessage}", ex.Message);
+            }
+        }
+
+        /// <summary>
+        /// 处理远程设备信息请求（作为服务端响应，返回本机 MachineInfo）
+        /// </summary>
+        private void HandleMachineInfoRequest(byte[] identity)
+        {
+            try
+            {
+                NLogger.Info("[P2P Server] 处理 MACHINE_INFO_REQUEST");
+
+                var machineInfo = MachineInfoProvider?.Invoke();
+                var responseJson =
+                    machineInfo != null ? JsonConvert.SerializeObject(machineInfo) : "{}";
+
+                lock (_socketWriteLock)
+                {
+                    _serverSocket
+                        .SendMoreFrame(identity)
+                        .SendMoreFrame("MACHINE_INFO_RESPONSE")
+                        .SendFrame(System.Text.Encoding.UTF8.GetBytes(responseJson));
+                }
+
+                NLogger.Info("[P2P] 已响应设备信息请求");
+            }
+            catch (Exception ex)
+            {
+                NLogger.Error("[P2P] 处理设备信息请求失败: {ErrorMessage}", ex.Message);
             }
         }
 
@@ -1474,7 +1608,10 @@ namespace DaemonKit.Services
                     }
 
                     NLogger.Info(
-                        $"[P2P] 下载请求来自: {request.RequesterIP}:{request.RequesterPort}, 文件数: {request.FileNames?.Length ?? 0}"
+                        "[P2P] 下载请求来自: {RequesterIP}:{RequesterPort}, 文件数: {FileCount}",
+                        request.RequesterIP,
+                        request.RequesterPort,
+                        request.FileNames?.Length ?? 0
                     );
 
                     var sharedDir = AppPathes.SharedFilesDir;
@@ -1486,11 +1623,15 @@ namespace DaemonKit.Services
                         if (File.Exists(filePath))
                         {
                             filesToSend.Add(filePath);
-                            NLogger.Info($"[P2P] 准备发送文件: {fileName}");
+                            NLogger.Info("[P2P] 准备发送文件: {FileName}", fileName);
                         }
                         else
                         {
-                            NLogger.Warn($"[P2P] 请求的文件不存在: {fileName} (路径: {filePath})");
+                            NLogger.Warn(
+                                "[P2P] 请求的文件不存在: {FileName} (路径: {FilePath})",
+                                fileName,
+                                filePath
+                            );
                         }
                     }
 
@@ -1514,7 +1655,10 @@ namespace DaemonKit.Services
                             : TransferTaskSource.RemoteBrowseDownload;
 
                         NLogger.Info(
-                            $"[P2P] 开始向 {request.RequesterIP} 发送 {filesToSend.Count} 个文件 (来源: {sourceHint})"
+                            "[P2P] 开始向 {RequesterIP} 发送 {Count} 个文件 (来源: {SourceHint})",
+                            request.RequesterIP,
+                            filesToSend.Count,
+                            sourceHint
                         );
 
                         // 火烧而忘：不阻塞消息分发管道
@@ -1528,12 +1672,14 @@ namespace DaemonKit.Services
                                     sourceHint: sourceHint
                                 );
                                 NLogger.Info(
-                                    $"[P2P] 已完成响应下载请求，发送 {filesToSend.Count} 个文件到 {request.RequesterIP}"
+                                    "[P2P] 已完成响应下载请求，发送 {Count} 个文件到 {RequesterIP}",
+                                    filesToSend.Count,
+                                    request.RequesterIP
                                 );
                             }
                             catch (Exception ex)
                             {
-                                NLogger.Error($"[P2P] 响应下载请求失败: {ex.Message}");
+                                NLogger.Error("[P2P] 响应下载请求失败: {ErrorMessage}", ex.Message);
                             }
                         });
                     }
@@ -1544,7 +1690,7 @@ namespace DaemonKit.Services
                 }
                 catch (Exception ex)
                 {
-                    NLogger.Error($"[P2P] 处理下载请求失败: {ex.Message}");
+                    NLogger.Error("[P2P] 处理下载请求失败: {ErrorMessage}", ex.Message);
                 }
 
                 return Observable.Return(Unit.Default);
@@ -1567,7 +1713,10 @@ namespace DaemonKit.Services
                 {
                     var connectEndpoint = ResolveConnectionEndpoint(remoteEndpoint);
                     NLogger.Info(
-                        $"[P2P] 正在请求远程文件列表: {connectEndpoint}:{_defaultPort} (原始: {remoteEndpoint})"
+                        "[P2P] 正在请求远程文件列表: {ConnectEndpoint}:{DefaultPort} (原始: {RemoteEndpoint})",
+                        connectEndpoint,
+                        _defaultPort,
+                        remoteEndpoint
                     );
 
                     using var client = new DealerSocket();
@@ -1597,19 +1746,81 @@ namespace DaemonKit.Services
                                 var response = JsonConvert.DeserializeObject<ListFilesResponse>(
                                     System.Text.Encoding.UTF8.GetString(payload)
                                 );
-                                NLogger.Info($"[P2P] 收到远程文件列表，共 {response.Files.Length} 个文件");
+                                NLogger.Info("[P2P] 收到远程文件列表，共 {Count} 个文件", response.Files.Length);
                                 return response.Files;
                             }
                         }
                     }
 
-                    NLogger.Warn($"[P2P] 请求远程文件列表超时 ({timeoutMs}ms)");
+                    NLogger.Warn("[P2P] 请求远程文件列表超时 ({TimeoutMs}ms)", timeoutMs);
                     return Array.Empty<SharedFileInfo>();
                 }
                 catch (Exception ex)
                 {
-                    NLogger.Error($"[P2P] 请求远程文件列表失败: {ex.Message}");
+                    NLogger.Error("[P2P] 请求远程文件列表失败: {ErrorMessage}", ex.Message);
                     return Array.Empty<SharedFileInfo>();
+                }
+            });
+        }
+
+        /// <summary>
+        /// 通过 TCP 请求远程设备的 MachineInfo（用于跨网段设备探测获取完整设备信息）
+        /// </summary>
+        public async Task<MachineInfo?> RequestRemoteMachineInfoAsync(
+            string remoteEndpoint,
+            int timeoutMs = 5000
+        )
+        {
+            return await Task.Run(() =>
+            {
+                try
+                {
+                    var connectEndpoint = ResolveConnectionEndpoint(remoteEndpoint);
+                    NLogger.Info(
+                        "[P2P] 正在请求远程设备信息: {ConnectEndpoint}:{DefaultPort}",
+                        connectEndpoint,
+                        _defaultPort
+                    );
+
+                    using var client = new DealerSocket();
+                    client.Options.Identity = System.Text.Encoding.UTF8.GetBytes(
+                        Guid.NewGuid().ToString("N")
+                    );
+                    client.Connect($"tcp://{connectEndpoint}:{_defaultPort}");
+
+                    client.SendMoreFrame("MACHINE_INFO_REQUEST").SendFrame(Array.Empty<byte>());
+
+                    var message = new NetMQMessage();
+                    if (
+                        client.TryReceiveMultipartMessage(
+                            TimeSpan.FromMilliseconds(timeoutMs),
+                            ref message
+                        )
+                    )
+                    {
+                        if (message.FrameCount >= 2)
+                        {
+                            var messageType = message[0].ConvertToString();
+                            var payload = message[1].ToByteArray();
+
+                            if (messageType == "MACHINE_INFO_RESPONSE")
+                            {
+                                var info = JsonConvert.DeserializeObject<MachineInfo>(
+                                    System.Text.Encoding.UTF8.GetString(payload)
+                                );
+                                NLogger.Info("[P2P] 收到远程设备信息: {DeviceName}", info?.Name ?? "未知");
+                                return info;
+                            }
+                        }
+                    }
+
+                    NLogger.Warn("[P2P] 请求远程设备信息超时 ({TimeoutMs}ms)", timeoutMs);
+                    return null;
+                }
+                catch (Exception ex)
+                {
+                    NLogger.Error("[P2P] 请求远程设备信息失败: {ErrorMessage}", ex.Message);
+                    return null;
                 }
             });
         }
@@ -1648,7 +1859,7 @@ namespace DaemonKit.Services
             }
             catch (Exception ex)
             {
-                NLogger.Warn($"[P2P] 检测本机IP失败: {ex.Message}");
+                NLogger.Warn("[P2P] 检测本机IP失败: {ErrorMessage}", ex.Message);
             }
 
             return false;
@@ -1661,7 +1872,7 @@ namespace DaemonKit.Services
         {
             if (IsLocalEndpoint(endpoint))
             {
-                NLogger.Info($"[P2P] 检测到目标是本机({endpoint})，使用127.0.0.1回环地址连接");
+                NLogger.Info("[P2P] 检测到目标是本机({Endpoint})，使用127.0.0.1回环地址连接", endpoint);
                 return "127.0.0.1";
             }
             return endpoint;
@@ -1691,7 +1902,11 @@ namespace DaemonKit.Services
                         return;
                     }
 
-                    NLogger.Info($"[P2P] 本机IP: {localIP}, 远程IP: {remoteEndpoint}");
+                    NLogger.Info(
+                        "[P2P] 本机IP: {LocalIP}, 远程IP: {RemoteEndpoint}",
+                        localIP,
+                        remoteEndpoint
+                    );
 
                     var request = new DownloadFileRequest
                     {
@@ -1702,7 +1917,10 @@ namespace DaemonKit.Services
 
                     var connectEndpoint = ResolveConnectionEndpoint(remoteEndpoint);
                     NLogger.Info(
-                        $"[P2P] 发送下载请求到: {connectEndpoint}:{_defaultPort} (原始: {remoteEndpoint})"
+                        "[P2P] 发送下载请求到: {ConnectEndpoint}:{DefaultPort} (原始: {RemoteEndpoint})",
+                        connectEndpoint,
+                        _defaultPort,
+                        remoteEndpoint
                     );
 
                     using var client = new DealerSocket();
@@ -1714,11 +1932,15 @@ namespace DaemonKit.Services
                         .SendMoreFrame("DOWNLOAD_FILE_REQUEST")
                         .SendFrame(System.Text.Encoding.UTF8.GetBytes(requestJson));
 
-                    NLogger.Info($"[P2P] 已发送下载请求: {fileNames.Length} 个文件 -> {remoteEndpoint}");
+                    NLogger.Info(
+                        "[P2P] 已发送下载请求: {Count} 个文件 -> {RemoteEndpoint}",
+                        fileNames.Length,
+                        remoteEndpoint
+                    );
                 }
                 catch (Exception ex)
                 {
-                    NLogger.Error($"[P2P] 发送下载请求失败: {ex.Message}");
+                    NLogger.Error("[P2P] 发送下载请求失败: {ErrorMessage}", ex.Message);
                 }
             });
         }
@@ -1739,7 +1961,7 @@ namespace DaemonKit.Services
             {
                 try
                 {
-                    NLogger.Info($"[P2P] 获取远程文件列表 (尝试 {attempt}/{maxRetries})");
+                    NLogger.Info("[P2P] 获取远程文件列表 (尝试 {Attempt}/{MaxRetries})", attempt, maxRetries);
                     var files = await RequestRemoteFilesAsync(remoteEndpoint, timeoutMs);
 
                     if (files.Length > 0)
@@ -1747,11 +1969,20 @@ namespace DaemonKit.Services
                         return files.Select(f => f.RelativePath ?? f.FileName).ToArray();
                     }
 
-                    NLogger.Warn($"[P2P] 获取远程文件列表返回空 (尝试 {attempt}/{maxRetries})");
+                    NLogger.Warn(
+                        "[P2P] 获取远程文件列表返回空 (尝试 {Attempt}/{MaxRetries})",
+                        attempt,
+                        maxRetries
+                    );
                 }
                 catch (Exception ex)
                 {
-                    NLogger.Error($"[P2P] 获取远程文件列表异常 (尝试 {attempt}/{maxRetries}): {ex.Message}");
+                    NLogger.Error(
+                        "[P2P] 获取远程文件列表异常 (尝试 {Attempt}/{MaxRetries}): {ErrorMessage}",
+                        attempt,
+                        maxRetries,
+                        ex.Message
+                    );
                 }
 
                 if (attempt < maxRetries)
@@ -1760,7 +1991,7 @@ namespace DaemonKit.Services
                 }
             }
 
-            NLogger.Warn($"[P2P] 获取远程文件列表失败，已重试 {maxRetries} 次");
+            NLogger.Warn("[P2P] 获取远程文件列表失败，已重试 {MaxRetries} 次", maxRetries);
             return Array.Empty<string>();
         }
 
@@ -1808,7 +2039,7 @@ namespace DaemonKit.Services
             }
             catch (Exception ex)
             {
-                NLogger.Error($"[P2P] 获取本机IP失败: {ex.Message}");
+                NLogger.Error("[P2P] 获取本机IP失败: {ErrorMessage}", ex.Message);
             }
             return string.Empty;
         }
@@ -1830,7 +2061,7 @@ namespace DaemonKit.Services
             }
             catch (Exception ex)
             {
-                NLogger.Error($"[P2P] 打开共享目录失败: {ex.Message}");
+                NLogger.Error("[P2P] 打开共享目录失败: {ErrorMessage}", ex.Message);
             }
         }
 

@@ -9,6 +9,8 @@ using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
 using DaemonKit.Models;
+using DaemonKit.PowerSaving;
+using DaemonKit.Services;
 using DaemonKit.Utilities;
 using DNHper;
 using ReactiveUI;
@@ -29,6 +31,12 @@ namespace DaemonKit
             TaskScheduler.UnobservedTaskException += TaskScheduler_UnobservedTaskException;
 
             Locator.CurrentMutable.RegisterViewsForViewModels(Assembly.GetCallingAssembly());
+
+            // 注册服务层（Splat DI）
+            Locator.CurrentMutable.RegisterLazySingleton(() => new P2PFileTransferService());
+            Locator.CurrentMutable.RegisterLazySingleton(() => new TransferTaskManager());
+            Locator.CurrentMutable.RegisterLazySingleton(() => new PowerSavingService());
+            Locator.CurrentMutable.RegisterLazySingleton(() => new NetworkBroadcastService());
         }
 
         private void App_DispatcherUnhandledException(
@@ -38,12 +46,12 @@ namespace DaemonKit
         {
             try
             {
-                NLogger.Error($"UI线程未处理异常: {e.Exception.GetType().Name}");
-                NLogger.Error($"消息: {e.Exception.Message}");
-                NLogger.Error($"堆栈: {e.Exception.StackTrace}");
+                NLogger.Error("UI线程未处理异常: {ExceptionType}", e.Exception.GetType().Name);
+                NLogger.Error("消息: {Message}", e.Exception.Message);
+                NLogger.Error("堆栈: {StackTrace}", e.Exception.StackTrace);
                 if (e.Exception.InnerException != null)
                 {
-                    NLogger.Error($"内部异常: {e.Exception.InnerException.Message}");
+                    NLogger.Error("内部异常: {InnerMessage}", e.Exception.InnerException.Message);
                 }
             }
             catch { }
@@ -56,10 +64,10 @@ namespace DaemonKit
             try
             {
                 var exception = e.ExceptionObject as Exception;
-                NLogger.Error($"应用程序域未处理异常: {exception?.GetType().Name}");
-                NLogger.Error($"消息: {exception?.Message}");
-                NLogger.Error($"堆栈: {exception?.StackTrace}");
-                NLogger.Error($"IsTerminating: {e.IsTerminating}");
+                NLogger.Error("应用程序域未处理异常: {ExceptionType}", exception?.GetType().Name);
+                NLogger.Error("消息: {Message}", exception?.Message);
+                NLogger.Error("堆栈: {StackTrace}", exception?.StackTrace);
+                NLogger.Error("IsTerminating: {IsTerminating}", e.IsTerminating);
             }
             catch { }
         }
@@ -71,8 +79,8 @@ namespace DaemonKit
         {
             try
             {
-                NLogger.Error($"Task未观察异常: {e.Exception.GetType().Name}");
-                NLogger.Error($"消息: {e.Exception.Message}");
+                NLogger.Error("Task未观察异常: {ExceptionType}", e.Exception.GetType().Name);
+                NLogger.Error("消息: {Message}", e.Exception.Message);
                 e.SetObserved();
             }
             catch { }
@@ -81,6 +89,7 @@ namespace DaemonKit
         protected override void OnStartup(StartupEventArgs e)
         {
             NLogger.Info("开始 OnStartup");
+
             try
             {
                 var _curProcess = Process.GetCurrentProcess();
@@ -89,9 +98,9 @@ namespace DaemonKit
                 var _processes = Process.GetProcessesByName(_processName);
                 if (_processes.Count() > 1)
                 {
-                    var _anotherApp = _processes
-                        .Where(_process => _process.Id != _curProcess.Id)
-                        .FirstOrDefault();
+                    var _anotherApp = _processes.FirstOrDefault(
+                        _process => _process.Id != _curProcess.Id
+                    );
 
                     if (_anotherApp.MainModule.FileName == _curProcess.MainModule.FileName)
                     {
@@ -115,19 +124,17 @@ namespace DaemonKit
                     }
                 }
 
-                NLogger.Info("调用 base.OnStartup");
                 base.OnStartup(e);
-                NLogger.Info("OnStartup 完成");
             }
             catch (Exception ex)
             {
-                NLogger.Error($"OnStartup 异常: {ex.GetType().Name}");
-                NLogger.Error($"消息: {ex.Message}");
-                NLogger.Error($"堆栈: {ex.StackTrace}");
+                NLogger.Error("OnStartup 异常: {ExceptionType}", ex.GetType().Name);
+                NLogger.Error("消息: {Message}", ex.Message);
+                NLogger.Error("堆栈: {StackTrace}", ex.StackTrace);
                 if (ex.InnerException != null)
                 {
-                    NLogger.Error($"内部异常: {ex.InnerException.Message}");
-                    NLogger.Error($"内部堆栈: {ex.InnerException.StackTrace}");
+                    NLogger.Error("内部异常: {InnerMessage}", ex.InnerException.Message);
+                    NLogger.Error("内部堆栈: {InnerStackTrace}", ex.InnerException.StackTrace);
                 }
                 throw;
             }
@@ -135,6 +142,10 @@ namespace DaemonKit
 
         protected override void OnExit(ExitEventArgs e)
         {
+            // 正常退出时主动停止守护服务，避免 DaemonGuard 误重启。
+            // 崩溃或被 taskkill 终止时 OnExit 不会触发，因此 DaemonGuard 仍会正常重启。
+            // 下次启动时 SyncGuardService(true) 会自动重新启动守护服务。
+            StopGuardServiceOnExit();
             base.OnExit(e);
         }
 
@@ -150,9 +161,30 @@ namespace DaemonKit
         //    NLogger.Info($"E.Cancel = True {e.ReasonSessionEnding}");
         //    e.Cancel = true;
         //}
+
+        /// <summary>
+        /// 正常退出时停止守护服务。
+        /// 比哨兵文件方案更简洁可靠：无文件残留、无竞态风险。
+        /// 下次启动时 SyncSettings → SyncGuardService(true) 会自动重新启动服务。
+        /// </summary>
+        private static void StopGuardServiceOnExit()
+        {
+            try
+            {
+                if (GuardServiceHelper.IsServiceRunning())
+                {
+                    GuardServiceHelper.StopService();
+                    NLogger.Info("正常退出，已停止守护服务");
+                }
+            }
+            catch (Exception ex)
+            {
+                NLogger.Warn("退出时停止守护服务失败: {Message}", ex.Message);
+            }
+        }
+
         public static async Task executeProgramsBeforeExit()
         {
-            NLogger.Info($"executeBE tid:{Thread.CurrentThread.ManagedThreadId}");
             if (!Directory.Exists(AppPathes.DestroyHooksDir))
                 return;
             var _files = Directory.GetFiles(
@@ -170,7 +202,8 @@ namespace DaemonKit
                                 try
                                 {
                                     NLogger.Info(
-                                        $"execute script {_file} , {Thread.CurrentThread.ManagedThreadId}"
+                                        "[退出钩子] 执行: {File}",
+                                        _file
                                     );
                                     Process _process = new Process();
                                     _process.StartInfo.FileName = _file;
@@ -178,19 +211,19 @@ namespace DaemonKit
                                     _process.Start();
                                     _process.WaitForExit();
                                     NLogger.Info(
-                                        $"execute script {_file} , {Thread.CurrentThread.ManagedThreadId} completed"
+                                        "[退出钩子] 完成: {File}",
+                                        _file
                                     );
                                 }
                                 catch (System.Exception e)
                                 {
-                                    NLogger.Info($"error {e.Message}");
+                                    NLogger.Error("[退出钩子] 执行失败: {ErrorMessage}", e.Message);
                                 }
                             })
                             .ObserveOn(RxApp.MainThreadScheduler)
                 )
                 .Zip()
                 .ObserveOn(RxApp.MainThreadScheduler);
-            NLogger.Info("executed all");
         }
     }
 }

@@ -65,66 +65,75 @@ namespace DaemonKit.Services
         /// </summary>
         private async void CheckIdleState()
         {
-            var idleDuration = GetIdleDuration();
-
-            // 处理空闲自动关闭桌面
-            if (_appSettings.EnableIdleAutoAction)
+            try
             {
-                var threshold = TimeSpan.FromMinutes(
-                    Math.Max(1, _appSettings.IdleAutoActionThresholdMinutes)
-                );
+                var idleDuration = GetIdleDuration();
 
-                if (idleDuration >= threshold)
+                // 处理空闲自动关闭桌面
+                if (_appSettings.EnableIdleAutoAction)
                 {
-                    if (!_idleActionTriggered)
+                    var threshold = TimeSpan.FromMinutes(
+                        Math.Max(1, _appSettings.IdleAutoActionThresholdMinutes)
+                    );
+
+                    if (idleDuration >= threshold)
                     {
-                        HandleIdleTimeout();
-                        _idleActionTriggered = true;
+                        if (!_idleActionTriggered)
+                        {
+                            HandleIdleTimeout();
+                            _idleActionTriggered = true;
+                        }
+                    }
+                    else
+                    {
+                        _idleActionTriggered = false;
                     }
                 }
                 else
                 {
                     _idleActionTriggered = false;
                 }
-            }
-            else
-            {
-                _idleActionTriggered = false;
-            }
 
-            // 处理空闲自动省电
-            if (_appSettings.EnableIdleAutoPowerSaving)
-            {
-                var powerSavingThreshold = TimeSpan.FromMinutes(
-                    Math.Max(1, _appSettings.IdleAutoPowerSavingThresholdMinutes)
-                );
-
-                if (idleDuration >= powerSavingThreshold)
+                // 处理空闲自动省电
+                if (_appSettings.EnableIdleAutoPowerSaving)
                 {
-                    if (!_idleAutoPowerSavingTriggered && !_powerSavingService.IsPowerSavingMode)
+                    var powerSavingThreshold = TimeSpan.FromMinutes(
+                        Math.Max(1, _appSettings.IdleAutoPowerSavingThresholdMinutes)
+                    );
+
+                    if (idleDuration >= powerSavingThreshold)
                     {
-                        // 进入省电模式
-                        await _powerSavingService.ApplyPowerSavingAsync();
-                        _idleAutoPowerSavingTriggered = true;
-                        NLogger.Info(
-                            $"[IdleMonitor] 空闲{powerSavingThreshold.TotalMinutes}分钟，自动进入省电模式"
-                        );
+                        if (
+                            !_idleAutoPowerSavingTriggered && !_powerSavingService.IsPowerSavingMode
+                        )
+                        {
+                            // 进入省电模式
+                            await _powerSavingService.ApplyPowerSavingAsync();
+                            _idleAutoPowerSavingTriggered = true;
+                            NLogger.Info(
+                                $"[IdleMonitor] 空闲{powerSavingThreshold.TotalMinutes}分钟，自动进入省电模式"
+                            );
+                        }
+                    }
+                    else
+                    {
+                        if (_idleAutoPowerSavingTriggered && _powerSavingService.IsPowerSavingMode)
+                        {
+                            // 检测到用户活动，退出省电模式
+                            await _powerSavingService.RestoreNormalAsync();
+                            NLogger.Info("[IdleMonitor] 检测到用户活动，退出省电模式");
+                        }
+                        _idleAutoPowerSavingTriggered = false;
                     }
                 }
                 else
                 {
-                    if (_idleAutoPowerSavingTriggered && _powerSavingService.IsPowerSavingMode)
-                    {
-                        // 检测到用户活动，退出省电模式
-                        await _powerSavingService.RestoreNormalAsync();
-                        NLogger.Info("[IdleMonitor] 检测到用户活动，退出省电模式");
-                    }
                     _idleAutoPowerSavingTriggered = false;
                 }
             }
-            else
+            catch (Exception ex)
             {
-                _idleAutoPowerSavingTriggered = false;
+                NLogger.Error("[IdleMonitor] 检查空闲状态异常: {ErrorMessage}", ex.Message);
             }
         }
 
@@ -166,7 +175,7 @@ namespace DaemonKit.Services
             }
             catch (Exception ex)
             {
-                NLogger.Error($"[IdleMonitor] 执行空闲超时操作失败: {ex.Message}");
+                NLogger.Error("[IdleMonitor] 执行空闲超时操作失败: {ErrorMessage}", ex.Message);
             }
         }
 

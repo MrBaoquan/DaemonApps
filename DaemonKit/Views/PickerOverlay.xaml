@@ -15,7 +15,8 @@
         MouseLeftButtonUp="Window_MouseLeftButtonUp"
         KeyDown="Window_KeyDown"
         PreviewKeyDown="Window_KeyDown"
-        Loaded="Window_Loaded">
+        Loaded="Window_Loaded"
+        FontFamily="{DynamicResource MaterialDesignFont}">
         <Canvas x:Name="MainCanvas">
                 <!-- 背景截图 (用于颜色拾取模式) -->
                 <Image x:Name="BackgroundImage"

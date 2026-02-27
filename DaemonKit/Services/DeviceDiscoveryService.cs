@@ -13,6 +13,7 @@ using System.Threading.Tasks;
 using DaemonKit.Models;
 using DNHper;
 using Newtonsoft.Json;
+using Splat;
 
 namespace DaemonKit.Services
 {
@@ -43,8 +44,11 @@ namespace DaemonKit.Services
     {
         #region 常量
 
-        private const int UDP_BROADCAST_PORT = 7007; // 广播端口
-        private const int TCP_PROBE_PORT = 7009; // TCP探测端口（复用文件传输端口）
+        // UDP广播端口使用 CommonVars 可配置端口
+        private static int UDP_BROADCAST_PORT => CommonVars.MetaPort;
+
+        // TCP探测端口（复用文件传输端口，可配置）
+        private static int TCP_PROBE_PORT => CommonVars.FileTransferPort;
         private const int PROBE_TIMEOUT_MS = 3000; // 探测超时
         private const int OFFLINE_THRESHOLD_SECONDS = 15; // 离线判定阈值
         #endregion
@@ -59,13 +63,19 @@ namespace DaemonKit.Services
         private UdpClient? _broadcastListener;
         private CancellationTokenSource? _listenerCts;
 
-        // 设备缓存 (IP -> 设备信息)
+        // 设备缓存 (ID -> 设备信息，优先使用 MachineInfo.ID 去重)
         private readonly Dictionary<string, MachineInfoExtended> _deviceCache = new();
         private readonly object _cacheLock = new();
 
         // 手动配置的设备IP列表
         private readonly HashSet<string> _manualDevices = new();
         private readonly object _manualLock = new();
+
+        // P2P 服务引用（用于 TCP 设备信息交换）
+        private P2PFileTransferService? _p2pService;
+
+        // 手动设备周期性重探测间隔（秒）
+        private const int MANUAL_REPROBE_INTERVAL_SECONDS = 15;
 
         // 配置文件路径
         private readonly string _configFilePath;
@@ -134,6 +144,9 @@ namespace DaemonKit.Services
 
             // 设置离线检测定时器
             SetupOfflineDetection();
+
+            // 设置手动设备周期性重探测
+            SetupManualDeviceReprobe();
         }
 
         #endregion
@@ -158,7 +171,7 @@ namespace DaemonKit.Services
                 ProbeManualDevices();
             }
 
-            NLogger.Info($"[Discovery] 设备发现服务已启动，模式: {mode}");
+            NLogger.Info("[Discovery] 设备发现服务已启动，模式: {Mode}", mode);
         }
 
         /// <summary>
@@ -196,7 +209,7 @@ namespace DaemonKit.Services
                 ProbeManualDevices();
             }
 
-            NLogger.Info($"[Discovery] 切换模式: {oldMode} -> {mode}");
+            NLogger.Info("[Discovery] 切换模式: {OldMode} -> {NewMode}", oldMode, mode);
         }
 
         /// <summary>
@@ -212,7 +225,7 @@ namespace DaemonKit.Services
                 if (_manualDevices.Add(ipAddress))
                 {
                     SaveConfiguration();
-                    NLogger.Info($"[Discovery] 添加手动设备: {ipAddress}");
+                    NLogger.Info("[Discovery] 添加手动设备: {IpAddress}", ipAddress);
 
                     // 立即探测
                     _ = ProbeDeviceAsync(ipAddress);
@@ -241,7 +254,7 @@ namespace DaemonKit.Services
                 if (_manualDevices.Remove(ipAddress))
                 {
                     SaveConfiguration();
-                    NLogger.Info($"[Discovery] 移除手动设备: {ipAddress}");
+                    NLogger.Info("[Discovery] 移除手动设备: {IpAddress}", ipAddress);
                 }
             }
         }
@@ -263,7 +276,7 @@ namespace DaemonKit.Services
                 return;
             }
 
-            NLogger.Info($"[Discovery] 开始探测 {devices.Count} 个手动配置的设备");
+            NLogger.Info("[Discovery] 开始探测 {Count} 个手动配置的设备", devices.Count);
 
             // 并行探测所有设备
             Observable
@@ -272,57 +285,105 @@ namespace DaemonKit.Services
                     var tasks = devices.Select(ip => ProbeDeviceAsync(ip));
                     await Task.WhenAll(tasks);
                 })
-                .Subscribe(_ => { }, ex => NLogger.Error($"[Discovery] 探测设备异常: {ex.Message}"));
+                .Subscribe(
+                    _ => { },
+                    ex => NLogger.Error("[Discovery] 探测设备异常: {Message}", ex.Message)
+                );
         }
 
         /// <summary>
-        /// 探测单个设备
+        /// 探测单个设备（TCP 连接探测 + MachineInfo 信息交换）
         /// </summary>
         public async Task<bool> ProbeDeviceAsync(string ipAddress)
         {
             try
             {
-                NLogger.Info($"[Discovery] 正在探测设备: {ipAddress}");
+                NLogger.Info("[Discovery] 正在探测设备: {IpAddress}", ipAddress);
 
-                using var client = new TcpClient();
-                using var cts = new CancellationTokenSource(PROBE_TIMEOUT_MS);
+                // 尝试通过 P2P TCP 通道获取完整 MachineInfo
+                _p2pService ??= Locator.Current.GetService<P2PFileTransferService>();
 
-                await client.ConnectAsync(ipAddress, TCP_PROBE_PORT, cts.Token);
-
-                if (client.Connected)
+                MachineInfo? remoteInfo = null;
+                if (_p2pService != null)
                 {
-                    NLogger.Info($"[Discovery] 设备在线: {ipAddress}");
-
-                    // 创建或更新设备信息
-                    var device = new MachineInfoExtended
+                    try
                     {
-                        ID = ipAddress,
-                        Name = $"Device-{ipAddress}",
-                        IPs = new System.Collections.ObjectModel.ObservableCollection<string>
+                        remoteInfo = await _p2pService.RequestRemoteMachineInfoAsync(
+                            ipAddress,
+                            PROBE_TIMEOUT_MS
+                        );
+                    }
+                    catch (Exception ex)
+                    {
+                        NLogger.Warn(
+                            "[Discovery] TCP 设备信息请求失败，回退到 TCP 握手探测: {IpAddress} - {Message}",
+                            ipAddress,
+                            ex.Message
+                        );
+                    }
+                }
+
+                // 如果 P2P 请求失败，回退到纯 TCP 握手探测
+                if (remoteInfo == null)
+                {
+                    using var client = new TcpClient();
+                    using var cts = new CancellationTokenSource(PROBE_TIMEOUT_MS);
+                    await client.ConnectAsync(ipAddress, TCP_PROBE_PORT, cts.Token);
+
+                    if (!client.Connected)
+                    {
+                        MarkDeviceOffline(ipAddress);
+                        return false;
+                    }
+                }
+
+                // 创建或更新设备信息
+                var device = new MachineInfoExtended
+                {
+                    ID = remoteInfo?.ID ?? ipAddress,
+                    Name = remoteInfo?.Name ?? $"Device-{ipAddress}",
+                    IPs =
+                        remoteInfo?.IPs
+                        ?? new System.Collections.ObjectModel.ObservableCollection<string>
                         {
                             ipAddress
                         },
-                        Status = MachineStatus.Online,
-                        LastSeen = DateTime.Now,
-                        IsManuallyAdded = true
-                    };
+                    CPUs = remoteInfo?.CPUs,
+                    GPUs = remoteInfo?.GPUs,
+                    Memories = remoteInfo?.Memories,
+                    Status = MachineStatus.Online,
+                    LastSeen = DateTime.Now,
+                    IsManuallyAdded = true
+                };
 
-                    UpdateDeviceCache(device);
-                    _deviceDiscovered.OnNext(device);
-                    return true;
+                // 确保 ID 不为空
+                if (string.IsNullOrEmpty(device.ID))
+                {
+                    device.ID = ipAddress;
                 }
+
+                NLogger.Info(
+                    "[Discovery] 设备在线: {IpAddress}，名称: {DeviceName}，信息来源: {Source}",
+                    ipAddress,
+                    device.Name,
+                    remoteInfo != null ? "MachineInfo交换" : "TCP握手"
+                );
+
+                UpdateDeviceCache(device);
+                _deviceDiscovered.OnNext(device);
+                return true;
             }
             catch (OperationCanceledException)
             {
-                NLogger.Warn($"[Discovery] 探测超时: {ipAddress}");
+                NLogger.Warn("[Discovery] 探测超时: {IpAddress}", ipAddress);
             }
             catch (SocketException ex)
             {
-                NLogger.Warn($"[Discovery] 探测失败: {ipAddress} - {ex.Message}");
+                NLogger.Warn("[Discovery] 探测失败: {IpAddress} - {Message}", ipAddress, ex.Message);
             }
             catch (Exception ex)
             {
-                NLogger.Error($"[Discovery] 探测异常: {ipAddress} - {ex.Message}");
+                NLogger.Error("[Discovery] 探测异常: {IpAddress} - {Message}", ipAddress, ex.Message);
             }
 
             // 标记离线
@@ -415,7 +476,7 @@ namespace DaemonKit.Services
                                 }
                                 catch (Exception ex)
                                 {
-                                    NLogger.Warn($"[Discovery] 广播接收异常: {ex.Message}");
+                                    NLogger.Warn("[Discovery] 广播接收异常: {Message}", ex.Message);
                                 }
                             }
                             observer.OnCompleted();
@@ -431,7 +492,7 @@ namespace DaemonKit.Services
 
                 var subscription = listenerObservable.Subscribe(
                     tuple => HandleBroadcastDevice(tuple.Item1, tuple.Item2),
-                    ex => NLogger.Error($"[Discovery] 广播监听错误: {ex.Message}")
+                    ex => NLogger.Error("[Discovery] 广播监听错误: {Message}", ex.Message)
                 );
 
                 _disposables.Add(subscription);
@@ -439,7 +500,7 @@ namespace DaemonKit.Services
             }
             catch (Exception ex)
             {
-                NLogger.Error($"[Discovery] 启动广播监听失败: {ex.Message}");
+                NLogger.Error("[Discovery] 启动广播监听失败: {Message}", ex.Message);
             }
         }
 
@@ -477,6 +538,25 @@ namespace DaemonKit.Services
         }
 
         /// <summary>
+        /// 设置手动设备周期性重探测（每 MANUAL_REPROBE_INTERVAL_SECONDS 秒重新探测所有手动设备）
+        /// </summary>
+        private void SetupManualDeviceReprobe()
+        {
+            var reprobeSubscription = Observable
+                .Interval(TimeSpan.FromSeconds(MANUAL_REPROBE_INTERVAL_SECONDS))
+                .Subscribe(_ =>
+                {
+                    var mode = _discoveryMode.Value;
+                    if (mode == DiscoveryMode.ManualOnly || mode == DiscoveryMode.Hybrid)
+                    {
+                        ProbeManualDevices();
+                    }
+                });
+
+            _disposables.Add(reprobeSubscription);
+        }
+
+        /// <summary>
         /// 检查离线设备
         /// </summary>
         private void CheckOfflineDevices()
@@ -505,20 +585,31 @@ namespace DaemonKit.Services
             foreach (var deviceId in offlineDevices)
             {
                 _deviceOffline.OnNext(deviceId);
-                NLogger.Info($"[Discovery] 设备离线: {deviceId}");
+                NLogger.Info("[Discovery] 设备离线: {DeviceId}", deviceId);
             }
         }
 
         /// <summary>
-        /// 更新设备缓存
+        /// 更新设备缓存（使用 ID 作为主键，避免 DHCP 换 IP 导致设备重复）
         /// </summary>
         private void UpdateDeviceCache(MachineInfoExtended device)
         {
             lock (_cacheLock)
             {
-                var key = device.IPs?.FirstOrDefault() ?? device.ID;
-                if (string.IsNullOrEmpty(key))
+                // 优先使用 ID 作为缓存键，回退到首个 IP
+                var key = !string.IsNullOrEmpty(device.ID)
+                    ? device.ID
+                    : device.IPs?.FirstOrDefault() ?? "unknown";
+
+                if (string.IsNullOrEmpty(key) || key == "unknown")
                     return;
+
+                // 检查是否存在旧的 IP-based key，若设备 ID 与 IP 不同则清除旧条目
+                var firstIp = device.IPs?.FirstOrDefault();
+                if (firstIp != null && firstIp != key && _deviceCache.ContainsKey(firstIp))
+                {
+                    _deviceCache.Remove(firstIp);
+                }
 
                 if (_deviceCache.TryGetValue(key, out var existing))
                 {
@@ -545,16 +636,28 @@ namespace DaemonKit.Services
         }
 
         /// <summary>
-        /// 标记设备离线
+        /// 标记设备离线（支持按 ID 或 IP 查找）
         /// </summary>
-        private void MarkDeviceOffline(string ipAddress)
+        private void MarkDeviceOffline(string idOrIp)
         {
             lock (_cacheLock)
             {
-                if (_deviceCache.TryGetValue(ipAddress, out var device))
+                // 优先按 key 直接查找
+                if (_deviceCache.TryGetValue(idOrIp, out var device))
                 {
                     device.Status = MachineStatus.Offline;
-                    _deviceOffline.OnNext(ipAddress);
+                    _deviceOffline.OnNext(idOrIp);
+                    return;
+                }
+
+                // 回退：按 IP 在所有设备中查找
+                var match = _deviceCache.FirstOrDefault(
+                    kvp => kvp.Value.IPs?.Contains(idOrIp) == true
+                );
+                if (match.Value != null)
+                {
+                    match.Value.Status = MachineStatus.Offline;
+                    _deviceOffline.OnNext(match.Key);
                 }
             }
         }
@@ -595,7 +698,7 @@ namespace DaemonKit.Services
             }
             catch (Exception ex)
             {
-                NLogger.Warn($"[Discovery] 加载配置失败: {ex.Message}");
+                NLogger.Warn("[Discovery] 加载配置失败: {Message}", ex.Message);
             }
         }
 
@@ -630,7 +733,7 @@ namespace DaemonKit.Services
             }
             catch (Exception ex)
             {
-                NLogger.Error($"[Discovery] 保存配置失败: {ex.Message}");
+                NLogger.Error("[Discovery] 保存配置失败: {Message}", ex.Message);
             }
         }
 

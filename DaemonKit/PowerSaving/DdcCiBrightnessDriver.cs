@@ -61,7 +61,8 @@ namespace DaemonKit.PowerSaving
                             return info;
                         }
                         NLogger.Error(
-                            $"[DDC/CI] GetBrightness: GetMonitorBrightness失败，错误: {Marshal.GetLastWin32Error()}"
+                            "[DDC/CI] GetBrightness: GetMonitorBrightness失败，错误: {ErrorCode}",
+                            Marshal.GetLastWin32Error()
                         );
                         return null;
                     }
@@ -87,7 +88,7 @@ namespace DaemonKit.PowerSaving
 
                     if (!TryOpenPhysicalMonitors(display, out var monitors) || monitors.Length == 0)
                     {
-                        NLogger.Error($"[DDC/CI] 无法打开物理监视器: {display.DeviceName}");
+                        NLogger.Error("[DDC/CI] 无法打开物理监视器: {DeviceName}", display.DeviceName);
                         return false;
                     }
 
@@ -106,7 +107,7 @@ namespace DaemonKit.PowerSaving
                             )
                             {
                                 var errorCode = Marshal.GetLastWin32Error();
-                                NLogger.Error($"[DDC/CI] 获取亮度信息失败，错误代码: {errorCode}");
+                                NLogger.Error("[DDC/CI] 获取亮度信息失败，错误代码: {ErrorCode}", errorCode);
                                 success = false;
                                 continue;
                             }
@@ -116,7 +117,7 @@ namespace DaemonKit.PowerSaving
                             if (!SetMonitorBrightness(monitor.hPhysicalMonitor, targetBrightness))
                             {
                                 var errorCode = Marshal.GetLastWin32Error();
-                                NLogger.Error($"[DDC/CI] 亮度设置失败，错误代码: {errorCode}");
+                                NLogger.Error("[DDC/CI] 亮度设置失败，错误代码: {ErrorCode}", errorCode);
                                 success = false;
                             }
                         }
@@ -159,14 +160,14 @@ namespace DaemonKit.PowerSaving
 
             if (!GetNumberOfPhysicalMonitorsFromHMONITOR(hMonitor, out var count) || count == 0)
             {
-                NLogger.Error($"[DDC/CI] 无法获取物理监视器");
+                NLogger.Error("[DDC/CI] 无法获取物理监视器");
                 return false;
             }
 
             var buffer = new PHYSICAL_MONITOR[count];
             if (!GetPhysicalMonitorsFromHMONITOR(hMonitor, count, buffer))
             {
-                NLogger.Error($"[DDC/CI] 打开物理监视器失败");
+                NLogger.Error("[DDC/CI] 打开物理监视器失败");
                 return false;
             }
 

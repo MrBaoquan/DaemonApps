@@ -1,4 +1,4 @@
-# PowerShell 短期任务示例脚本
+﻿# PowerShell 短期任务示例脚本
 # 说明: 这是一个 PowerShell 版本的一次性任务脚本
 # 用途: 演示如何在 DaemonKit 中运行 PowerShell 脚本
 # 特点: 支持 NoDaemon=true 标记以禁用自动重启

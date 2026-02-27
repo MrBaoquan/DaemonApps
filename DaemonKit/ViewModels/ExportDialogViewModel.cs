@@ -328,6 +328,12 @@ namespace DaemonKit.ViewModels
                             DialogInstance = progressWindow
                         }
                     );
+
+                    // 打开导出文件所在文件夹并选中文件
+                    System.Diagnostics.Process.Start(
+                        "explorer.exe",
+                        $"/select,\"{saveDialog.FileName}\""
+                    );
                 }
                 else
                 {

@@ -253,9 +253,59 @@ namespace DaemonKit.Utilities
         public static void SyncSettings()
         {
             var AppSettings = MainWindow.AppSettings;
+
+            // Task Scheduler COM API (ITaskService) 需要 STA 线程环境。
+            // 使用专用 STA 后台线程代替 Task.Run (MTA)，避免跨公寓 COM 调用导致死锁。
+            var syncThread = new System.Threading.Thread(() =>
+            {
+                try
+                {
+                    SyncStartupTask(AppSettings);
+                }
+                catch (Exception ex)
+                {
+                    NLogger.Warn("同步开机启动任务异常: {Message}", ex.Message);
+                }
+
+                try
+                {
+                    if (AppSettings.StartUp)
+                    {
+                        Services.GuardServiceHelper.SyncGuardService(true, AppPathes.ExecutorPath);
+                    }
+                    else
+                    {
+                        Services.GuardServiceHelper.SyncGuardService(false, null);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    DNHper.NLogger.Warn("同步守护服务状态异常: {Message}", ex.Message);
+                }
+            });
+            syncThread.SetApartmentState(System.Threading.ApartmentState.STA);
+            syncThread.IsBackground = true;
+            syncThread.Start();
+
+            if (AppSettings.ShortCut)
+            {
+                Utils.CreateShortcutIfNotExists();
+            }
+            else
+            {
+                Utils.DeleteShortcutIfExists();
+            }
+        }
+
+        /// <summary>
+        /// 同步开机启动计划任务（Task Scheduler COM 操作）。
+        /// 此方法必须在后台线程调用，因为 TaskService COM API 可能耗时较长。
+        /// 当检测到启动路径冲突时，自动更新为当前路径（不再弹出 MessageBox 阻塞 UI）。
+        /// </summary>
+        private static void SyncStartupTask(AppSettings AppSettings)
+        {
             if (AppSettings.StartUp)
             {
-                //runKey.SetValue (appKey, AppPathes.ExecutorPath);
                 var _startUpTask = TaskService.Instance.AllTasks
                     .Where(_task => _task.Name == appKey)
                     .FirstOrDefault();
@@ -282,40 +332,36 @@ namespace DaemonKit.Utilities
                     != AppPathes.ExecutorPath
                 )
                 {
-                    if (
-                        MessageBox.Show(
-                            $"已设置{_startUpTask.Definition.Actions.First()}为默认启动路径，是否更改当前进程为默认启动项",
-                            "启动路径冲突",
-                            MessageBoxButton.YesNoCancel,
-                            MessageBoxImage.Warning,
-                            MessageBoxResult.Cancel
-                        ) == MessageBoxResult.Yes
-                    )
+                    // 启动路径冲突 — 自动更新为当前路径（不再弹 MessageBox 阻塞 UI 线程）
+                    NLogger.Warn(
+                        "检测到启动路径冲突，原路径: {OldPath}，自动更新为: {NewPath}",
+                        (_startUpTask.Definition.Actions.First() as ExecAction).Path,
+                        AppPathes.ExecutorPath
+                    );
+
+                    _startUpTask.Definition.Actions.Clear();
+                    _startUpTask.Definition.Actions.Add(AppPathes.ExecutorPath);
+
+                    // 更新延迟启动配置
+                    var logonTrigger = _startUpTask.Definition.Triggers
+                        .OfType<LogonTrigger>()
+                        .FirstOrDefault();
+                    if (logonTrigger != null)
                     {
-                        _startUpTask.Definition.Actions.Clear();
-                        _startUpTask.Definition.Actions.Add(AppPathes.ExecutorPath);
-
-                        // 更新延迟启动配置
-                        var logonTrigger = _startUpTask.Definition.Triggers
-                            .OfType<LogonTrigger>()
-                            .FirstOrDefault();
-                        if (logonTrigger != null)
+                        if (AppSettings.StartUpDelay > 0)
                         {
-                            if (AppSettings.StartUpDelay > 0)
-                            {
-                                logonTrigger.Delay = TimeSpan.FromSeconds(AppSettings.StartUpDelay);
-                            }
-                            else
-                            {
-                                logonTrigger.Delay = TimeSpan.Zero;
-                            }
+                            logonTrigger.Delay = TimeSpan.FromSeconds(AppSettings.StartUpDelay);
                         }
-
-                        _startUpTask.RegisterChanges();
-                        NLogger.Info("已更改启动路径为: " + AppPathes.ExecutorPath);
-                        Utils.DeleteShortcutIfExists();
-                        Utils.CreateShortcutIfNotExists();
+                        else
+                        {
+                            logonTrigger.Delay = TimeSpan.Zero;
+                        }
                     }
+
+                    _startUpTask.RegisterChanges();
+                    NLogger.Info("已自动更新启动路径为: " + AppPathes.ExecutorPath);
+                    Utils.DeleteShortcutIfExists();
+                    Utils.CreateShortcutIfNotExists();
                 }
                 else
                 {
@@ -337,7 +383,7 @@ namespace DaemonKit.Utilities
                                 logonTrigger.Delay = TimeSpan.Zero;
                             }
                             _startUpTask.RegisterChanges();
-                            NLogger.Info($"已更新开机启动延迟为 {AppSettings.StartUpDelay} 秒.");
+                            NLogger.Info("已更新开机启动延迟为 {StartUpDelay} 秒.", AppSettings.StartUpDelay);
                         }
                     }
                 }
@@ -349,15 +395,6 @@ namespace DaemonKit.Utilities
                     TaskService.Instance.RootFolder.DeleteTask(appKey, false);
                     NLogger.Info("已取消开机启动.");
                 }
-            }
-
-            if (AppSettings.ShortCut)
-            {
-                Utils.CreateShortcutIfNotExists();
-            }
-            else
-            {
-                Utils.DeleteShortcutIfExists();
             }
         }
     }

@@ -12,6 +12,7 @@ using System.Windows.Threading;
 using System.Linq;
 using DaemonKit.Models;
 using DaemonKit.Utilities;
+using DaemonKit.Services;
 using Microsoft.Win32;
 
 namespace DaemonKit
@@ -682,26 +683,13 @@ namespace DaemonKit
 
                 // 只更新背景层，保留笔触层
                 _captureBitmap?.Dispose();
-                _captureBitmap = new Bitmap(_lastScreenshotWidth, _lastScreenshotHeight);
-                using (Graphics g = Graphics.FromImage(_captureBitmap))
-                {
-                    g.DrawImage(
-                        _screenBitmap,
-                        new System.Drawing.Rectangle(
-                            0,
-                            0,
-                            _lastScreenshotWidth,
-                            _lastScreenshotHeight
-                        ),
-                        new System.Drawing.Rectangle(
-                            cropX,
-                            cropY,
-                            _lastScreenshotWidth,
-                            _lastScreenshotHeight
-                        ),
-                        GraphicsUnit.Pixel
-                    );
-                }
+                _captureBitmap = ScreenCaptureService.CropFromScreen(
+                    _screenBitmap,
+                    cropX,
+                    cropY,
+                    _lastScreenshotWidth,
+                    _lastScreenshotHeight
+                );
 
                 // 重新合成
                 CompositeLayersToEditing();
@@ -711,7 +699,7 @@ namespace DaemonKit
             }
             catch (Exception ex)
             {
-                DNHper.NLogger.Warn($"拖动实时刷新失败: {ex.Message}");
+                DNHper.NLogger.Warn("拖动实时刷新失败: {ErrorMessage}", ex.Message);
             }
         }
 
@@ -835,7 +823,7 @@ namespace DaemonKit
             }
             catch (Exception ex)
             {
-                DNHper.NLogger.Error($"ShowToolBar 失败: {ex.Message}");
+                DNHper.NLogger.Error("ShowToolBar 失败: {ErrorMessage}", ex.Message);
             }
         }
 
@@ -850,58 +838,23 @@ namespace DaemonKit
 
                 // 初始化背景截图层
                 _captureBitmap?.Dispose();
-                _captureBitmap = new Bitmap(_lastScreenshotWidth, _lastScreenshotHeight);
-                using (Graphics g = Graphics.FromImage(_captureBitmap))
-                {
-                    g.DrawImage(
-                        _screenBitmap,
-                        new System.Drawing.Rectangle(
-                            0,
-                            0,
-                            _lastScreenshotWidth,
-                            _lastScreenshotHeight
-                        ),
-                        new System.Drawing.Rectangle(
-                            cropX,
-                            cropY,
-                            _lastScreenshotWidth,
-                            _lastScreenshotHeight
-                        ),
-                        GraphicsUnit.Pixel
-                    );
-                }
+                _captureBitmap = ScreenCaptureService.CropFromScreen(
+                    _screenBitmap,
+                    cropX,
+                    cropY,
+                    _lastScreenshotWidth,
+                    _lastScreenshotHeight
+                );
 
                 // 初始化透明笔触层（全屏幕大小，使用绝对坐标）
                 if (_strokeBitmap == null)
                 {
-                    _strokeBitmap = new Bitmap(_screenBitmap.Width, _screenBitmap.Height);
-                    _strokeGraphics = Graphics.FromImage(_strokeBitmap);
-                    _strokeGraphics.SmoothingMode = System
-                        .Drawing
-                        .Drawing2D
-                        .SmoothingMode
-                        .AntiAlias;
-                    _strokeGraphics.TextRenderingHint = System
-                        .Drawing
-                        .Text
-                        .TextRenderingHint
-                        .AntiAliasGridFit;
-                    _strokeGraphics.CompositingMode = System
-                        .Drawing
-                        .Drawing2D
-                        .CompositingMode
-                        .SourceOver;
-                    _strokeGraphics.CompositingQuality = System
-                        .Drawing
-                        .Drawing2D
-                        .CompositingQuality
-                        .HighQuality;
-                    _strokeGraphics.PixelOffsetMode = System
-                        .Drawing
-                        .Drawing2D
-                        .PixelOffsetMode
-                        .HighQuality;
-                    _strokeGraphics.Clear(System.Drawing.Color.Transparent);
+                    var (bitmap, graphics) = ScreenCaptureService.CreateStrokeLayer(
+                        _screenBitmap.Width,
+                        _screenBitmap.Height
+                    );
+                    _strokeBitmap = bitmap;
+                    _strokeGraphics = graphics;
                 }
 
                 // 合成显示层
@@ -948,7 +901,7 @@ namespace DaemonKit
             }
             catch (Exception ex)
             {
-                DNHper.NLogger.Error($"CaptureAndShowScreenshot 失败: {ex.Message}");
+                DNHper.NLogger.Error("CaptureAndShowScreenshot 失败: {ErrorMessage}", ex.Message);
             }
         }
 
@@ -957,25 +910,17 @@ namespace DaemonKit
             if (_captureBitmap == null || _strokeBitmap == null || _editingBitmap == null)
                 return;
 
-            using (Graphics g = Graphics.FromImage(_editingBitmap))
-            {
-                g.Clear(System.Drawing.Color.Transparent);
-                g.DrawImage(_captureBitmap, 0, 0);
-                // 从全屏幕笔触层裁剪当前选区对应区域
-                int cropX = _lastScreenshotX - _screenLeft;
-                int cropY = _lastScreenshotY - _screenTop;
-                g.DrawImage(
-                    _strokeBitmap,
-                    new System.Drawing.Rectangle(0, 0, _lastScreenshotWidth, _lastScreenshotHeight),
-                    new System.Drawing.Rectangle(
-                        cropX,
-                        cropY,
-                        _lastScreenshotWidth,
-                        _lastScreenshotHeight
-                    ),
-                    GraphicsUnit.Pixel
-                );
-            }
+            int cropX = _lastScreenshotX - _screenLeft;
+            int cropY = _lastScreenshotY - _screenTop;
+            ScreenCaptureService.CompositeLayersToEditing(
+                _editingBitmap,
+                _captureBitmap,
+                _strokeBitmap,
+                cropX,
+                cropY,
+                _lastScreenshotWidth,
+                _lastScreenshotHeight
+            );
         }
 
         private void Window_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
@@ -1209,27 +1154,12 @@ namespace DaemonKit
 
                     if (saveDialog.ShowDialog() == true)
                     {
-                        // 根据文件扩展名确定保存格式
-                        ImageFormat format = ImageFormat.Png;
-                        string ext = System.IO.Path.GetExtension(saveDialog.FileName).ToLower();
-                        switch (ext)
-                        {
-                            case ".jpg":
-                            case ".jpeg":
-                                format = ImageFormat.Jpeg;
-                                break;
-                            case ".bmp":
-                                format = ImageFormat.Bmp;
-                                break;
-                        }
-
-                        // 保存文件
-                        _editingBitmap.Save(saveDialog.FileName, format);
+                        // 保存文件（使用 ScreenCaptureService）
+                        ScreenCaptureService.SaveBitmapToFile(_editingBitmap, saveDialog.FileName);
 
                         // 同时复制到剪贴板
                         TrySetClipboardImage(_editingBitmap);
 
-                        DNHper.NLogger.Info($"截图已保存: {saveDialog.FileName}");
                         Result = $"Saved:{saveDialog.FileName}";
                         DialogResult = true;
                         Close();
@@ -1237,7 +1167,7 @@ namespace DaemonKit
                 }
                 catch (Exception ex)
                 {
-                    DNHper.NLogger.Error($"截图保存失败: {ex.Message}");
+                    DNHper.NLogger.Error("截图保存失败: {ErrorMessage}", ex.Message);
                     MessageBox.Show(
                         $"截图保存失败: {ex.Message}",
                         "错误",
@@ -1250,15 +1180,7 @@ namespace DaemonKit
 
         private string GetDefaultScreenshotFolder()
         {
-            // 使用统一的截图目录
-            string folder = Utilities.AppPathes.ScreenshotsDir;
-
-            if (!Directory.Exists(folder))
-            {
-                Directory.CreateDirectory(folder);
-            }
-
-            return folder;
+            return ScreenCaptureService.GetDefaultScreenshotFolder();
         }
 
         private void CancelButton_Click(object sender, RoutedEventArgs e)
@@ -1294,52 +1216,12 @@ namespace DaemonKit
 
         private void TrySetClipboard(string text, int maxRetries = 3)
         {
-            for (int i = 0; i < maxRetries; i++)
-            {
-                try
-                {
-                    Clipboard.SetDataObject(text, true);
-                    DNHper.NLogger.Debug($"已复制到剪贴板: {text}");
-                    return;
-                }
-                catch (System.Runtime.InteropServices.COMException ex)
-                {
-                    DNHper.NLogger.Warn($"剪贴板操作失败 (尝试 {i + 1}/{maxRetries}): {ex.Message}");
-                    if (i < maxRetries - 1)
-                        System.Threading.Thread.Sleep(100);
-                }
-                catch (Exception ex)
-                {
-                    DNHper.NLogger.Error($"剪贴板操作异常: {ex.Message}");
-                    break;
-                }
-            }
-            DNHper.NLogger.Warn($"无法复制到剪贴板，但结果已保存: {text}");
+            ScreenCaptureService.TrySetClipboard(text, maxRetries);
         }
 
         private void TrySetClipboardImage(Bitmap bitmap, int maxRetries = 3)
         {
-            for (int i = 0; i < maxRetries; i++)
-            {
-                try
-                {
-                    var bitmapSource = ColorPicker.BitmapToBitmapSource(bitmap);
-                    Clipboard.SetImage(bitmapSource);
-                    DNHper.NLogger.Debug($"编辑后的截图已复制到剪贴板 ({bitmap.Width}x{bitmap.Height})");
-                    return;
-                }
-                catch (System.Runtime.InteropServices.COMException ex)
-                {
-                    DNHper.NLogger.Warn($"剪贴板操作失败 (尝试 {i + 1}/{maxRetries}): {ex.Message}");
-                    if (i < maxRetries - 1)
-                        System.Threading.Thread.Sleep(100);
-                }
-                catch (Exception ex)
-                {
-                    DNHper.NLogger.Error($"剪贴板操作异常: {ex.Message}");
-                    break;
-                }
-            }
+            ScreenCaptureService.TrySetClipboardImage(bitmap, maxRetries);
         }
 
         private void Window_KeyDown(object sender, KeyEventArgs e)
@@ -1573,13 +1455,7 @@ namespace DaemonKit
                 SelectionScreenshotImage.Source = ColorPicker.BitmapToBitmapSource(_editingBitmap);
 
                 // 保存撤销历史（保存笔触层）
-                if (_undoHistory.Count >= MaxUndoSteps)
-                {
-                    var oldest = _undoHistory.Last();
-                    oldest?.Dispose();
-                    _undoHistory = new Stack<Bitmap>(_undoHistory.Take(MaxUndoSteps - 1).Reverse());
-                }
-                _undoHistory.Push((Bitmap)_strokeBitmap.Clone());
+                ScreenCaptureService.PushUndoState(ref _undoHistory, _strokeBitmap, MaxUndoSteps);
 
                 _isDrawing = false;
             }
@@ -1587,44 +1463,14 @@ namespace DaemonKit
 
         private void DrawArrowOnGraphics(Graphics g, float x1, float y1, float x2, float y2)
         {
-            const double headlen = 15;
-            const double angle = Math.PI / 6;
-
-            // 绘制箭头线
-            g.DrawLine(
-                new System.Drawing.Pen(_currentBrushColor, _currentBrushSize),
+            ScreenCaptureService.DrawArrow(
+                g,
                 x1,
                 y1,
                 x2,
-                y2
-            );
-
-            // 计算箭头方向
-            double dx = x2 - x1;
-            double dy = y2 - y1;
-            double len = Math.Sqrt(dx * dx + dy * dy);
-            double rad = Math.Atan2(dy, dx);
-
-            // 箭头左边
-            float endX1 = (float)(x2 - headlen * Math.Cos(rad - angle));
-            float endY1 = (float)(y2 - headlen * Math.Sin(rad - angle));
-            g.DrawLine(
-                new System.Drawing.Pen(_currentBrushColor, _currentBrushSize),
-                x2,
                 y2,
-                endX1,
-                endY1
-            );
-
-            // 箭头右边
-            float endX2 = (float)(x2 - headlen * Math.Cos(rad + angle));
-            float endY2 = (float)(y2 - headlen * Math.Sin(rad + angle));
-            g.DrawLine(
-                new System.Drawing.Pen(_currentBrushColor, _currentBrushSize),
-                x2,
-                y2,
-                endX2,
-                endY2
+                _currentBrushColor,
+                _currentBrushSize
             );
         }
 
@@ -1907,45 +1753,22 @@ namespace DaemonKit
                 int offsetX = _lastScreenshotX - _screenLeft;
                 int offsetY = _lastScreenshotY - _screenTop;
 
-                // 绘制到笔触层，使用用户设置的文字大小
-                // 使用StringFormat确保与WPF TextBox显示完全一致
-                using (
-                    var font = new System.Drawing.Font(
-                        "Microsoft YaHei",
-                        (float)_currentTextSize,
-                        System.Drawing.GraphicsUnit.Pixel
-                    )
-                )
-                using (var brush = new System.Drawing.SolidBrush(_currentBrushColor))
-                using (
-                    var format = new System.Drawing.StringFormat(
-                        System.Drawing.StringFormat.GenericTypographic
-                    )
-                )
-                {
-                    format.FormatFlags = System.Drawing.StringFormatFlags.MeasureTrailingSpaces;
-                    _strokeGraphics.DrawString(
-                        _activeTextBox.Text,
-                        font,
-                        brush,
-                        (float)(left + offsetX),
-                        (float)(top + offsetY),
-                        format
-                    );
-                }
+                // 绘制到笔触层，使用 ScreenCaptureService
+                ScreenCaptureService.RenderText(
+                    _strokeGraphics,
+                    _activeTextBox.Text,
+                    (float)(left + offsetX),
+                    (float)(top + offsetY),
+                    (float)_currentTextSize,
+                    _currentBrushColor
+                );
 
                 // 合成并显示
                 CompositeLayersToEditing();
                 SelectionScreenshotImage.Source = ColorPicker.BitmapToBitmapSource(_editingBitmap);
 
                 // 保存撤销历史
-                if (_undoHistory.Count >= MaxUndoSteps)
-                {
-                    var oldest = _undoHistory.Last();
-                    oldest?.Dispose();
-                    _undoHistory = new Stack<Bitmap>(_undoHistory.Take(MaxUndoSteps - 1).Reverse());
-                }
-                _undoHistory.Push((Bitmap)_strokeBitmap.Clone());
+                ScreenCaptureService.PushUndoState(ref _undoHistory, _strokeBitmap, MaxUndoSteps);
             }
 
             if (_activeTextBox != null)
@@ -2014,28 +1837,17 @@ namespace DaemonKit
 
         private void UndoLastAction()
         {
-            if (_undoHistory.Count > 1)
+            var restored = ScreenCaptureService.PopUndoState(_undoHistory);
+            if (restored != null)
             {
-                _undoHistory.Pop()?.Dispose();
-                var previousStroke = _undoHistory.Peek();
-                if (previousStroke != null)
-                {
-                    _strokeBitmap?.Dispose();
-                    _strokeGraphics?.Dispose();
-                    _strokeBitmap = (Bitmap)previousStroke.Clone();
-                    _strokeGraphics = Graphics.FromImage(_strokeBitmap);
-                    _strokeGraphics.SmoothingMode = System
-                        .Drawing
-                        .Drawing2D
-                        .SmoothingMode
-                        .AntiAlias;
+                _strokeBitmap?.Dispose();
+                _strokeGraphics?.Dispose();
+                _strokeBitmap = restored;
+                _strokeGraphics = Graphics.FromImage(_strokeBitmap);
+                _strokeGraphics.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
 
-                    CompositeLayersToEditing();
-                    SelectionScreenshotImage.Source = ColorPicker.BitmapToBitmapSource(
-                        _editingBitmap
-                    );
-                    DNHper.NLogger.Info("已撤销上一步操作");
-                }
+                CompositeLayersToEditing();
+                SelectionScreenshotImage.Source = ColorPicker.BitmapToBitmapSource(_editingBitmap);
             }
         }
 

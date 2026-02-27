@@ -592,11 +592,11 @@ namespace DaemonKit.ViewModels
                         try
                         {
                             await _transferService.SendFilesAsync(machine, files);
-                            DNHper.NLogger.Info($"[P2P] 文件发送完成");
+                            DNHper.NLogger.Info("[P2P] 文件发送完成");
                         }
                         catch (Exception ex)
                         {
-                            DNHper.NLogger.Error($"[P2P] 文件发送失败: {ex.Message}");
+                            DNHper.NLogger.Error("[P2P] 文件发送失败: {Message}", ex.Message);
                         }
                     });
                 }
@@ -608,7 +608,11 @@ namespace DaemonKit.ViewModels
                 try
                 {
                     var ip = machine.IPs?.FirstOrDefault() ?? machine.ID;
-                    DNHper.NLogger.Info($"[P2P] 正在打开远程文件浏览器: {machine.Name ?? machine.ID} ({ip})");
+                    DNHper.NLogger.Info(
+                        "[P2P] 正在打开远程文件浏览器: {MachineName} ({Ip})",
+                        machine.Name ?? machine.ID,
+                        ip
+                    );
 
                     // 创建ViewModel（传入UDP文件列表提供者和UDP下载回调）
                     var vm = new RemoteFileBrowserViewModel(
@@ -634,7 +638,7 @@ namespace DaemonKit.ViewModels
                 }
                 catch (Exception ex)
                 {
-                    DNHper.NLogger.Error($"[P2P] 浏览远程文件失败: {ex.Message}");
+                    DNHper.NLogger.Error("[P2P] 浏览远程文件失败: {Message}", ex.Message);
                 }
             });
 
@@ -715,7 +719,7 @@ namespace DaemonKit.ViewModels
                     }
                     catch (Exception ex)
                     {
-                        DNHper.NLogger.Error($"[P2P] 恢复任务失败: {ex.Message}");
+                        DNHper.NLogger.Error("[P2P] 恢复任务失败: {Message}", ex.Message);
                     }
                 }
             });
@@ -750,7 +754,7 @@ namespace DaemonKit.ViewModels
                 var task = new RemotePackageTask(machineName, ip);
                 _packageTaskCache.AddOrUpdate(task);
 
-                DNHper.NLogger.Info($"[P2P] 创建远程包下载任务: {machineName} ({ip})");
+                DNHper.NLogger.Info("[P2P] 创建远程包下载任务: {MachineName} ({Ip})", machineName, ip);
 
                 // 异步执行任务（不阻塞UI）
                 _ = ExecuteRemotePackageTaskAsync(task);
@@ -818,7 +822,11 @@ namespace DaemonKit.ViewModels
                     var task = new RemotePackageTask(machineName, ip);
                     _packageTaskCache.AddOrUpdate(task);
 
-                    DNHper.NLogger.Info($"[P2P] 批量任务 - 创建远程包下载任务: {machineName} ({ip})");
+                    DNHper.NLogger.Info(
+                        "[P2P] 批量任务 - 创建远程包下载任务: {MachineName} ({Ip})",
+                        machineName,
+                        ip
+                    );
 
                     _ = ThrottledExecuteRemotePackageTaskAsync(task);
                 }
@@ -882,7 +890,7 @@ namespace DaemonKit.ViewModels
                 {
                     SendCommandToMachine(machine, Models.Command.SHUTDOWN);
                 }
-                DNHper.NLogger.Info($"[P2P] 批量关机: {onlineSelected.Count} 台设备");
+                DNHper.NLogger.Info("[P2P] 批量关机: {Count} 台设备", onlineSelected.Count);
             });
 
             // 12.4 批量重启系统（选中设备，自动跳过离线）
@@ -917,7 +925,7 @@ namespace DaemonKit.ViewModels
                 {
                     SendCommandToMachine(machine, Models.Command.RESTART);
                 }
-                DNHper.NLogger.Info($"[P2P] 批量重启系统: {onlineSelected.Count} 台设备");
+                DNHper.NLogger.Info("[P2P] 批量重启系统: {Count} 台设备", onlineSelected.Count);
             });
 
             // 12.5 批量重启软件（选中设备，自动跳过离线）
@@ -943,7 +951,7 @@ namespace DaemonKit.ViewModels
                 {
                     SendCommandToMachine(machine, Models.Command.RESTART_NODE_TREE);
                 }
-                DNHper.NLogger.Info($"[P2P] 批量重启软件: {onlineSelected.Count} 台设备");
+                DNHper.NLogger.Info("[P2P] 批量重启软件: {Count} 台设备", onlineSelected.Count);
             });
 
             // 13. 取消远程包任务
@@ -958,7 +966,7 @@ namespace DaemonKit.ViewModels
                         cts.Cancel();
                         cts.Dispose();
                     }
-                    DNHper.NLogger.Info($"[P2P] 取消远程包任务: {task.MachineName}");
+                    DNHper.NLogger.Info("[P2P] 取消远程包任务: {MachineName}", task.MachineName);
                 }
             });
 
@@ -971,7 +979,7 @@ namespace DaemonKit.ViewModels
                     task.UpdateState(RemotePackageState.Pending, "等待中", 0);
                     task.ErrorMessage = null;
                     _ = ExecuteRemotePackageTaskAsync(task);
-                    DNHper.NLogger.Info($"[P2P] 重试远程包任务: {task.MachineName}");
+                    DNHper.NLogger.Info("[P2P] 重试远程包任务: {MachineName}", task.MachineName);
                 }
             });
 
@@ -1061,7 +1069,7 @@ namespace DaemonKit.ViewModels
                 );
                 if (!success)
                 {
-                    DNHper.NLogger.Warn($"[P2P] 远程导出失败: {error}");
+                    DNHper.NLogger.Warn("[P2P] 远程导出失败: {Error}", error);
                 }
                 // 推送到 Subject，Rx 管道中的 Where(TaskId).Take(1) 自动匹配
                 _exportCompletedSubject.OnNext((resolvedTaskId, success, packageFileName));
@@ -1207,7 +1215,7 @@ namespace DaemonKit.ViewModels
             }
             catch (Exception ex)
             {
-                DNHper.NLogger.Warn($"[DeviceCache] 加载缓存失败: {ex.Message}");
+                DNHper.NLogger.Warn("[DeviceCache] 加载缓存失败: {Message}", ex.Message);
             }
         }
 
@@ -1275,7 +1283,7 @@ namespace DaemonKit.ViewModels
             }
             catch (Exception ex)
             {
-                DNHper.NLogger.Warn($"[DeviceCache] 保存缓存失败: {ex.Message}");
+                DNHper.NLogger.Warn("[DeviceCache] 保存缓存失败: {Message}", ex.Message);
             }
         }
 
@@ -1344,7 +1352,11 @@ namespace DaemonKit.ViewModels
                     );
                     return;
                 }
-                DNHper.NLogger.Info($"[P2P] 任务 {task.TaskId} 已发送导出命令到 {machineName}");
+                DNHper.NLogger.Info(
+                    "[P2P] 任务 {TaskId} 已发送导出命令到 {MachineName}",
+                    task.TaskId,
+                    machineName
+                );
 
                 // ── Phase 2: 等待导出完成（Rx: Subject → Where → Take(1) → Timeout → ToTask） ──
                 task.UpdateState(RemotePackageState.Exporting, "远程正在导出...", 20);
@@ -1374,7 +1386,7 @@ namespace DaemonKit.ViewModels
                 if (string.IsNullOrEmpty(latestPackage))
                 {
                     // 降级方案：远程未返回文件名，尝试TCP获取文件列表
-                    DNHper.NLogger.Warn($"[P2P] 任务 {task.TaskId} 远程未返回文件名，尝试TCP获取文件列表");
+                    DNHper.NLogger.Warn("[P2P] 任务 {TaskId} 远程未返回文件名，尝试TCP获取文件列表", task.TaskId);
                     task.UpdateState(RemotePackageState.ExportCompleted, "导出完成，获取文件列表...", 50);
                     _packageTaskCache.AddOrUpdate(task);
                     _taskManager.UpdateTaskStatus(placeholderTaskId, "备份完成，获取文件列表...");
@@ -1404,7 +1416,11 @@ namespace DaemonKit.ViewModels
                     latestPackage = packageFiles.First();
                 }
 
-                DNHper.NLogger.Info($"[P2P] 任务 {task.TaskId} 目标文件: {latestPackage}");
+                DNHper.NLogger.Info(
+                    "[P2P] 任务 {TaskId} 目标文件: {LatestPackage}",
+                    task.TaskId,
+                    latestPackage
+                );
 
                 // ── Phase 4: 下载文件 ──
                 task.PackageFileName = latestPackage;
@@ -1412,7 +1428,11 @@ namespace DaemonKit.ViewModels
                 _packageTaskCache.AddOrUpdate(task);
                 _taskManager.RemoveTask(placeholderTaskId); // 移除占位符，实际传输会自动创建真实任务
 
-                DNHper.NLogger.Info($"[P2P] 任务 {task.TaskId} 开始下载: {latestPackage}");
+                DNHper.NLogger.Info(
+                    "[P2P] 任务 {TaskId} 开始下载: {LatestPackage}",
+                    task.TaskId,
+                    latestPackage
+                );
 
                 // 发送推送命令
                 var pushCommand = new Models.Command
@@ -1436,7 +1456,11 @@ namespace DaemonKit.ViewModels
                     _packageTaskCache.AddOrUpdate(task);
                     return;
                 }
-                DNHper.NLogger.Info($"[P2P] 任务 {task.TaskId} 已通过UDP请求远程推送文件: {latestPackage}");
+                DNHper.NLogger.Info(
+                    "[P2P] 任务 {TaskId} 已通过UDP请求远程推送文件: {LatestPackage}",
+                    task.TaskId,
+                    latestPackage
+                );
 
                 // 进度订阅（节流500ms，在 finally 中释放）
                 var progressSub = _transferService.TransferProgress
@@ -1494,7 +1518,11 @@ namespace DaemonKit.ViewModels
                     );
                     task.SetCompleted(localFilePath);
                     _packageTaskCache.AddOrUpdate(task);
-                    DNHper.NLogger.Info($"[P2P] 任务 {task.TaskId} 完成: {localFilePath}");
+                    DNHper.NLogger.Info(
+                        "[P2P] 任务 {TaskId} 完成: {LocalFilePath}",
+                        task.TaskId,
+                        localFilePath
+                    );
                 }
                 finally
                 {
@@ -1505,18 +1533,18 @@ namespace DaemonKit.ViewModels
             {
                 task.SetFailed("操作超时");
                 _packageTaskCache.AddOrUpdate(task);
-                DNHper.NLogger.Warn($"[P2P] 任务 {task.TaskId} 超时");
+                DNHper.NLogger.Warn("[P2P] 任务 {TaskId} 超时", task.TaskId);
             }
             catch (System.OperationCanceledException)
             {
                 // 已通过 CancelPackageTaskCommand 标记取消，无需重复处理
-                DNHper.NLogger.Info($"[P2P] 任务 {task.TaskId} 已取消");
+                DNHper.NLogger.Info("[P2P] 任务 {TaskId} 已取消", task.TaskId);
             }
             catch (Exception ex)
             {
                 task.SetFailed(ex.Message);
                 _packageTaskCache.AddOrUpdate(task);
-                DNHper.NLogger.Error($"[P2P] 任务 {task.TaskId} 失败: {ex.Message}");
+                DNHper.NLogger.Error("[P2P] 任务 {TaskId} 失败: {Message}", task.TaskId, ex.Message);
             }
             finally
             {
@@ -1726,16 +1754,20 @@ namespace DaemonKit.ViewModels
                 var targetIP = machine.IPs?.FirstOrDefault() ?? machine.ID;
                 using var udpClient = new UdpClient();
 
-                var command = new Models.Command { EventID = commandId };
+                var command = new Models.Command
+                {
+                    EventID = commandId,
+                    Token = CommonVars.IsAuthEnabled ? CommonVars.AuthToken : null
+                };
                 var json = JsonConvert.SerializeObject(command);
                 var data = Encoding.UTF8.GetBytes(json);
 
                 udpClient.Send(data, data.Length, targetIP, CommonVars.ControlPort);
-                DNHper.NLogger.Info($"[P2P] 已发送命令 {commandId} 到 {targetIP}");
+                DNHper.NLogger.Info("[P2P] 已发送命令 {CommandId} 到 {TargetIP}", commandId, targetIP);
             }
             catch (Exception ex)
             {
-                DNHper.NLogger.Error($"[P2P] 发送命令失败: {ex.Message}");
+                DNHper.NLogger.Error("[P2P] 发送命令失败: {Message}", ex.Message);
             }
         }
 
@@ -1750,6 +1782,12 @@ namespace DaemonKit.ViewModels
             int baseDelayMs = 300
         )
         {
+            // 自动附加认证令牌
+            if (CommonVars.IsAuthEnabled && string.IsNullOrEmpty(command.Token))
+            {
+                command.Token = CommonVars.AuthToken;
+            }
+
             for (int i = 0; i < maxRetries; i++)
             {
                 try
@@ -1762,7 +1800,12 @@ namespace DaemonKit.ViewModels
                 }
                 catch (Exception ex)
                 {
-                    DNHper.NLogger.Warn($"[UDP] 发送命令失败 (尝试 {i + 1}/{maxRetries}): {ex.Message}");
+                    DNHper.NLogger.Warn(
+                        "[UDP] 发送命令失败 (尝试 {Attempt}/{MaxRetries}): {Message}",
+                        i + 1,
+                        maxRetries,
+                        ex.Message
+                    );
                     if (i < maxRetries - 1)
                         await System.Threading.Tasks.Task.Delay(baseDelayMs * (i + 1));
                 }
@@ -1790,58 +1833,24 @@ namespace DaemonKit.ViewModels
                 }
             };
             await SendUdpCommandWithRetryAsync(remoteIP, CommonVars.ControlPort, pushCmd);
-            DNHper.NLogger.Info($"[P2P] 已请求 {remoteIP} 推送 {fileNames.Length} 个文件");
+            DNHper.NLogger.Info("[P2P] 已请求 {RemoteIP} 推送 {Count} 个文件", remoteIP, fileNames.Length);
         }
 
         /// <summary>
-        /// 通过UDP请求远程设备的共享文件列表（Rx: Subject → Where → Take(1) → Timeout → ToTask）
+        /// 通过TCP请求远程设备的共享文件列表（使用P2P服务的NetMQ通道）
         /// </summary>
         public async System.Threading.Tasks.Task<SharedFileInfo[]> RequestRemoteFileListAsync(
             string remoteIP,
             int timeoutMs = 15000
         )
         {
-            var requestId = Guid.NewGuid().ToString();
             try
             {
-                var localIP = GetLocalIPForRemote(remoteIP);
-                var command = new Models.Command
-                {
-                    EventID = Models.Command.LIST_SHARED_FILES,
-                    Data = new Newtonsoft.Json.Linq.JObject
-                    {
-                        ["requesterIP"] = localIP,
-                        ["requestId"] = requestId
-                    }
-                };
-
-                var sent = await SendUdpCommandWithRetryAsync(
-                    remoteIP,
-                    CommonVars.ControlPort,
-                    command
-                );
-                if (!sent)
-                {
-                    DNHper.NLogger.Warn($"[P2P] 发送文件列表请求失败: {remoteIP}");
-                    return Array.Empty<SharedFileInfo>();
-                }
-
-                // 通过 Rx Subject 等待响应（替代 TCS + Task.WhenAny 模式）
-                return await _fileListResponseSubject
-                    .Where(e => e.RequestId == requestId)
-                    .Select(e => e.Files)
-                    .Take(1)
-                    .Timeout(TimeSpan.FromMilliseconds(timeoutMs))
-                    .ToTask();
-            }
-            catch (TimeoutException)
-            {
-                DNHper.NLogger.Warn($"[P2P] 请求远程文件列表超时: {remoteIP}");
-                return Array.Empty<SharedFileInfo>();
+                return await _transferService.RequestRemoteFilesAsync(remoteIP, timeoutMs);
             }
             catch (Exception ex)
             {
-                DNHper.NLogger.Error($"[P2P] 请求远程文件列表失败: {ex.Message}");
+                DNHper.NLogger.Error("[P2P] 请求远程文件列表失败: {Message}", ex.Message);
                 return Array.Empty<SharedFileInfo>();
             }
         }

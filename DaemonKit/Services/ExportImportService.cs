@@ -12,38 +12,11 @@ using System.Threading.Tasks;
 namespace DaemonKit.Services
 {
     /// <summary>
-    /// [内部/已弃用] 旧版导出导入包的元数据 — 仅用于兼容旧版 metadata.json，新代码请使用 PackageManifest
-    /// </summary>
-    internal class PackageMetadata
-    {
-        public string Version { get; set; } = "1.0";
-        public DateTime CreatedAt { get; set; }
-        public string MachineName { get; set; }
-        public string UserName { get; set; }
-        public List<string> IncludedConfigs { get; set; } = new List<string>();
-        public List<ProgramInfo> IncludedPrograms { get; set; } = new List<ProgramInfo>();
-        public string Description { get; set; }
-        public string ProjectName { get; set; } // 导出的项目（根节点）名称
-    }
-
-    /// <summary>
-    /// [内部/已弃用] 旧版程序信息 — 仅用于兼容旧版 metadata.json
-    /// </summary>
-    internal class ProgramInfo
-    {
-        public string Name { get; set; }
-        public string ExecutablePath { get; set; }
-        public long SizeBytes { get; set; }
-        public string ProgramType { get; set; } // "Unity", "UnrealEngine", "Other"
-    }
-
-    /// <summary>
     /// 导出导入服务 - 类似Docker的配置打包系统
     /// </summary>
     public class ExportImportService
     {
         private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
-        private const string MetadataFileName = "metadata.json";
         private const string ManifestFileName = "manifest.json";
         private const string FilesDirName = "files";
         private const string ConfigsDirName = "Configs";
@@ -99,7 +72,7 @@ namespace DaemonKit.Services
                     }
 
                     // 3. 导出程序文件
-                    var programInfos = new List<ProgramInfo>();
+                    var programInfos = new List<ManifestProgramInfo>();
                     if (includeAllPrograms && processTree != null)
                     {
                         statusProgress?.Report("分析程序树...");
@@ -115,8 +88,8 @@ namespace DaemonKit.Services
                         );
                     }
 
-                    // 4. 创建元数据
-                    statusProgress?.Report("生成元数据...");
+                    // 4. 写入清单 manifest.json（TreeBundle 格式）
+                    statusProgress?.Report("生成清单...");
 
                     // 提取根节点名称（如果存在）
                     string projectName = null;
@@ -130,27 +103,11 @@ namespace DaemonKit.Services
                         }
                     }
 
-                    var metadata = new PackageMetadata
-                    {
-                        CreatedAt = DateTime.Now,
-                        MachineName = Environment.MachineName,
-                        UserName = Environment.UserName,
-                        IncludedConfigs = configList.Select(Path.GetFileName).ToList(),
-                        IncludedPrograms = programInfos,
-                        Description = description,
-                        ProjectName = projectName
-                    };
-
-                    var metadataPath = Path.Combine(tempDir, MetadataFileName);
-                    var metadataJson = JsonConvert.SerializeObject(metadata, Formatting.Indented);
-                    File.WriteAllText(metadataPath, metadataJson);
-
-                    // 4b. 写入统一清单 manifest.json（TreeBundle 格式）
                     var manifest = new PackageManifest
                     {
                         SchemaVersion = "1.0",
                         PackageType = PackageType.TreeBundle,
-                        CreatedAt = metadata.CreatedAt,
+                        CreatedAt = DateTime.Now,
                         Description = description,
                         Source = new ManifestSource
                         {
@@ -163,17 +120,6 @@ namespace DaemonKit.Services
                             ProjectName = projectName,
                             IncludedConfigs = configList.Select(Path.GetFileName).ToList(),
                             Programs = programInfos
-                                .Select(
-                                    p =>
-                                        new ManifestProgramInfo
-                                        {
-                                            Name = p.Name,
-                                            ExePath = p.ExecutablePath,
-                                            SizeBytes = p.SizeBytes,
-                                            ProgramType = p.ProgramType
-                                        }
-                                )
-                                .ToList()
                         }
                     };
 
@@ -369,11 +315,10 @@ namespace DaemonKit.Services
                         cancellationToken
                     );
 
-                    // 2. 读取元数据（优先 manifest.json，回退 metadata.json）
-                    statusProgress?.Report("读取元数据...");
+                    // 2. 读取清单 manifest.json
+                    statusProgress?.Report("读取清单...");
                     PackageManifest manifest = null;
                     var manifestPath = Path.Combine(tempDir, ManifestFileName);
-                    var metadataPath = Path.Combine(tempDir, MetadataFileName);
 
                     if (File.Exists(manifestPath))
                     {
@@ -383,51 +328,9 @@ namespace DaemonKit.Services
                             $"Package manifest: SchemaVersion={manifest.SchemaVersion}, PackageType={manifest.PackageType}, CreatedAt={manifest.CreatedAt}"
                         );
                     }
-                    else if (File.Exists(metadataPath))
-                    {
-                        // 回退：从旧版 metadata.json 构建 manifest
-                        var metadataJson = File.ReadAllText(metadataPath);
-                        var metadata = JsonConvert.DeserializeObject<PackageMetadata>(metadataJson);
-                        Logger.Info(
-                            $"Legacy metadata: Version={metadata.Version}, CreatedAt={metadata.CreatedAt}"
-                        );
-
-                        manifest = new PackageManifest
-                        {
-                            SchemaVersion = "1.0",
-                            PackageType = PackageType.TreeBundle,
-                            CreatedAt = metadata.CreatedAt,
-                            Description = metadata.Description,
-                            Source = new ManifestSource
-                            {
-                                MachineName = metadata.MachineName,
-                                UserName = metadata.UserName,
-                                Builder = "DaemonKit"
-                            },
-                            Tree = new ManifestTree
-                            {
-                                ProjectName = metadata.ProjectName,
-                                IncludedConfigs = metadata.IncludedConfigs,
-                                Programs =
-                                    metadata.IncludedPrograms
-                                        ?.Select(
-                                            p =>
-                                                new ManifestProgramInfo
-                                                {
-                                                    Name = p.Name,
-                                                    ExePath = p.ExecutablePath,
-                                                    SizeBytes = p.SizeBytes,
-                                                    ProgramType = p.ProgramType
-                                                }
-                                        )
-                                        .ToList() ?? new List<ManifestProgramInfo>()
-                            }
-                        };
-                        Logger.Info("Converted legacy metadata to manifest (TreeBundle)");
-                    }
                     else
                     {
-                        statusProgress?.Report("包格式错误：缺少元数据文件！");
+                        statusProgress?.Report("包格式错误：缺少清单文件 manifest.json！");
                         return false;
                     }
 
@@ -534,56 +437,14 @@ namespace DaemonKit.Services
         }
 
         /// <summary>
-        /// 读取包元数据（不解压整个包）— 优先 manifest.json，回退 metadata.json
+        /// 读取包清单（不解压整个包）
         /// 返回统一的 PackageManifest 对象
         /// </summary>
         public static async Task<PackageManifest> ReadPackageManifestAsync(string packagePath)
         {
             try
             {
-                // 优先尝试 manifest.json
-                var manifest = await ReadManifestAsync(packagePath);
-                if (manifest != null)
-                    return manifest;
-
-                // 回退 metadata.json → 转换为 PackageManifest
-                var legacy = await ReadLegacyMetadataAsync(packagePath);
-                if (legacy != null)
-                {
-                    return new PackageManifest
-                    {
-                        SchemaVersion = "1.0",
-                        PackageType = PackageType.TreeBundle,
-                        CreatedAt = legacy.CreatedAt,
-                        Description = legacy.Description,
-                        Source = new ManifestSource
-                        {
-                            MachineName = legacy.MachineName,
-                            UserName = legacy.UserName,
-                            Builder = "DaemonKit"
-                        },
-                        Tree = new ManifestTree
-                        {
-                            ProjectName = legacy.ProjectName,
-                            IncludedConfigs = legacy.IncludedConfigs,
-                            Programs =
-                                legacy.IncludedPrograms
-                                    ?.Select(
-                                        p =>
-                                            new ManifestProgramInfo
-                                            {
-                                                Name = p.Name,
-                                                ExePath = p.ExecutablePath,
-                                                SizeBytes = p.SizeBytes,
-                                                ProgramType = p.ProgramType
-                                            }
-                                    )
-                                    .ToList() ?? new List<ManifestProgramInfo>()
-                        }
-                    };
-                }
-
-                return null;
+                return await ReadManifestAsync(packagePath);
             }
             catch (Exception ex)
             {
@@ -598,37 +459,6 @@ namespace DaemonKit.Services
         public static PackageManifest ReadPackageManifestSync(string packagePath)
         {
             return ReadPackageManifestAsync(packagePath).GetAwaiter().GetResult();
-        }
-
-        /// <summary>
-        /// 读取旧版 metadata.json（不解压整个包）— 内部辅助方法
-        /// </summary>
-        private static async Task<PackageMetadata> ReadLegacyMetadataAsync(string packagePath)
-        {
-            try
-            {
-                var tempFile = Path.Combine(Path.GetTempPath(), $"metadata_{Guid.NewGuid()}.json");
-                try
-                {
-                    await HighPerformanceCompressor.ExtractFileAsync(
-                        packagePath,
-                        MetadataFileName,
-                        tempFile
-                    );
-                    var json = File.ReadAllText(tempFile);
-                    return JsonConvert.DeserializeObject<PackageMetadata>(json);
-                }
-                finally
-                {
-                    if (File.Exists(tempFile))
-                        File.Delete(tempFile);
-                }
-            }
-            catch (Exception ex)
-            {
-                Logger.Warn(ex, "Failed to read legacy metadata.json");
-                return null;
-            }
         }
 
         /// <summary>
@@ -1080,14 +910,14 @@ namespace DaemonKit.Services
         /// <summary>
         /// 导出程序文件
         /// </summary>
-        private static async Task<List<ProgramInfo>> ExportProgramFilesAsync(
+        private static async Task<List<ManifestProgramInfo>> ExportProgramFilesAsync(
             List<string> programPaths,
             string destinationDir,
             IProgress<FileCopyProgress> progress,
             CancellationToken cancellationToken
         )
         {
-            var programInfos = new List<ProgramInfo>();
+            var programInfos = new List<ManifestProgramInfo>();
 
             foreach (var exePath in programPaths)
             {
@@ -1127,10 +957,10 @@ namespace DaemonKit.Services
                     );
 
                     programInfos.Add(
-                        new ProgramInfo
+                        new ManifestProgramInfo
                         {
                             Name = programName,
-                            ExecutablePath = Path.GetRelativePath(rootDir, exePath),
+                            ExePath = Path.GetRelativePath(rootDir, exePath),
                             SizeBytes = HighPerformanceFileCopier.CalculateDirectorySize(rootDir),
                             ProgramType = programType
                         }
@@ -1434,6 +1264,13 @@ namespace DaemonKit.Services
                     };
 
                     // 只导入根节点下的二级节点（根节点的Children），而不是导入根节点本身
+                    // 构建 selectedNodeIds 用于二级节点过滤
+                    HashSet<string> selectedChildIds = null;
+                    if (selectedNodes != null && selectedNodes.Any())
+                    {
+                        selectedChildIds = new HashSet<string>(selectedNodes.Select(n => n.NodeId));
+                    }
+
                     if (importedNodeList != null)
                     {
                         foreach (var importedRoot in importedNodeList)
@@ -1442,17 +1279,28 @@ namespace DaemonKit.Services
                             if (importedRoot.Parent == null && importedRoot.Children != null)
                             {
                                 Logger.Info(
-                                    $"Extracting {importedRoot.Children.Count} children from imported root: {importedRoot.MetaData?.Name}"
+                                    $"Extracting children from imported root: {importedRoot.MetaData?.Name} (total={importedRoot.Children.Count})"
                                 );
                                 foreach (var child in importedRoot.Children)
                                 {
+                                    // 按用户选择过滤二级节点
+                                    if (selectedChildIds != null && !IsNodeOrDescendantSelected(child, selectedChildIds))
+                                    {
+                                        Logger.Info($"Skipped unselected node: {child.MetaData?.Name} ({child.NodeId})");
+                                        continue;
+                                    }
                                     child.Parent = resultRootNode;
                                     resultRootNode.Children.Add(child);
                                 }
                             }
                             else
                             {
-                                // 非根节点直接添加
+                                // 非根节点：按选择过滤
+                                if (selectedChildIds != null && !selectedChildIds.Contains(importedRoot.NodeId))
+                                {
+                                    Logger.Info($"Skipped unselected non-root node: {importedRoot.MetaData?.Name}");
+                                    continue;
+                                }
                                 importedRoot.Parent = resultRootNode;
                                 resultRootNode.Children.Add(importedRoot);
                             }
@@ -1477,6 +1325,13 @@ namespace DaemonKit.Services
                         resultRootNode.Children =
                             new System.Collections.ObjectModel.ObservableCollection<ProcessItem>();
 
+                    // 构建 selectedNodeIds 用于二级节点过滤
+                    HashSet<string> selectedChildIds = null;
+                    if (selectedNodes != null && selectedNodes.Any())
+                    {
+                        selectedChildIds = new HashSet<string>(selectedNodes.Select(n => n.NodeId));
+                    }
+
                     if (importedNodeList != null)
                     {
                         foreach (var importedRoot in importedNodeList)
@@ -1486,12 +1341,29 @@ namespace DaemonKit.Services
                             if (importedRoot.Parent == null && importedRoot.Children != null)
                             {
                                 Logger.Info(
-                                    $"Extracting {importedRoot.Children.Count} children from imported root for merge: {importedRoot.MetaData?.Name}"
+                                    $"Extracting children from imported root for merge: {importedRoot.MetaData?.Name} (total={importedRoot.Children.Count})"
                                 );
-                                nodesToMerge = importedRoot.Children;
+                                // 按用户选择过滤二级节点
+                                if (selectedChildIds != null)
+                                {
+                                    nodesToMerge = importedRoot.Children
+                                        .Where(child => IsNodeOrDescendantSelected(child, selectedChildIds))
+                                        .ToList();
+                                    Logger.Info($"After selection filter: {((IList<ProcessItem>)nodesToMerge).Count} nodes to merge");
+                                }
+                                else
+                                {
+                                    nodesToMerge = importedRoot.Children;
+                                }
                             }
                             else
                             {
+                                // 非根节点：按选择过滤
+                                if (selectedChildIds != null && !selectedChildIds.Contains(importedRoot.NodeId))
+                                {
+                                    Logger.Info($"Skipped unselected non-root node for merge: {importedRoot.MetaData?.Name}");
+                                    continue;
+                                }
                                 nodesToMerge = new[] { importedRoot };
                             }
 

@@ -1,0 +1,424 @@
+﻿diff --git a/DaemonKit/Core/ProcManager.cs b/DaemonKit/Core/ProcManager.cs
+index 5c5d4bf..c407723 100644
+--- a/DaemonKit/Core/ProcManager.cs
++++ b/DaemonKit/Core/ProcManager.cs
+@@ -12,6 +12,17 @@ namespace DaemonKit.Core
+ {
+     class ProcManager
+     {
++        /// <summary>
++        /// 妫€娴嬫枃浠舵墿灞曞悕鏄惁涓鸿剼鏈被鍨?+        /// </summary>
++        private static bool IsScriptFile(string path)
++        {
++            if (string.IsNullOrEmpty(path))
++                return false;
++            var ext = System.IO.Path.GetExtension(path).ToLowerInvariant();
++            return ext == ".bat" || ext == ".cmd" || ext == ".ps1" || ext == ".vbs";
++        }
++
+         public static bool KeepTopWindow(
+             string ProcessFileName,
+             int posX = 0,
+@@ -96,24 +107,24 @@ namespace DaemonKit.Core
+ 
+                 if (!System.IO.Path.IsPathRooted(Path))
+                 {
+-                    NLogger.Error($"杩涚▼璺緞蹇呴』涓虹粷瀵硅矾寰? {Path}");
++                    NLogger.Error("杩涚▼璺緞蹇呴』涓虹粷瀵硅矾寰? {Path}", Path);
+                     return;
+                 }
+ 
+                 if (!System.IO.File.Exists(Path))
+                 {
+-                    NLogger.Error($"杩涚▼鏂囦欢涓嶅瓨鍦? {Path}");
++                    NLogger.Error("杩涚▼鏂囦欢涓嶅瓨鍦? {Path}", Path);
+                     return;
+                 }
+ 
+                 if (metaData == null)
+                 {
+-                    NLogger.Error($"杩涚▼鍏冩暟鎹负绌? {Path}");
++                    NLogger.Error("杩涚▼鍏冩暟鎹负绌? {Path}", Path);
+                     return;
+                 }
+ 
+                 NLogger.Info(
+-                    "鍑嗗鍚姩杩涚▼: {0}, 鍙傛暟: {1}, 绠＄悊鍛? {2}",
++                    "[杩涚▼] 鍚姩: {0}, 鍙傛暟: {1}, 绠＄悊鍛? {2}",
+                     Path,
+                     metaData.Arguments,
+                     metaData.RunAs
+@@ -126,14 +137,47 @@ namespace DaemonKit.Core
+                     _process = new Process();
+ 
+                     // 妫€娴嬫槸鍚︿负鑴氭湰鏂囦欢
+-                    var ext = System.IO.Path.GetExtension(Path).ToLowerInvariant();
+-                    bool isScript =
+-                        ext == ".bat" || ext == ".cmd" || ext == ".ps1" || ext == ".vbs";
++                    bool isScript = IsScriptFile(Path);
++
++                    // 瑙ｆ瀽鑴氭湰瀹夸富锛?ps1 鈫?powershell.exe, .vbs 鈫?cscript.exe, .bat/.cmd 鈫?cmd.exe
++                    string fileName = Path;
++                    string arguments = metaData.Arguments ?? string.Empty;
++                    if (isScript)
++                    {
++                        var ext = System.IO.Path.GetExtension(Path).ToLowerInvariant();
++                        switch (ext)
++                        {
++                            case ".ps1":
++                                fileName = "powershell.exe";
++                                // -ExecutionPolicy Bypass 纭繚鑴氭湰鍙墽琛岋紱-File 鎸囧畾鑴氭湰璺緞
++                                // 鐢ㄦ埛鑷畾涔夊弬鏁拌拷鍔犲湪鑴氭湰璺緞涔嬪悗
++                                arguments = string.IsNullOrEmpty(arguments)
++                                    ? $"-ExecutionPolicy Bypass -NoProfile -File \"{Path}\""
++                                    : $"-ExecutionPolicy Bypass -NoProfile -File \"{Path}\" {arguments}";
++                                NLogger.Info("[杩涚▼] PowerShell 鑴氭湰锛屼娇鐢?powershell.exe 鍚姩: {0}", Path);
++                                break;
++                            case ".vbs":
++                                fileName = "cscript.exe";
++                                arguments = string.IsNullOrEmpty(arguments)
++                                    ? $"//Nologo \"{Path}\""
++                                    : $"//Nologo \"{Path}\" {arguments}";
++                                NLogger.Info("[杩涚▼] VBS 鑴氭湰锛屼娇鐢?cscript.exe 鍚姩: {0}", Path);
++                                break;
++                            case ".bat":
++                            case ".cmd":
++                                fileName = "cmd.exe";
++                                arguments = string.IsNullOrEmpty(arguments)
++                                    ? $"/c \"{Path}\""
++                                    : $"/c \"{Path}\" {arguments}";
++                                NLogger.Info("[杩涚▼] 鎵瑰鐞嗚剼鏈紝浣跨敤 cmd.exe 鍚姩: {0}", Path);
++                                break;
++                        }
++                    }
+ 
+                     _process.StartInfo = new ProcessStartInfo
+                     {
+-                        FileName = Path,
+-                        Arguments = metaData.Arguments ?? string.Empty,
++                        FileName = fileName,
++                        Arguments = arguments,
+                         // 鑴氭湰鏂囦欢鏄剧ず鍛戒护绐楀彛锛屽叾浠栫▼搴忛殣钘?                         CreateNoWindow = !isScript,
+                         UseShellExecute = false,
+@@ -145,69 +189,83 @@ namespace DaemonKit.Core
+                             : ProcessWindowStyle.Normal
+                     };
+ 
+-                    NLogger.Debug("鍚姩杩涚▼: {0}", Path);
+                     bool started = _process.Start();
+ 
+                     if (!started)
+                     {
+-                        NLogger.Error("杩涚▼鍚姩澶辫触 (Start 杩斿洖 false): {0}", Path);
++                        NLogger.Error("[杩涚▼] 鍚姩澶辫触 (Start 杩斿洖 false): {0}", Path);
+                         return;
+                     }
+ 
+-                    NLogger.Info("杩涚▼宸插惎鍔? {0}, PID: {1}", Path, _process.Id);
++                    NLogger.Info("[杩涚▼] 宸插惎鍔? {0} (PID: {1})", Path, _process.Id);
+ 
+-                    // 寮傛绛夊緟杈撳叆灏辩华
+-                    Observable
+-                        .Start(() =>
++                    if (isScript)
++                    {
++                        // 鑴氭湰杩涚▼锛氳烦杩?WaitForInputIdle锛堟帶鍒跺彴鏃犳秷鎭惊鐜紝浼氭姏 InvalidOperationException锛?+                        // 鐩存帴鍥炶皟 onStarted锛岀‘淇?nodeProcess/nodeProcessId 鍦ㄥ畧鎶ゅ惊鐜娆℃鏌ュ墠灏卞凡璧嬪€?+                        // 閬垮厤鐭敓鍛藉懆鏈熻剼鏈湪璋冨害鍥?MainThread 鍓嶅氨閫€鍑哄鑷?onStarted 姘镐笉鎵ц
++                        NLogger.Info("[杩涚▼] 鑴氭湰杩涚▼璺宠繃 WaitForInputIdle锛岀洿鎺ュ氨缁? {0} (PID: {1})", Path, _process.Id);
++                        try
+                         {
+-                            try
+-                            {
+-                                NLogger.Debug("绛夊緟杩涚▼杈撳叆灏辩华: {0}", Path);
+-                                _process.WaitForInputIdle(10000); // 10绉掕秴鏃?-                                NLogger.Debug("杩涚▼杈撳叆宸插氨缁? {0}", Path);
+-                            }
+-                            catch (InvalidOperationException ex)
+-                            {
+-                                NLogger.Warn("杩涚▼鏃犵敤鎴风晫闈㈡垨宸查€€鍑? {0}, 閿欒: {1}", Path, ex.Message);
+-                            }
+-                            catch (Exception ex)
+-                            {
+-                                NLogger.Error("绛夊緟杩涚▼灏辩华寮傚父: {0}, 閿欒: {1}", Path, ex.Message);
+-                            }
+-                            return _process;
+-                        })
+-                        .ObserveOn(RxApp.MainThreadScheduler)
+-                        .Subscribe(
+-                            process =>
++                            onStarted?.Invoke(_process);
++                        }
++                        catch (Exception ex)
++                        {
++                            NLogger.Error("鎵ц onStarted 鍥炶皟寮傚父: {0}, 閿欒: {1}\n{2}", Path, ex.Message, ex.StackTrace);
++                        }
++                    }
++                    else
++                    {
++                        // 鏅€氱▼搴忥細寮傛绛夊緟杈撳叆灏辩华
++                        Observable
++                            .Start(() =>
+                             {
+                                 try
+                                 {
+-                                    if (onStarted != null && process != null && !process.HasExited)
+-                                    {
+-                                        NLogger.Debug("璋冪敤 onStarted 鍥炶皟: {0}", Path);
+-                                        onStarted(process);
+-                                    }
++                                    _process.WaitForInputIdle(10000); // 10绉掕秴鏃?+                                }
++                                catch (InvalidOperationException ex)
++                                {
++                                    NLogger.Warn("杩涚▼鏃犵敤鎴风晫闈㈡垨宸查€€鍑? {0}, 閿欒: {1}", Path, ex.Message);
+                                 }
+                                 catch (Exception ex)
++                                {
++                                    NLogger.Error("绛夊緟杩涚▼灏辩华寮傚父: {0}, 閿欒: {1}", Path, ex.Message);
++                                }
++                                return _process;
++                            })
++                            .ObserveOn(RxApp.MainThreadScheduler)
++                            .Subscribe(
++                                process =>
++                                {
++                                    try
++                                    {
++                                        if (onStarted != null && process != null && !process.HasExited)
++                                        {
++                                            onStarted(process);
++                                        }
++                                    }
++                                    catch (Exception ex)
++                                    {
++                                        NLogger.Error(
++                                            "鎵ц onStarted 鍥炶皟寮傚父: {0}, 閿欒: {1}\n{2}",
++                                            Path,
++                                            ex.Message,
++                                            ex.StackTrace
++                                        );
++                                    }
++                                },
++                                error =>
+                                 {
+                                     NLogger.Error(
+-                                        "鎵ц onStarted 鍥炶皟寮傚父: {0}, 閿欒: {1}\n{2}",
++                                        "寮傛澶勭悊杩涚▼寮傚父: {0}, 閿欒: {1}\n{2}",
+                                         Path,
+-                                        ex.Message,
+-                                        ex.StackTrace
++                                        error.Message,
++                                        error.StackTrace
+                                     );
+                                 }
+-                            },
+-                            error =>
+-                            {
+-                                NLogger.Error(
+-                                    "寮傛澶勭悊杩涚▼寮傚父: {0}, 閿欒: {1}\n{2}",
+-                                    Path,
+-                                    error.Message,
+-                                    error.StackTrace
+-                                );
+-                            }
+-                        );
++                            );
++                    } // end else (non-script)
+                 }
+                 catch (System.ComponentModel.Win32Exception ex)
+                 {
+@@ -282,7 +340,7 @@ namespace DaemonKit.Core
+                 try
+                 {
+                     NLogger.Info("姝ｅ湪缁堟杩涚▼: {0} (PID: {1})", Path, p.Id);
+-                    p.Kill();
++                    p.Kill(true); // Kill entire process tree (瀛愯繘绋嬩竴骞剁粓姝?
+                     NLogger.Info("宸茬粓姝㈣繘绋? {0} (PID: {1})", Path, p.Id);
+                 }
+                 catch (Exception ex)
+@@ -308,8 +366,7 @@ namespace DaemonKit.Core
+                 }
+ 
+                 // 妫€娴嬫槸鍚︿负鑴氭湰鏂囦欢
+-                var ext = System.IO.Path.GetExtension(Path).ToLowerInvariant();
+-                bool isScript = ext == ".bat" || ext == ".cmd" || ext == ".ps1" || ext == ".vbs";
++                bool isScript = IsScriptFile(Path);
+ 
+                 // 瀵逛簬闈炶剼鏈枃浠讹紝楠岃瘉璺緞鏄惁鍖归厤
+                 if (!isScript)
+@@ -319,7 +376,10 @@ namespace DaemonKit.Core
+                     {
+                         exePath = process.MainModule?.FileName ?? string.Empty;
+                     }
+-                    catch { }
++                    catch (Exception ex)
++                    {
++                        NLogger.Debug("鏃犳硶鑾峰彇杩涚▼妯″潡璺緞 (PID: {Pid}): {Message}", pid, ex.Message);
++                    }
+ 
+                     if (
+                         !string.IsNullOrEmpty(exePath)
+@@ -336,7 +396,7 @@ namespace DaemonKit.Core
+                 }
+ 
+                 NLogger.Info("姝ｅ湪缁堟杩涚▼: {0} (PID: {1})", Path, pid);
+-                process.Kill();
++                process.Kill(true); // Kill entire process tree (瀛愯繘绋嬩竴骞剁粓姝?
+                 NLogger.Info("宸茬粓姝㈣繘绋? {0} (PID: {1})", Path, pid);
+             }
+             catch (Exception ex)
+@@ -419,12 +479,33 @@ namespace DaemonKit.Core
+                 return false;
+             }
+ 
++            // 鑴氭湰鏂囦欢锛氬涓昏繘绋嬩负 cmd.exe/powershell.exe锛岃矾寰勫尮閰嶅繀鐒跺け璐?+            // 鐩存帴浣跨敤 PID 缁堟锛岃烦杩囪矾寰勬牎楠屽拰 WM_CLOSE锛堟帶鍒跺彴绐楀彛涓嶅彲闈犲搷搴?WM_CLOSE锛?+            bool isScript = IsScriptFile(Path);
++            if (isScript)
++            {
++                NLogger.Info("[杩涚▼] 鑴氭湰杩涚▼瀹夊叏鍏抽棴锛岀洿鎺ヤ娇鐢?PID 缁堟杩涚▼鏍? {0} (PID: {1})", Path, pid);
++                try
++                {
++                    process.Kill(true);
++                    NLogger.Info("宸茬粓姝㈣剼鏈繘绋嬫爲: {0} (PID: {1})", Path, pid);
++                }
++                catch (Exception ex)
++                {
++                    NLogger.Error("缁堟鑴氭湰杩涚▼澶辫触: {0} (PID: {1}), 閿欒: {2}", Path, pid, ex.Message);
++                }
++                return true;
++            }
++
+             var exePath = string.Empty;
+             try
+             {
+                 exePath = process.MainModule?.FileName ?? string.Empty;
+             }
+-            catch { }
++            catch (Exception ex)
++            {
++                NLogger.Debug("鏃犳硶鑾峰彇杩涚▼妯″潡璺緞 (PID: {Pid}): {Message}", pid, ex.Message);
++            }
+ 
+             if (
+                 !string.IsNullOrEmpty(exePath)
+@@ -479,6 +560,129 @@ namespace DaemonKit.Core
+             return true;
+         }
+ 
++        /// <summary>
++        /// 鍚屾娓╁拰鍏抽棴鎵€鏈夊尮閰嶈矾寰勭殑娈嬬暀杩涚▼
++        /// 瀵规瘡涓尮閰嶈繘绋嬪彂閫?WM_CLOSE锛岀瓑寰呰秴鏃跺悗寮哄埗缁堟
++        /// 娉ㄦ剰锛氭鏂规硶浼氶樆濉炶皟鐢ㄧ嚎绋嬶紙鏈€澶?timeoutMs锛夛紝搴斿湪绾跨▼姹犺皟鐢紝绂佹鍦?UI 绾跨▼璋冪敤
++        /// </summary>
++        /// <param name="Path">杩涚▼鍙墽琛屾枃浠惰矾寰?/param>
++        /// <param name="timeoutMs">姣忎釜杩涚▼鐨勮秴鏃舵椂闂?姣)</param>
++        /// <returns>娓呯悊鐨勮繘绋嬫暟閲?/returns>
++        public static int KillAllResidualProcesses(string Path, int timeoutMs = 3000)
++        {
++            const int WM_CLOSE = 0x0010;
++            var processes = WinAPI.FindProcesses(Path);
++            if (processes.Count == 0)
++                return 0;
++
++            NLogger.Info("[娈嬬暀娓呯悊] 鍙戠幇 {Count} 涓畫鐣欒繘绋? {Path}", processes.Count, Path);
++
++            // 鍏堝悜鎵€鏈夎繘绋嬪彂閫?WM_CLOSE
++            foreach (var proc in processes)
++            {
++                try
++                {
++                    if (proc.MainWindowHandle != IntPtr.Zero)
++                    {
++                        WinAPI.PostMessage(proc.MainWindowHandle, WM_CLOSE, IntPtr.Zero, IntPtr.Zero);
++                        NLogger.Info("[娈嬬暀娓呯悊] 宸插彂閫?WM_CLOSE: PID={Pid}", proc.Id);
++                    }
++                }
++                catch (Exception ex)
++                {
++                    NLogger.Debug("[娈嬬暀娓呯悊] 鍙戦€?WM_CLOSE 澶辫触: PID={Pid}, {Msg}", proc.Id, ex.Message);
++                }
++            }
++
++            // 绛夊緟鎵€鏈夎繘绋嬮€€鍑猴紙闃诲褰撳墠绾跨▼锛?+            foreach (var proc in processes)
++            {
++                try
++                {
++                    proc.WaitForExit(timeoutMs);
++                }
++                catch { }
++            }
++
++            // 寮烘潃浠嶅瓨娲荤殑杩涚▼
++            int killed = 0;
++            foreach (var proc in processes)
++            {
++                try
++                {
++                    if (!proc.HasExited)
++                    {
++                        NLogger.Warn("[娈嬬暀娓呯悊] 杩涚▼鏈湪 {Timeout}ms 鍐呴€€鍑猴紝寮哄埗缁堟: PID={Pid}", timeoutMs, proc.Id);
++                        proc.Kill(true); // Kill entire process tree
++                    }
++                    killed++;
++                }
++                catch (Exception ex)
++                {
++                    NLogger.Debug("[娈嬬暀娓呯悊] 缁堟杩涚▼寮傚父: PID={Pid}, {Msg}", proc.Id, ex.Message);
++                }
++            }
++
++            NLogger.Info("[娈嬬暀娓呯悊] 娓呯悊瀹屾垚: {Path}, 鍏辨竻鐞?{Count} 涓繘绋?, Path, killed);
++            return killed;
++        }
++
++        /// <summary>
++        /// 閫氳繃 WMI 鍛戒护琛屽尮閰嶏紝娓呯悊鑴氭湰瀹夸富杩涚▼锛坈md.exe / powershell.exe / cscript.exe锛?+        /// 鐢ㄤ簬 DaemonKit 寮傚父閫€鍑哄悗閲嶅惎鏃舵竻鐞嗕笂涓€娆￠仐鐣欑殑鑴氭湰杩涚▼
++        /// 娉ㄦ剰锛氭鏂规硶浼氶樆濉炶皟鐢ㄧ嚎绋嬶紝搴斿湪绾跨▼姹犺皟鐢?+        /// </summary>
++        /// <param name="scriptPath">鑴氭湰鏂囦欢鐨勭粷瀵硅矾寰勶紙.bat/.cmd/.ps1/.vbs锛?/param>
++        /// <returns>娓呯悊鐨勮繘绋嬫暟閲?/returns>
++        public static int KillScriptResidualProcesses(string scriptPath)
++        {
++            if (string.IsNullOrEmpty(scriptPath) || !IsScriptFile(scriptPath))
++                return 0;
++
++            int killed = 0;
++            try
++            {
++                // 灏嗚矾寰勪腑鐨勫弽鏂滄潬杞箟涓?WMI 鏌ヨ鎵€闇€鐨勫弻鍙嶆枩鏉?+                var escapedPath = scriptPath.Replace("\\", "\\\\");
++                var query = $"SELECT ProcessId, CommandLine FROM Win32_Process WHERE CommandLine LIKE '%{escapedPath}%'";
++
++                using var searcher = new System.Management.ManagementObjectSearcher(query);
++                foreach (System.Management.ManagementObject obj in searcher.Get())
++                {
++                    var pid = Convert.ToInt32(obj["ProcessId"]);
++                    var cmdLine = obj["CommandLine"]?.ToString() ?? string.Empty;
++
++                    try
++                    {
++                        var proc = Process.GetProcessById(pid);
++                        NLogger.Info("[娈嬬暀娓呯悊] 鍙戠幇鑴氭湰娈嬬暀杩涚▼: PID={Pid}, CommandLine={CmdLine}", pid, cmdLine);
++                        proc.Kill(true); // Kill entire process tree
++                        NLogger.Info("[娈嬬暀娓呯悊] 宸茬粓姝㈣剼鏈畫鐣欒繘绋? PID={Pid}", pid);
++                        killed++;
++                    }
++                    catch (ArgumentException)
++                    {
++                        // 杩涚▼宸查€€鍑?+                    }
++                    catch (Exception ex)
++                    {
++                        NLogger.Debug("[娈嬬暀娓呯悊] 缁堟鑴氭湰娈嬬暀杩涚▼寮傚父: PID={Pid}, {Msg}", pid, ex.Message);
++                    }
++                }
++
++                if (killed > 0)
++                {
++                    NLogger.Info("[娈嬬暀娓呯悊] 鑴氭湰娈嬬暀娓呯悊瀹屾垚: {Path}, 鍏辨竻鐞?{Count} 涓繘绋?, scriptPath, killed);
++                }
++            }
++            catch (Exception ex)
++            {
++                NLogger.Warn("[娈嬬暀娓呯悊] WMI 鏌ヨ鑴氭湰娈嬬暀杩涚▼寮傚父: {Path}, {Msg}", scriptPath, ex.Message);
++            }
++
++            return killed;
++        }
++
+         /// <summary>
+         /// 鏍规嵁閰嶇疆鍐冲畾浣跨敤瀹夊叏鍏抽棴杩樻槸寮哄埗缁堟
+         /// </summary>

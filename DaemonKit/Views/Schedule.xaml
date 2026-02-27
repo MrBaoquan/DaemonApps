@@ -12,7 +12,8 @@
                            mc:Ignorable="d"
                            Title="计划任务"
                            Height="620"
-                           Width="1080">
+                           Width="1080"
+                           FontFamily="{DynamicResource MaterialDesignFont}">
 
     <Window.Resources>
         <converters:ScheduleTriggerTypeToStringConverter x:Key="ScheduleTriggerTypeToStringConverter"/>

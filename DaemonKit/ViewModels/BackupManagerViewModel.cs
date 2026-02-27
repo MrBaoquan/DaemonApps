@@ -96,7 +96,7 @@ namespace DaemonKit.ViewModels
 
                 try
                 {
-                    NLogger.Info($"[Backup] 开始恢复备份: {backup.FullPath}");
+                    NLogger.Info("[Backup] 开始恢复备份: {FullPath}", backup.FullPath);
 
                     // 打开导入对话框，让用户选择备份文件后进行导入
                     var importDialog = new Views.ImportDialog();
@@ -117,7 +117,7 @@ namespace DaemonKit.ViewModels
                             }
                             catch (Exception ex)
                             {
-                                NLogger.Warn($"[Backup] 读取备份清单失败: {ex.Message}");
+                                NLogger.Warn("[Backup] 读取备份清单失败: {ErrorMessage}", ex.Message);
                             }
                         });
                     }
@@ -125,7 +125,7 @@ namespace DaemonKit.ViewModels
                 }
                 catch (Exception ex)
                 {
-                    NLogger.Error($"[Backup] 恢复备份失败: {ex.Message}");
+                    NLogger.Error("[Backup] 恢复备份失败: {ErrorMessage}", ex.Message);
                     MessageBox.Show(
                         $"恢复备份失败: {ex.Message}",
                         "错误",
@@ -154,12 +154,12 @@ namespace DaemonKit.ViewModels
                 try
                 {
                     File.Delete(backup.FullPath);
-                    NLogger.Info($"[Backup] 已删除备份: {backup.FullPath}");
+                    NLogger.Info("[Backup] 已删除备份: {FullPath}", backup.FullPath);
                     Backups.Remove(backup);
                 }
                 catch (Exception ex)
                 {
-                    NLogger.Error($"[Backup] 删除备份失败: {ex.Message}");
+                    NLogger.Error("[Backup] 删除备份失败: {ErrorMessage}", ex.Message);
                     MessageBox.Show(
                         $"删除备份失败: {ex.Message}",
                         "错误",
@@ -226,11 +226,11 @@ namespace DaemonKit.ViewModels
                     Backups.Add(info);
                 }
 
-                NLogger.Info($"[Backup] 已加载 {Backups.Count} 个备份");
+                NLogger.Info("[Backup] 已加载 {Count} 个备份", Backups.Count);
             }
             catch (Exception ex)
             {
-                NLogger.Error($"[Backup] 加载备份列表失败: {ex.Message}");
+                NLogger.Error("[Backup] 加载备份列表失败: {ErrorMessage}", ex.Message);
             }
         }
     }

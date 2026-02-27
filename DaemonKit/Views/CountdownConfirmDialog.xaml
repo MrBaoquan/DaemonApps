@@ -16,7 +16,7 @@
                            Topmost="True"
                            Background="Transparent"
                            AllowsTransparency="True"
-                           FontFamily="Microsoft YaHei UI">
+                           FontFamily="{DynamicResource MaterialDesignFont}">
     <Border Background="#FFFFFF"
             CornerRadius="20"
             BorderBrush="#E5E7EB"
@@ -89,7 +89,7 @@
                                Foreground="#3B82F6"
                                HorizontalAlignment="Center"
                                VerticalAlignment="Center"
-                               FontFamily="Segoe UI"
+                               FontFamily="{DynamicResource MaterialDesignFont}"
                                Margin="0,-4,0,0"/>
                     <TextBlock Text="秒"
                                FontSize="12"
