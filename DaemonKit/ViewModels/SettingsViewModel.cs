@@ -34,6 +34,7 @@ namespace DaemonKit
         public string CrashWindows { get; set; } = string.Empty;
         public bool SafeKillProcess { get; set; } = false;
         public int SafeKillTimeout { get; set; } = 5000;
+        public bool EnableCpuStallDetection { get; set; } = false;
         public bool DisableTouchScreen { get; set; } = false;
         public bool EnableCountdownConfirm { get; set; } = true; // 启用重启/关机倒计时确认
         public bool EnableIdleAutoAction { get; set; } = false;
@@ -43,6 +44,14 @@ namespace DaemonKit
 
         // 传输设置
         public int MaxConcurrentTransfers { get; set; } = 4;
+
+        // 系统状态监控设置
+        public bool EnableSystemStatusMonitoring { get; set; } = true;
+        public int SystemStatusIntervalMs { get; set; } = 2000;
+        public bool EnableGpuUsageMonitoring { get; set; } = true;
+        public int CriticalMemoryUsagePercent { get; set; } = 90;
+        public int CriticalCpuUsagePercent { get; set; } = 95;
+        public int CriticalGpuUsagePercent { get; set; } = 95;
 
         // 网络端口设置（0 表示使用默认值）
         public int CustomMetaPort { get; set; } = 0;
@@ -57,6 +66,20 @@ namespace DaemonKit
         public byte PowerSavingNormalBrightness { get; set; } = 100;
         public byte PowerSavingLowBrightness { get; set; } = 56;
         public List<DisplayConfig> PowerSavingDisplayConfigs { get; set; } = new();
+
+        /// <summary>
+        /// 前台窗口焦点挂起快捷键：当前台进程名在此列表时自动注销全局快捷键，
+        /// 离开后自动重新注册，解决向日葵/VNC 远程嵌套场景下快捷键穿透问题。
+        /// </summary>
+        public List<string> SuspendHotkeyOnProcessNames { get; set; } =
+            new List<string>
+            {
+                "vncviewer",
+                "tvnviewer",
+                "SunloginClient",
+                "SunloginRemote",
+                "mstsc"
+            };
     }
 
     public class DisplayConfig
@@ -104,6 +127,7 @@ namespace DaemonKit
                         CrashWindows = CrashWindows,
                         SafeKillProcess = SafeKillProcess,
                         SafeKillTimeout = SafeKillTimeout,
+                        EnableCpuStallDetection = EnableCpuStallDetection,
                         DisableTouchScreen = DisableTouchScreen,
                         EnableCountdownConfirm = EnableCountdownConfirm,
                         EnableIdleAutoAction = EnableIdleAutoAction,
@@ -111,6 +135,12 @@ namespace DaemonKit
                         EnableIdleAutoPowerSaving = EnableIdleAutoPowerSaving,
                         IdleAutoPowerSavingThresholdMinutes = IdleAutoPowerSavingThresholdMinutes,
                         MaxConcurrentTransfers = MaxConcurrentTransfers,
+                        EnableSystemStatusMonitoring = EnableSystemStatusMonitoring,
+                        SystemStatusIntervalMs = SystemStatusIntervalMs,
+                        EnableGpuUsageMonitoring = EnableGpuUsageMonitoring,
+                        CriticalMemoryUsagePercent = CriticalMemoryUsagePercent,
+                        CriticalCpuUsagePercent = CriticalCpuUsagePercent,
+                        CriticalGpuUsagePercent = CriticalGpuUsagePercent,
                         CustomMetaPort = CustomMetaPort,
                         CustomControlPort = CustomControlPort,
                         CustomFileTransferPort = CustomFileTransferPort,
@@ -118,7 +148,8 @@ namespace DaemonKit
                         PowerSavingModeEnabled = PowerSavingModeEnabled,
                         PowerSavingNormalBrightness = PowerSavingNormalBrightness,
                         PowerSavingLowBrightness = PowerSavingLowBrightness,
-                        PowerSavingDisplayConfigs = PowerSavingDisplayConfigs
+                        PowerSavingDisplayConfigs = PowerSavingDisplayConfigs,
+                        SuspendHotkeyOnProcessNames = SuspendHotkeyOnProcessNames
                     };
                 },
                 outputScheduler: RxApp.MainThreadScheduler
@@ -147,6 +178,7 @@ namespace DaemonKit
             CrashWindows = settings.CrashWindows;
             SafeKillProcess = settings.SafeKillProcess;
             SafeKillTimeout = settings.SafeKillTimeout;
+            EnableCpuStallDetection = settings.EnableCpuStallDetection;
             DisableTouchScreen = settings.DisableTouchScreen;
             EnableCountdownConfirm = settings.EnableCountdownConfirm;
             EnableIdleAutoAction = settings.EnableIdleAutoAction;
@@ -154,6 +186,12 @@ namespace DaemonKit
             EnableIdleAutoPowerSaving = settings.EnableIdleAutoPowerSaving;
             IdleAutoPowerSavingThresholdMinutes = settings.IdleAutoPowerSavingThresholdMinutes;
             MaxConcurrentTransfers = settings.MaxConcurrentTransfers;
+            EnableSystemStatusMonitoring = settings.EnableSystemStatusMonitoring;
+            SystemStatusIntervalMs = settings.SystemStatusIntervalMs;
+            EnableGpuUsageMonitoring = settings.EnableGpuUsageMonitoring;
+            CriticalMemoryUsagePercent = settings.CriticalMemoryUsagePercent;
+            CriticalCpuUsagePercent = settings.CriticalCpuUsagePercent;
+            CriticalGpuUsagePercent = settings.CriticalGpuUsagePercent;
             CustomMetaPort = settings.CustomMetaPort;
             CustomControlPort = settings.CustomControlPort;
             CustomFileTransferPort = settings.CustomFileTransferPort;
@@ -162,6 +200,16 @@ namespace DaemonKit
             PowerSavingNormalBrightness = settings.PowerSavingNormalBrightness;
             PowerSavingLowBrightness = settings.PowerSavingLowBrightness;
             PowerSavingDisplayConfigs = settings.PowerSavingDisplayConfigs;
+            SuspendHotkeyOnProcessNames =
+                settings.SuspendHotkeyOnProcessNames
+                ?? new List<string>
+                {
+                    "vncviewer",
+                    "tvnviewer",
+                    "SunloginClient",
+                    "SunloginRemote",
+                    "mstsc"
+                };
         }
 
         private bool startUP = true;
@@ -233,6 +281,20 @@ namespace DaemonKit
             set => this.RaiseAndSetIfChanged(ref enableScheduleToggleHotKey, value);
         }
 
+        /// <summary>
+        /// 直通字段：不在通用设置对话框编辑，由快捷键设置对话框专门管理。
+        /// 保存时透传以防止被通用设置覆盖丢失。
+        /// </summary>
+        public List<string> SuspendHotkeyOnProcessNames { get; set; } =
+            new List<string>
+            {
+                "vncviewer",
+                "tvnviewer",
+                "SunloginClient",
+                "SunloginRemote",
+                "mstsc"
+            };
+
         private bool minimizeStartUp = false;
         public bool MinimizeStartUp
         {
@@ -292,6 +354,58 @@ namespace DaemonKit
         {
             get => maxConcurrentTransfers;
             set => this.RaiseAndSetIfChanged(ref maxConcurrentTransfers, Math.Clamp(value, 1, 16));
+        }
+
+        private bool enableSystemStatusMonitoring = true;
+        public bool EnableSystemStatusMonitoring
+        {
+            get => enableSystemStatusMonitoring;
+            set => this.RaiseAndSetIfChanged(ref enableSystemStatusMonitoring, value);
+        }
+
+        private int systemStatusIntervalMs = 2000;
+        public int SystemStatusIntervalMs
+        {
+            get => systemStatusIntervalMs;
+            set =>
+                this.RaiseAndSetIfChanged(
+                    ref systemStatusIntervalMs,
+                    Math.Clamp(value, 500, 10000)
+                );
+        }
+
+        private bool enableGpuUsageMonitoring = true;
+        public bool EnableGpuUsageMonitoring
+        {
+            get => enableGpuUsageMonitoring;
+            set => this.RaiseAndSetIfChanged(ref enableGpuUsageMonitoring, value);
+        }
+
+        private int criticalMemoryUsagePercent = 90;
+        public int CriticalMemoryUsagePercent
+        {
+            get => criticalMemoryUsagePercent;
+            set =>
+                this.RaiseAndSetIfChanged(
+                    ref criticalMemoryUsagePercent,
+                    Math.Clamp(value, 50, 100)
+                );
+        }
+
+        private int criticalCpuUsagePercent = 95;
+        public int CriticalCpuUsagePercent
+        {
+            get => criticalCpuUsagePercent;
+            set =>
+                this.RaiseAndSetIfChanged(ref criticalCpuUsagePercent, Math.Clamp(value, 50, 100));
+        }
+
+        private int criticalGpuUsagePercent = 95;
+        public int CriticalGpuUsagePercent
+        {
+            get => criticalGpuUsagePercent;
+            set =>
+                this.RaiseAndSetIfChanged(ref criticalGpuUsagePercent, Math.Clamp(value, 50, 100));
         }
 
         private int customMetaPort = 0;
@@ -369,6 +483,13 @@ namespace DaemonKit
         {
             get => safeKillTimeout;
             set => this.RaiseAndSetIfChanged(ref safeKillTimeout, Math.Max(value, 1000));
+        }
+
+        private bool enableCpuStallDetection = false;
+        public bool EnableCpuStallDetection
+        {
+            get => enableCpuStallDetection;
+            set => this.RaiseAndSetIfChanged(ref enableCpuStallDetection, value);
         }
 
         private bool enableCountdownConfirm = true;

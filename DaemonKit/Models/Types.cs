@@ -108,5 +108,12 @@ namespace DaemonKit.Models
         /// <summary>认证令牌（为空时表示不使用认证）</summary>
         [JsonProperty("token", NullValueHandling = NullValueHandling.Ignore)]
         public string Token;
+
+        /// <summary>
+        /// 发送方 IP 地址 —— 由 NetworkBroadcastService 从 UDP 来源地址注入，不参与序列化/反序列化。
+        /// 上层通过此字段发送 ACK，无需在 data 中携带 requesterIP。
+        /// </summary>
+        [JsonIgnore]
+        public string SenderIP;
     }
 }

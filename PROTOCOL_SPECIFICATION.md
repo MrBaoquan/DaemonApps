@@ -298,7 +298,7 @@ UTF-8 编码的 JSON，序列化自 `Command` 对象：
 
 ```json
 {
-  "evt": 1001,
+  "evt": 1002,
   "data": { },
   "token": ""
 }
@@ -335,9 +335,9 @@ UTF-8 编码的 JSON，序列化自 `Command` 对象：
 {
   "evt": 1300,
   "data": {
-    "ackEvt": 1001,
-    "machineName": "MACHINE-01",
-    "timestamp": "2026-03-01T12:00:00"
+    "ackEvt": 1002,
+    "machineName": "DESKTOP-TARGET",
+    "timestamp": "2026-02-27T10:30:00.000+08:00"
   }
 }
 ```
@@ -347,7 +347,9 @@ UTF-8 编码的 JSON，序列化自 `Command` 对象：
 | `evt` | int | 固定为 `1300` (ACK) |
 | `data.ackEvt` | int | 被确认的原始指令 evt |
 | `data.machineName` | string | 响应方的设备名称 |
-| `data.timestamp` | string | 执行时间戳 |
+| `data.timestamp` | string | 执行时间戳（ISO 8601，含时区偏移） |
+
+> **ACK 路由**：接收端通过 UDP 报文的来源地址（`RemoteEndPoint`）自动确定回包目标，无需在 `data` 中显式携带 `requesterIP`。
 
 **支持 ACK 的指令**：RESTART (1002)、SHUTDOWN (1001)、RESTART_NODE_TREE (1004)、STOP (1005)、BOOT (1003)、SET_VOLUME (1013)、MUTE (1014)、UNMUTE (1015)、TOGGLE_MUTE (1016)、VOLUME_UP (1017)、VOLUME_DOWN (1018)、ENTER_POWER_SAVING (1020)、EXIT_POWER_SAVING (1021)、MONITOR_OFF (1025)、MONITOR_ON (1026)、TAKE_SCREENSHOT (1030)、DISABLE_DESKTOP (1031)、ENABLE_DESKTOP (1032)、TOGGLE_TOUCH (1033)
 
@@ -360,13 +362,13 @@ UTF-8 编码的 JSON，序列化自 `Command` 对象：
 | **1003** | `BOOT` | 发送方 → 目标 | *无* | 远程开机（WoL） |
 | **1004** | `RESTART_NODE_TREE` | 发送方 → 目标 | *无* | 重启目标的进程树 |
 | **1005** | `STOP` | 发送方 → 目标 | *无* | 停止/终止目标的进程树 |
-| **1006** | `EXPORT_PACKAGE` | 请求方 → 远端 | `{"taskId":"..."}` | 请求远端导出进程包到共享目录 |
-| **1007** | `EXPORT_PACKAGE_COMPLETED` | 远端 → 请求方 | `{"remoteIP":"...","success":true,"error":"","packageFileName":"...","taskId":"..."}` | 导出完成通知 |
-| **1008** | `EXPORT_PACKAGE_PROGRESS` | 远端 → 请求方 | `{"remoteIP":"...","progress":50.0,"status":"...","taskId":"..."}` | 导出进度通知 |
-| **1009** | `PUSH_PACKAGE_TO_REQUESTER` | 请求方 → 远端 | `{"packageFileName":"...","requesterIP":"...","taskId":"..."}` | 请求远端通过 P2P 推送指定文件 |
+| **1006** | `EXPORT_PACKAGE` | 请求方 → 远端 | `{"taskId":"c3a1b2d4-5e6f-...","requesterIP":"192.168.1.50"}` | 请求远端导出进程包到共享目录（`requesterIP` 用于远端异步回调） |
+| **1007** | `EXPORT_PACKAGE_COMPLETED` | 远端 → 请求方 | `{"remoteIP":"192.168.1.100","success":true,"error":"","machineName":"DESKTOP-TARGET","packageFileName":"Demo_20260227_143022.dkp.zip","taskId":"c3a1b2d4-5e6f-..."}` | 导出完成通知 |
+| **1008** | `EXPORT_PACKAGE_PROGRESS` | 远端 → 请求方 | `{"remoteIP":"192.168.1.100","message":"正在打包程序文件..."}` | 导出进度通知 |
+| **1009** | `PUSH_PACKAGE_TO_REQUESTER` | 请求方 → 远端 | `{"fileName":"Demo_20260227_143022.dkp.zip","requesterIP":"192.168.1.50","requesterPort":7009}` | 请求远端通过 P2P 推送指定文件（`requesterIP`/`requesterPort` 用于远端主动建立 TCP 连接） |
 | ~~1010~~ | ~~`LIST_SHARED_FILES`~~ | — | — | **已废弃**：迁移至 TCP 通道（见 5.4 节） |
 | ~~1011~~ | ~~`LIST_SHARED_FILES_RESPONSE`~~ | — | — | **已废弃**：迁移至 TCP 通道（见 5.4 节） |
-| **1012** | `PUSH_DOWNLOAD_FILES` | 请求方 → 远端 | `{"requestId":"...","fileNames":[...],"requesterIP":"..."}` | 请求远端推送指定文件供下载 |
+| **1012** | `PUSH_DOWNLOAD_FILES` | 请求方 → 远端 | `{"fileNames":["App_v1.2.dkp.zip","Patch_v1.3.dkp-patch.zip"],"requesterIP":"192.168.1.50"}` | 请求远端推送指定文件供下载（`requesterIP` 用于远端主动建立 TCP 连接） |
 | **1013** | `SET_VOLUME` | 发送方 → 目标 | `{"volume":75}` | 设置系统音量（0–100） |
 | **1014** | `MUTE` | 发送方 → 目标 | *无* | 静音 |
 | **1015** | `UNMUTE` | 发送方 → 目标 | *无* | 取消静音 |
@@ -381,8 +383,129 @@ UTF-8 编码的 JSON，序列化自 `Command` 对象：
 | **1031** | `DISABLE_DESKTOP` | 发送方 → 目标 | *无* | 关闭桌面进程（explorer.exe） |
 | **1032** | `ENABLE_DESKTOP` | 发送方 → 目标 | *无* | 启用桌面进程（explorer.exe） |
 | **1033** | `TOGGLE_TOUCH` | 发送方 → 目标 | *无* | 切换触摸屏启用/禁用 |
-| **1221** | `HEARTBEAT` | 子进程 → DaemonKit | `{"process":"C:\\\\...\\\\app.exe"}` | 进程心跳信号（统一于 ControlPort） |
-| **1300** | `ACK` | 接收端 → 发送方 | `{"ackEvt":...,"machineName":"...","timestamp":"..."}` | 指令执行确认 |
+| **1221** | `HEARTBEAT` | 子进程 → DaemonKit | `{"process":"C:\\\\Apps\\\\MyApp\\\\MyApp.exe"}` | 进程心跳信号（统一于 ControlPort） |
+| **1300** | `ACK` | 接收端 → 发送方 | `{"ackEvt":1002,"machineName":"DESKTOP-TARGET","timestamp":"2026-02-27T10:30:00.000+08:00"}` | 指令执行确认 |
+
+#### 完整数据包示例
+
+以下展示各类典型指令的完整 UDP 数据包（`token` 字段仅在启用认证时携带）。
+
+##### 1. 系统控制（以重启为例）
+
+```json
+// 发送方 → 目标（192.168.1.100:7008）
+{
+  "evt": 1002
+}
+
+// 目标 → 发送方（ACK 回包，192.168.1.50:7008）
+{
+  "evt": 1300,
+  "data": {
+    "ackEvt": 1002,
+    "machineName": "DESKTOP-TARGET",
+    "timestamp": "2026-02-27T10:30:00.000+08:00"
+  }
+}
+```
+
+##### 2. 音量控制
+
+```json
+// 设置音量至 60%
+{ "evt": 1013, "data": { "volume": 60 } }
+
+// 静音
+{ "evt": 1014 }
+
+// 取消静音
+{ "evt": 1015 }
+
+// 切换静音
+{ "evt": 1016 }
+
+// 步进增量
+{ "evt": 1017 }
+```
+
+##### 3. 远程导出包（三步流程）
+
+```json
+// ① 请求方 → 远端：发起导出
+{
+  "evt": 1006,
+  "data": {
+    "taskId": "c3a1b2d4-5e6f-7890-abcd-ef1234567890",
+    "requesterIP": "192.168.1.50"
+  }
+}
+
+// ② 远端 → 请求方：进度推送（多次）
+{
+  "evt": 1008,
+  "data": {
+    "remoteIP": "192.168.1.100",
+    "message": "正在打包程序文件 MyApp/..."
+  }
+}
+
+// ③ 远端 → 请求方：导出完成
+{
+  "evt": 1007,
+  "data": {
+    "remoteIP": "192.168.1.100",
+    "success": true,
+    "error": "",
+    "machineName": "DESKTOP-TARGET",
+    "packageFileName": "Demo_20260227_143022.dkp.zip",
+    "taskId": "c3a1b2d4-5e6f-7890-abcd-ef1234567890"
+  }
+}
+```
+
+##### 4. P2P 文件推送请求
+
+```json
+// 请求远端推送单个包文件（PUSH_PACKAGE_TO_REQUESTER）
+{
+  "evt": 1009,
+  "data": {
+    "fileName": "Demo_20260227_143022.dkp.zip",
+    "requesterIP": "192.168.1.50",
+    "requesterPort": 7009
+  }
+}
+
+// 请求远端推送多个文件（PUSH_DOWNLOAD_FILES，文件浏览下载）
+{
+  "evt": 1012,
+  "data": {
+    "fileNames": ["App_v1.2.dkp.zip", "Patch_v1.3.dkp-patch.zip"],
+    "requesterIP": "192.168.1.50"
+  }
+}
+```
+
+##### 5. 进程心跳
+
+```json
+// 受管进程 → DaemonKit（每秒发送，不含 token）
+{
+  "evt": 1221,
+  "data": {
+    "process": "C:\\Apps\\MyApp\\MyApp.exe"
+  }
+}
+```
+
+##### 6. 带认证令牌的示例
+
+```json
+{
+  "evt": 1001,
+  "token": "my-shared-secret-2026"
+}
+```
 
 ---
 

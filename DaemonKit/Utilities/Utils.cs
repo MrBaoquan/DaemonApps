@@ -98,13 +98,19 @@ namespace DaemonKit.Utilities
                 });
         }
 
-        static readonly HardwareInfo hardwareInfo = new HardwareInfo();
+        // 延迟到 MTA 线程（Observable.Start / Task.Run）中创建，
+        // 避免 WMI COM 对象绑定 STA 导致跨公寓编排回 UI 线程死锁。
+        [ThreadStatic]
+        private static HardwareInfo? _hardwareInfo;
 
         public static IObservable<string> FetchHardwareInfo()
         {
             return Observable
                 .Start<string>(() =>
                 {
+                    // 在 MTA 线程首次访问时创建，确保 WMI COM 对象绑定 MTA
+                    _hardwareInfo ??= new HardwareInfo();
+                    var hardwareInfo = _hardwareInfo;
                     hardwareInfo.RefreshCPUList();
                     hardwareInfo.RefreshVideoControllerList();
                     hardwareInfo.RefreshMemoryList();
@@ -232,6 +238,30 @@ namespace DaemonKit.Utilities
                 // Alt + S
                 WinAPI.RegisterHotKey(helper.Handle, 105, (uint)KeyModifiers.Alt, 0x53);
             }
+
+            // Ctrl+Shift+T 紧急恢复（始终注册，安全机制）
+            WinAPI.RegisterHotKey(
+                helper.Handle,
+                106,
+                (uint)(KeyModifiers.Ctrl | KeyModifiers.Shift),
+                0x54
+            );
+
+            // Ctrl+Shift+D 编排调试模式（始终注册）
+            WinAPI.RegisterHotKey(
+                helper.Handle,
+                107,
+                (uint)(KeyModifiers.Ctrl | KeyModifiers.Shift),
+                0x44
+            );
+
+            // Ctrl+Shift+R 守护运行模式（始终注册）
+            WinAPI.RegisterHotKey(
+                helper.Handle,
+                108,
+                (uint)(KeyModifiers.Ctrl | KeyModifiers.Shift),
+                0x52
+            );
         }
 
         public static void UnRegisterHotKey(System.Windows.Window window)
@@ -245,6 +275,9 @@ namespace DaemonKit.Utilities
             WinAPI.UnregisterHotKey(helper.Handle, 9000); // Alt+X
             WinAPI.UnregisterHotKey(helper.Handle, 9001); // Alt+C
             WinAPI.UnregisterHotKey(helper.Handle, 105); // Alt+S
+            WinAPI.UnregisterHotKey(helper.Handle, 106); // Ctrl+Shift+T 紧急恢复
+            WinAPI.UnregisterHotKey(helper.Handle, 107); // Ctrl+Shift+D 编排调试
+            WinAPI.UnregisterHotKey(helper.Handle, 108); // Ctrl+Shift+R 守护运行
         }
 
         //static RegistryKey runKey = Registry.CurrentUser.OpenSubKey (@"SOFTWARE\Microsoft\Windows\CurrentVersion\Run", true);
@@ -272,10 +305,14 @@ namespace DaemonKit.Utilities
                     if (AppSettings.StartUp)
                     {
                         Services.GuardServiceHelper.SyncGuardService(true, AppPathes.ExecutorPath);
+                        // 启动双向守护监测：持续检测 DaemonGuard 服务是否存活
+                        Services.GuardServiceHelper.StartMonitoring();
                     }
                     else
                     {
                         Services.GuardServiceHelper.SyncGuardService(false, null);
+                        // 自启动已禁用，停止监测（如果之前启用过）
+                        Services.GuardServiceHelper.StopMonitoring();
                     }
                 }
                 catch (Exception ex)

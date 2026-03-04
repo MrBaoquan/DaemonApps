@@ -1,6 +1,7 @@
 using System;
 using System.Diagnostics;
 using System.IO;
+using System.Reactive.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using DNHper;
@@ -10,6 +11,7 @@ namespace DaemonKit.Services;
 /// <summary>
 /// DaemonGuard 守护服务集成辅助工具。
 /// 守护服务跟随开机自启动设置：启用自启动时自动安装并启动，禁用时停止服务。
+/// 运行期间持续监测守护服务状态，实现 DaemonKit ↔ DaemonGuard 双向守护。
 /// 整个过程不阻塞 UI 线程，失败时静默降级。
 /// </summary>
 public static class GuardServiceHelper
@@ -17,6 +19,115 @@ public static class GuardServiceHelper
     private const string ServiceName = "DaemonGuard";
     private const string GuardSubDir = "Guard";
     private const string GuardExeName = "DaemonGuard.exe";
+
+    /// <summary>
+    /// 运行期间监测守护服务的定时器订阅（双向守护）。
+    /// </summary>
+    private static IDisposable? _monitorSubscription;
+
+    /// <summary>
+    /// 连续检测到服务异常的次数（用于避免日志刷屏）。
+    /// </summary>
+    private static int _consecutiveFailures = 0;
+
+    /// <summary>
+    /// 监测间隔（秒）。每 30 秒检查一次守护服务是否存活。
+    /// </summary>
+    private const int MonitorIntervalSeconds = 30;
+
+    /// <summary>
+    /// 连续恢复失败超过此次数后降低日志频率（每 N 次才输出一条）。
+    /// </summary>
+    private const int QuietAfterFailures = 5;
+
+    /// <summary>
+    /// 启动对 DaemonGuard 服务的持续监测（双向守护）。
+    /// DaemonKit 运行期间每 30 秒检查一次，如果服务意外停止则自动重启。
+    /// 应在 SyncGuardService(true) 之后调用。
+    /// </summary>
+    public static void StartMonitoring()
+    {
+        StopMonitoring();
+        _consecutiveFailures = 0;
+
+        _monitorSubscription = Observable
+            .Interval(TimeSpan.FromSeconds(MonitorIntervalSeconds))
+            .Subscribe(_ =>
+            {
+                try
+                {
+                    MonitorGuardService();
+                }
+                catch (Exception ex)
+                {
+                    NLogger.Warn("[守护监测] 监测循环异常: {Message}", ex.Message);
+                }
+            });
+
+        NLogger.Info("[守护监测] 已启动双向守护监测，间隔 {Interval}s", MonitorIntervalSeconds);
+    }
+
+    /// <summary>
+    /// 停止对 DaemonGuard 服务的持续监测。
+    /// 应在 App.OnExit 中 StopService 之前调用。
+    /// </summary>
+    public static void StopMonitoring()
+    {
+        if (_monitorSubscription != null)
+        {
+            _monitorSubscription.Dispose();
+            _monitorSubscription = null;
+            NLogger.Info("[守护监测] 已停止双向守护监测");
+        }
+    }
+
+    /// <summary>
+    /// 单次监测：检查守护服务状态，必要时自动恢复。
+    /// </summary>
+    private static void MonitorGuardService()
+    {
+        if (!IsServiceInstalled())
+        {
+            // 服务未安装，不需要监测（可能用户禁用了自启动）
+            return;
+        }
+
+        if (IsServiceRunning())
+        {
+            // 服务正常运行
+            if (_consecutiveFailures > 0)
+            {
+                NLogger.Info("[守护监测] DaemonGuard 服务已恢复运行（此前连续 {Count} 次异常）", _consecutiveFailures);
+                _consecutiveFailures = 0;
+            }
+            return;
+        }
+
+        // 服务已安装但未运行 — 尝试重启
+        _consecutiveFailures++;
+
+        // 避免日志刷屏：前几次每次都报，之后降低频率
+        bool shouldLog =
+            _consecutiveFailures <= QuietAfterFailures
+            || _consecutiveFailures % QuietAfterFailures == 0;
+
+        if (shouldLog)
+        {
+            NLogger.Warn("[守护监测] DaemonGuard 服务未运行，正在尝试重启... (第 {Count} 次)", _consecutiveFailures);
+        }
+
+        int exitCode = RunSc($"start {ServiceName}");
+
+        if (exitCode == 0)
+        {
+            NLogger.Info("[守护监测] DaemonGuard 服务重启成功");
+            _consecutiveFailures = 0;
+        }
+        else if (shouldLog)
+        {
+            NLogger.Warn("[守护监测] DaemonGuard 服务重启失败，sc.exe 退出码: {ExitCode}", exitCode);
+        }
+    }
 
     /// <summary>
     /// 根据开机自启动设置同步守护服务状态。

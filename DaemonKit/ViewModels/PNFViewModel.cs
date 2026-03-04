@@ -8,6 +8,7 @@ using System.Text;
 using System.Threading.Tasks;
 using System.Windows;
 using DaemonKit.Models;
+using DaemonKit.Core;
 using DaemonKit.Utilities;
 using Microsoft.Win32;
 using ReactiveUI;
@@ -26,13 +27,6 @@ namespace DaemonKit
         private FormType formType = FormType.Create;
         private OpenFileDialog openFileDialog = new OpenFileDialog();
 
-        // 检测是否为脚本文件
-        private bool IsScriptFile(string path)
-        {
-            var ext = System.IO.Path.GetExtension(path).ToLowerInvariant();
-            return ext == ".bat" || ext == ".cmd" || ext == ".ps1" || ext == ".vbs";
-        }
-
         public PNFViewModel()
         {
             this.Confirm = ReactiveCommand.Create<ProcessMetaData>(
@@ -43,6 +37,7 @@ namespace DaemonKit
                         Name = this.Name,
                         Path = this.Path,
                         Arguments = this.Arguments,
+                        ProcessMatchName = this.ProcessMatchName,
                         RunAs = this.RunAs,
                         KeepTop = this.KeepTop,
                         MoveWindow = this.MoveWindow,
@@ -56,7 +51,7 @@ namespace DaemonKit
                         Height = this.Height,
                     };
                     // 自动检测脚本文件类型，执行应用子内部处理
-                    metaData.IsScript = IsScriptFile(this.Path);
+                    metaData.IsScript = ProcManager.IsScriptFile(this.Path);
                     return metaData;
                 },
                 outputScheduler: RxApp.MainThreadScheduler
@@ -122,6 +117,8 @@ namespace DaemonKit
             this.ResizeWindow = false;
             this.RunAs = true;
             this.Path = "demo.exe";
+            this.Arguments = string.Empty;
+            this.ProcessMatchName = string.Empty;
             this.Delay = 500;
             this.PosX = 0;
             this.PosY = 0;
@@ -147,6 +144,7 @@ namespace DaemonKit
             this.RunAs = InMeta.RunAs;
             this.Path = InMeta.Path;
             this.Arguments = InMeta.Arguments;
+            this.ProcessMatchName = InMeta.ProcessMatchName;
             this.MoveWindow = InMeta.MoveWindow;
             this.ResizeWindow = InMeta.ResizeWindow;
             this.Delay = InMeta.Delay;
@@ -186,6 +184,13 @@ namespace DaemonKit
         {
             get => arguments;
             set => this.RaiseAndSetIfChanged(ref arguments, value);
+        }
+
+        private string processMatchName = string.Empty;
+        public string ProcessMatchName
+        {
+            get => processMatchName;
+            set => this.RaiseAndSetIfChanged(ref processMatchName, value);
         }
 
         public bool moveWindow = false;

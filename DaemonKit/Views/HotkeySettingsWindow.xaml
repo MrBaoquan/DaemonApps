@@ -8,67 +8,94 @@
         ResizeMode="NoResize"
         WindowStyle="ToolWindow"
         Background="{DynamicResource MaterialDesignPaper}"
-        MinWidth="420"
-        MinHeight="320"
+        MinWidth="440"
         FontFamily="{DynamicResource MaterialDesignFont}">
-        <Border Padding="16"
-                Background="{DynamicResource MaterialDesignPaper}">
+        <Border Padding="16" Background="{DynamicResource MaterialDesignPaper}">
                 <StackPanel>
-                        <TextBlock Text="全局快捷键"
-                                   FontSize="16"
-                                   FontWeight="Bold"
-                                   Margin="0 0 0 8"/>
-                        <CheckBox Content="启用全局快捷键"
-                                  IsChecked="{Binding EnableGlobalHotKey}"
-                                  Margin="0 0 0 12"/>
+                        <TextBlock Text="全局快捷键" FontSize="16" FontWeight="Bold" Margin="0 0 0 8"/>
+                        <CheckBox Content="启用全局快捷键" IsChecked="{Binding EnableGlobalHotKey}" Margin="0 0 0 12"/>
 
                         <StackPanel Margin="0 0 0 12">
-                                <TextBlock Text="快捷键列表"
-                                           FontSize="13"
-                                           FontWeight="SemiBold"
-                                           Margin="0 0 0 6"/>
-                                <UniformGrid Columns="1"
-                                             Rows="7"
-                                             Margin="0 0 0 4">
-                                        <CheckBox Content="Ctrl + D ：显示/隐藏窗口"
-                                                  IsChecked="{Binding EnableToggleWindow}"
-                                                  Margin="0 2"/>
-                                        <CheckBox Content="Ctrl + R ：启动进程树"
-                                                  IsChecked="{Binding EnableStartTree}"
-                                                  Margin="0 2"/>
-                                        <CheckBox Content="Ctrl + W ：终止进程树"
-                                                  IsChecked="{Binding EnableStopTree}"
-                                                  Margin="0 2"/>
-                                        <CheckBox Content="Ctrl + Shift + E ：启用桌面进程"
-                                                  IsChecked="{Binding EnableDesktopOn}"
-                                                  Margin="0 2"/>
-                                        <CheckBox Content="Ctrl + Shift + W ：关闭桌面进程"
-                                                  IsChecked="{Binding EnableDesktopOff}"
-                                                  Margin="0 2"/>
-                                        <CheckBox Content="Alt + X ：屏幕截图"
-                                                  IsChecked="{Binding EnableScreenshot}"
-                                                  Margin="0 2"/>
-                                        <CheckBox Content="Alt + S ：启用/禁用计划任务"
-                                                  IsChecked="{Binding EnableScheduleToggle}"
-                                                  Margin="0 2"/>
+                                <TextBlock Text="快捷键列表" FontSize="13" FontWeight="SemiBold" Margin="0 0 0 6"/>
+                                <UniformGrid Columns="1" Rows="7" Margin="0 0 0 4">
+                                        <CheckBox Content="Ctrl + D ：显示/隐藏窗口"        IsChecked="{Binding EnableToggleWindow}"   Margin="0 2"/>
+                                        <CheckBox Content="Ctrl + R ：启动进程树"            IsChecked="{Binding EnableStartTree}"      Margin="0 2"/>
+                                        <CheckBox Content="Ctrl + W ：终止进程树"            IsChecked="{Binding EnableStopTree}"       Margin="0 2"/>
+                                        <CheckBox Content="Ctrl + Shift + E ：启用桌面进程"  IsChecked="{Binding EnableDesktopOn}"      Margin="0 2"/>
+                                        <CheckBox Content="Ctrl + Shift + W ：关闭桌面进程"  IsChecked="{Binding EnableDesktopOff}"     Margin="0 2"/>
+                                        <CheckBox Content="Alt + X ：屏幕截图"               IsChecked="{Binding EnableScreenshot}"     Margin="0 2"/>
+                                        <CheckBox Content="Alt + S ：启用/禁用计划任务"      IsChecked="{Binding EnableScheduleToggle}" Margin="0 2"/>
                                 </UniformGrid>
                         </StackPanel>
 
-                        <TextBlock Text="启用后快捷键全局生效；如与其他软件冲突，可单独关闭对应快捷键。"
-                                   TextWrapping="Wrap"
-                                   Margin="0 0 0 16"/>
+                        <Separator Margin="0 0 0 12"/>
 
-                        <StackPanel Orientation="Horizontal"
-                                    HorizontalAlignment="Right">
-                                <Button Content="取消"
-                                        Width="88"
-                                        Margin="0 0 8 0"
-                                        IsCancel="True"
-                                        Click="Cancel_Click"/>
-                                <Button Content="保存"
-                                        Width="88"
-                                        IsDefault="True"
-                                        Click="Save_Click"/>
+                        <!-- 远程工具焦点挂起 -->
+                        <StackPanel Margin="0 0 0 12">
+                                <TextBlock Text="远程工具自动挂起" FontSize="13" FontWeight="SemiBold" Margin="0 0 0 4"/>
+                                <TextBlock TextWrapping="Wrap" Margin="0 0 0 8"
+                                           Opacity="0.72"
+                                           Text="以下进程名的窗口获得焦点时，自动挂起全局快捷键，防止按键穿透到本机运维管家。&#x0a;适用于向日葵/VNC 远程嵌套场景（进程名不含 .exe）。"/>
+
+                                <!-- 已有进程名列表 -->
+                                <Border BorderThickness="1" BorderBrush="{DynamicResource MaterialDesignDivider}"
+                                        CornerRadius="4" Padding="4" MaxHeight="130" Margin="0 0 0 6">
+                                        <ScrollViewer VerticalScrollBarVisibility="Auto">
+                                                <ItemsControl ItemsSource="{Binding SuspendOnProcessNames}">
+                                                        <ItemsControl.ItemTemplate>
+                                                                <DataTemplate>
+                                                                        <Grid Margin="0 1">
+                                                                                <Grid.ColumnDefinitions>
+                                                                                        <ColumnDefinition Width="*"/>
+                                                                                        <ColumnDefinition Width="Auto"/>
+                                                                                </Grid.ColumnDefinitions>
+                                                                                <TextBlock Grid.Column="0" Text="{Binding}"
+                                                                                           VerticalAlignment="Center"
+                                                                                           FontFamily="Consolas"
+                                                                                           Padding="4 2"/>
+                                                                                <Button Grid.Column="1"
+                                                                                        Command="{Binding DataContext.RemoveProcessName,
+                                                                                            RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                                                                        CommandParameter="{Binding}"
+                                                                                        Style="{StaticResource MaterialDesignFlatButton}"
+                                                                                        Width="24" Height="24" Padding="0"
+                                                                                        ToolTip="移除">
+                                                                                        <materialDesign:PackIcon Kind="Close" Width="14" Height="14"/>
+                                                                                </Button>
+                                                                        </Grid>
+                                                                </DataTemplate>
+                                                        </ItemsControl.ItemTemplate>
+                                                </ItemsControl>
+                                        </ScrollViewer>
+                                </Border>
+
+                                <!-- 添加新进程名 -->
+                                <Grid>
+                                        <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*"/>
+                                                <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        <TextBox Grid.Column="0"
+                                                 materialDesign:HintAssist.Hint="进程名（不含 .exe，如 vncviewer）"
+                                                 Text="{Binding NewProcessName, UpdateSourceTrigger=PropertyChanged}"
+                                                 Margin="0 0 6 0">
+                                                <TextBox.InputBindings>
+                                                        <KeyBinding Key="Return" Command="{Binding AddProcessName}"/>
+                                                </TextBox.InputBindings>
+                                        </TextBox>
+                                        <Button Grid.Column="1" Content="添加"
+                                                Command="{Binding AddProcessName}"
+                                                Style="{StaticResource MaterialDesignOutlinedButton}"
+                                                Width="60"/>
+                                </Grid>
+                        </StackPanel>
+
+                        <TextBlock Text="启用后快捷键全局生效；如与其他软件冲突，可单独关闭对应快捷键。"
+                                   TextWrapping="Wrap" Margin="0 0 0 16" Opacity="0.72"/>
+
+                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                                <Button Content="取消" Width="88" Margin="0 0 8 0" IsCancel="True" Click="Cancel_Click"/>
+                                <Button Content="保存" Width="88" IsDefault="True"                  Click="Save_Click"/>
                         </StackPanel>
                 </StackPanel>
         </Border>

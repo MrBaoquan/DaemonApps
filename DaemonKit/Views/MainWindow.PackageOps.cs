@@ -196,6 +196,156 @@ namespace DaemonKit
         }
 
         /// <summary>
+        /// 更新状态栏系统资源显示。
+        /// </summary>
+        private void UpdateSystemStatusBar(SystemStatusSnapshot snapshot)
+        {
+            try
+            {
+                var cpuText = $"CPU {snapshot.CpuUsagePercent:F0}%";
+                var memText = $"内存 {snapshot.MemoryUsagePercent:F0}%";
+                var gpuText = snapshot.GpuUsagePercent.HasValue
+                    ? $"GPU {snapshot.GpuUsagePercent.Value:F0}%"
+                    : "GPU --";
+
+                SystemStatusText.Text = $"{cpuText} | {memText} | {gpuText}";
+                SystemStatusItem.ToolTip =
+                    $"CPU: {snapshot.CpuUsagePercent:F1}%\n"
+                    + $"内存: {snapshot.MemoryUsedGb:F1}/{snapshot.MemoryTotalGb:F1} GB ({snapshot.MemoryUsagePercent:F1}%)\n"
+                    + (
+                        snapshot.GpuUsagePercent.HasValue
+                            ? $"GPU: {snapshot.GpuUsagePercent.Value:F1}%"
+                            : "GPU: 不可用"
+                    );
+            }
+            catch (Exception ex)
+            {
+                // 监控展示异常必须静默降级，不能影响主流程
+                NLogger.Warn("[系统监控] 更新状态栏异常（已忽略）: {Message}", ex.Message);
+            }
+        }
+
+        /// <summary>
+        /// 评估关键阈值告警（仅写日志，不中断主流程）。
+        /// </summary>
+        private void EvaluateSystemCriticalAlerts(SystemStatusSnapshot snapshot)
+        {
+            try
+            {
+                // 1) 内存告警：达到阈值立即告警
+                var memoryCriticalThreshold = Math.Clamp(
+                    AppSettings.CriticalMemoryUsagePercent,
+                    50,
+                    100
+                );
+                var memoryRecoveryThreshold = Math.Max(0, memoryCriticalThreshold - 5);
+                if (snapshot.MemoryUsagePercent >= memoryCriticalThreshold)
+                {
+                    if (!_memoryCriticalActive)
+                    {
+                        _memoryCriticalActive = true;
+                        NLogger.Warn(
+                            "[系统监控告警] 内存使用率过高: {Usage:F1}% (阈值: {Threshold}%)，已用 {Used:F1}/{Total:F1} GB",
+                            snapshot.MemoryUsagePercent,
+                            memoryCriticalThreshold,
+                            snapshot.MemoryUsedGb,
+                            snapshot.MemoryTotalGb
+                        );
+                    }
+                }
+                else if (
+                    _memoryCriticalActive && snapshot.MemoryUsagePercent <= memoryRecoveryThreshold
+                )
+                {
+                    _memoryCriticalActive = false;
+                    NLogger.Info(
+                        "[系统监控恢复] 内存使用率恢复正常: {Usage:F1}% (恢复阈值: ≤{Threshold}%)",
+                        snapshot.MemoryUsagePercent,
+                        memoryRecoveryThreshold
+                    );
+                }
+
+                // 2) CPU 告警：连续 3 次高负载才报警，避免瞬时抖动误报
+                var cpuCriticalThreshold = Math.Clamp(AppSettings.CriticalCpuUsagePercent, 50, 100);
+                var cpuRecoveryThreshold = Math.Max(0, cpuCriticalThreshold - 10);
+                if (snapshot.CpuUsagePercent >= cpuCriticalThreshold)
+                {
+                    _cpuCriticalConsecutiveCount++;
+                    if (!_cpuCriticalActive && _cpuCriticalConsecutiveCount >= 3)
+                    {
+                        _cpuCriticalActive = true;
+                        NLogger.Warn(
+                            "[系统监控告警] CPU 持续高负载: {Usage:F1}% (阈值: {Threshold}%，连续 {Count} 次)",
+                            snapshot.CpuUsagePercent,
+                            cpuCriticalThreshold,
+                            _cpuCriticalConsecutiveCount
+                        );
+                    }
+                }
+                else
+                {
+                    _cpuCriticalConsecutiveCount = 0;
+                    if (_cpuCriticalActive && snapshot.CpuUsagePercent <= cpuRecoveryThreshold)
+                    {
+                        _cpuCriticalActive = false;
+                        NLogger.Info(
+                            "[系统监控恢复] CPU 负载恢复正常: {Usage:F1}% (恢复阈值: ≤{Threshold}%)",
+                            snapshot.CpuUsagePercent,
+                            cpuRecoveryThreshold
+                        );
+                    }
+                }
+
+                // 3) GPU 告警：可用时才判断，连续 3 次高负载才报警
+                if (snapshot.GpuUsagePercent.HasValue)
+                {
+                    var gpuCriticalThreshold = Math.Clamp(
+                        AppSettings.CriticalGpuUsagePercent,
+                        50,
+                        100
+                    );
+                    var gpuRecoveryThreshold = Math.Max(0, gpuCriticalThreshold - 10);
+
+                    if (snapshot.GpuUsagePercent.Value >= gpuCriticalThreshold)
+                    {
+                        _gpuCriticalConsecutiveCount++;
+                        if (!_gpuCriticalActive && _gpuCriticalConsecutiveCount >= 3)
+                        {
+                            _gpuCriticalActive = true;
+                            NLogger.Warn(
+                                "[系统监控告警] GPU 持续高负载: {Usage:F1}% (阈值: {Threshold}%，连续 {Count} 次)",
+                                snapshot.GpuUsagePercent.Value,
+                                gpuCriticalThreshold,
+                                _gpuCriticalConsecutiveCount
+                            );
+                        }
+                    }
+                    else
+                    {
+                        _gpuCriticalConsecutiveCount = 0;
+                        if (
+                            _gpuCriticalActive
+                            && snapshot.GpuUsagePercent.Value <= gpuRecoveryThreshold
+                        )
+                        {
+                            _gpuCriticalActive = false;
+                            NLogger.Info(
+                                "[系统监控恢复] GPU 负载恢复正常: {Usage:F1}% (恢复阈值: ≤{Threshold}%)",
+                                snapshot.GpuUsagePercent.Value,
+                                gpuRecoveryThreshold
+                            );
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                // 告警评估异常不可影响主进程
+                NLogger.Warn("[系统监控] 告警评估异常（已忽略）: {Message}", ex.Message);
+            }
+        }
+
+        /// <summary>
         /// 点击状态栏传输指示器打开传输列表窗口
         /// </summary>
         private void TransferStatusButton_Click(object sender, RoutedEventArgs e)

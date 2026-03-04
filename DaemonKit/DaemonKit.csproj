@@ -121,11 +121,16 @@
 
   <ItemGroup>
     <ProjectReference Include="..\DNHper\DNHper.csproj" />
-    <ProjectReference Include="..\DaemonGuard\DaemonGuard.csproj">
-      <ReferenceOutputAssembly>false</ReferenceOutputAssembly>
-      <Private>false</Private>
-    </ProjectReference>
+    <!-- DaemonGuard 不作为 ProjectReference（避免 NETSDK1150），改用 Exec 独立编译/发布 -->
   </ItemGroup>
+
+  <!-- 编译前先独立编译 DaemonGuard，确保编译顺序 -->
+  <Target Name="BuildDaemonGuard" BeforeTargets="Build">
+    <PropertyGroup>
+      <DaemonGuardProjectPath>$([MSBuild]::NormalizePath('$(MSBuildThisFileDirectory)..\DaemonGuard\DaemonGuard.csproj'))</DaemonGuardProjectPath>
+    </PropertyGroup>
+    <Exec Command="dotnet build &quot;$(DaemonGuardProjectPath)&quot; -c $(Configuration) --verbosity quiet" />
+  </Target>
 
   <!-- 编译后自动复制 DaemonGuard 输出到 Guard/ 子目录 -->
   <Target Name="CopyDaemonGuard" AfterTargets="Build">
@@ -136,6 +141,26 @@
       <DaemonGuardFiles Include="$(DaemonGuardOutputDir)**\*.*" />
     </ItemGroup>
     <Copy SourceFiles="@(DaemonGuardFiles)" DestinationFiles="@(DaemonGuardFiles->'$(OutputPath)Guard\%(RecursiveDir)%(Filename)%(Extension)')" SkipUnchangedFiles="true" Condition="Exists('$(DaemonGuardOutputDir)')" />
+  </Target>
+
+  <!-- 发布时先独立发布 DaemonGuard，再将其输出复制到 DaemonKit 发布目录的 Guard/ 子目录 -->
+  <Target Name="PublishDaemonGuard" BeforeTargets="CopyDaemonGuardToPublish">
+    <PropertyGroup>
+      <DaemonGuardProjectPath>$([MSBuild]::NormalizePath('$(MSBuildThisFileDirectory)..\DaemonGuard\DaemonGuard.csproj'))</DaemonGuardProjectPath>
+      <DaemonGuardPublishDir>$([MSBuild]::NormalizePath('$(MSBuildThisFileDirectory)..\DaemonGuard\bin\publish\'))</DaemonGuardPublishDir>
+    </PropertyGroup>
+    <Exec Command="dotnet publish &quot;$(DaemonGuardProjectPath)&quot; -c $(Configuration) -r win-x64 -o &quot;$(DaemonGuardPublishDir)&quot;" />
+  </Target>
+
+  <Target Name="CopyDaemonGuardToPublish" AfterTargets="Publish">
+    <PropertyGroup>
+      <DaemonGuardPublishDir>$([MSBuild]::NormalizePath('$(MSBuildThisFileDirectory)..\DaemonGuard\bin\publish\'))</DaemonGuardPublishDir>
+    </PropertyGroup>
+    <ItemGroup>
+      <DaemonGuardPublishFiles Include="$(DaemonGuardPublishDir)**\*.*" />
+    </ItemGroup>
+    <Copy SourceFiles="@(DaemonGuardPublishFiles)" DestinationFiles="@(DaemonGuardPublishFiles->'$(PublishDir)Guard\%(RecursiveDir)%(Filename)%(Extension)')" SkipUnchangedFiles="true" Condition="Exists('$(DaemonGuardPublishDir)')" />
+    <Message Importance="high" Text="已将 DaemonGuard 复制到发布目录: $(PublishDir)Guard\" />
   </Target>
 
   <ItemGroup>

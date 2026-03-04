@@ -48,7 +48,8 @@
                                CloseOnClickAway="True">
         <DockPanel>
             <!-- 托盘图标 -->
-            <tb:TaskbarIcon NoLeftClickDelay="True"
+            <tb:TaskbarIcon x:Name="TrayIcon"
+                            NoLeftClickDelay="True"
                             LeftClickCommand="{Binding ShowWindow}"
                             DoubleClickCommand="{Binding ShowWindow}"
                             IconSource="/Resources/logo.ico"
@@ -368,170 +369,214 @@
                         BorderThickness="0,1,0,0"
                         BorderBrush="#F0F0F0"
                         Background="White">
-                    <StatusBar x:Name="statusbar"
-                               Background="Transparent"
-                               VerticalAlignment="Center">
+                    <Grid Margin="8,0,8,0"
+                          VerticalAlignment="Center">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
 
-                        <StatusBarItem Margin="4,0,0,0"
-                                       ToolTipService.ShowOnDisabled="True">
-                            <StatusBarItem.Style>
-                                <Style TargetType="StatusBarItem">
-                                    <Setter Property="ToolTip"
-                                            Value="计划任务已启用"/>
-                                    <Style.Triggers>
-                                        <DataTrigger Binding="{Binding GlobalSchedule.ScheduleTasksEnabled}"
-                                                     Value="False">
-                                            <Setter Property="ToolTip"
-                                                    Value="计划任务已禁用"/>
-                                        </DataTrigger>
-                                    </Style.Triggers>
-                                </Style>
-                            </StatusBarItem.Style>
-                            <materialDesign:PackIcon Width="16"
-                                                     Height="16"
-                                                     VerticalAlignment="Center">
-                                <materialDesign:PackIcon.Style>
-                                    <Style TargetType="materialDesign:PackIcon">
-                                        <Setter Property="Kind"
-                                                Value="ClockCheckOutline"/>
-                                        <Setter Property="Foreground"
-                                                Value="#4CAF50"/>
+                        <!-- 左侧：固定运行状态（计划任务 / 省电） -->
+                        <StackPanel Grid.Column="0"
+                                    Orientation="Horizontal"
+                                    VerticalAlignment="Center">
+                            <Border Margin="2,0,0,0"
+                                    Padding="2,0"
+                                    ToolTipService.ShowOnDisabled="True">
+                                <Border.Style>
+                                    <Style TargetType="Border">
+                                        <Setter Property="ToolTip"
+                                                Value="计划任务已启用"/>
                                         <Style.Triggers>
                                             <DataTrigger Binding="{Binding GlobalSchedule.ScheduleTasksEnabled}"
                                                          Value="False">
-                                                <Setter Property="Kind"
-                                                        Value="ClockAlertOutline"/>
-                                                <Setter Property="Foreground"
-                                                        Value="#9E9E9E"/>
+                                                <Setter Property="ToolTip"
+                                                        Value="计划任务已禁用"/>
                                             </DataTrigger>
                                         </Style.Triggers>
                                     </Style>
-                                </materialDesign:PackIcon.Style>
-                            </materialDesign:PackIcon>
-                        </StatusBarItem>
-                        <StatusBarItem HorizontalAlignment="Left"
-                                       Margin="4,0,0,0"
-                                       ToolTipService.ShowOnDisabled="True">
-                            <!-- 省电模式指示器 -->
-                            <materialDesign:PackIcon Width="14"
-                                                     Height="14"
-                                                     VerticalAlignment="Center">
-                                <materialDesign:PackIcon.Style>
-                                    <Style TargetType="materialDesign:PackIcon">
-                                        <Setter Property="Kind"
-                                                Value="Brightness7"/>
-                                        <Setter Property="Foreground"
-                                                Value="#4CAF50"/>
-                                        <Setter Property="ToolTip"
-                                                Value="正常模式"/>
-                                        <Setter Property="Opacity"
-                                                Value="1.0"/>
-                                        <Style.Triggers>
-                                            <DataTrigger Binding="{Binding PowerSaving.IsPowerSavingMode}"
-                                                         Value="True">
-                                                <Setter Property="Kind"
-                                                        Value="Brightness4"/>
-                                                <Setter Property="Foreground"
-                                                        Value="#FF9800"/>
-                                                <Setter Property="ToolTip"
-                                                        Value="省电模式"/>
-                                            </DataTrigger>
-                                            <!-- 当EnableIdleAutoPowerSaving禁用时，图标置灰 -->
-                                            <MultiDataTrigger>
-                                                <MultiDataTrigger.Conditions>
-                                                    <Condition Binding="{Binding PowerSaving.EnableIdleAutoPowerSaving}"
-                                                               Value="False"/>
-                                                </MultiDataTrigger.Conditions>
-                                                <Setter Property="Opacity"
-                                                        Value="0.3"/>
-                                                <Setter Property="Foreground"
-                                                        Value="#9E9E9E"/>
-                                                <Setter Property="ToolTip"
-                                                        Value="空闲自动省电已禁用"/>
-                                            </MultiDataTrigger>
-                                        </Style.Triggers>
-                                    </Style>
-                                </materialDesign:PackIcon.Style>
-                            </materialDesign:PackIcon>
-                        </StatusBarItem>
+                                </Border.Style>
+                                <materialDesign:PackIcon Width="16"
+                                                         Height="16"
+                                                         VerticalAlignment="Center">
+                                    <materialDesign:PackIcon.Style>
+                                        <Style TargetType="materialDesign:PackIcon">
+                                            <Setter Property="Kind"
+                                                    Value="ClockCheckOutline"/>
+                                            <Setter Property="Foreground"
+                                                    Value="#4CAF50"/>
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding GlobalSchedule.ScheduleTasksEnabled}"
+                                                             Value="False">
+                                                    <Setter Property="Kind"
+                                                            Value="ClockAlertOutline"/>
+                                                    <Setter Property="Foreground"
+                                                            Value="#9E9E9E"/>
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </materialDesign:PackIcon.Style>
+                                </materialDesign:PackIcon>
+                            </Border>
 
-                        <!-- 软件包操作进度指示器（放在省电图标右侧） -->
-                        <StatusBarItem x:Name="PackageProgressItem"
-                                       Visibility="Collapsed"
-                                       Margin="4,0,0,0">
-                            <Button x:Name="PackageProgressButton"
-                                    Style="{StaticResource MaterialDesignFlatButton}"
-                                    Height="28"
-                                    Padding="8,4"
-                                    Click="PackageProgressButton_Click"
-                                    ToolTip="点击展开进度面板">
-                                <StackPanel Orientation="Horizontal">
-                                    <materialDesign:PackIcon Kind="Package"
-                                                             Width="16"
-                                                             Height="16"
-                                                             VerticalAlignment="Center"
-                                                             Foreground="#2196F3"
-                                                             Margin="0,0,6,0"/>
-                                    <TextBlock x:Name="PackageProgressText"
-                                               Text="正在打包..."
-                                               FontSize="12"
-                                               VerticalAlignment="Center"
-                                               Margin="0,0,6,0"/>
-                                    <TextBlock x:Name="PackageProgressPercentage"
-                                               Text="0%"
-                                               FontSize="12"
-                                               FontWeight="Medium"
-                                               Foreground="#2196F3"
-                                               VerticalAlignment="Center"/>
-                                </StackPanel>
-                            </Button>
-                        </StatusBarItem>
-
-                        <!-- 文件传输状态指示器 -->
-                        <StatusBarItem x:Name="TransferStatusItem"
-                                       Visibility="Collapsed"
-                                       Margin="4,0,0,0">
-                            <Button x:Name="TransferStatusButton"
-                                    Style="{StaticResource MaterialDesignFlatButton}"
-                                    Height="28"
-                                    Padding="8,4"
-                                    Click="TransferStatusButton_Click"
-                                    ToolTip="点击打开传输列表">
-                                <StackPanel Orientation="Horizontal">
-                                    <materialDesign:PackIcon Kind="SwapVertical"
-                                                             Width="16"
-                                                             Height="16"
-                                                             VerticalAlignment="Center"
-                                                             Foreground="#2196F3"
-                                                             Margin="0,0,4,0"/>
-                                    <TextBlock x:Name="TransferStatusText"
-                                               Text=""
-                                               FontSize="12"
-                                               VerticalAlignment="Center"
-                                               Foreground="#616161"/>
-                                </StackPanel>
-                            </Button>
-                        </StatusBarItem>
-
-                        <StatusBarItem DockPanel.Dock="Right"
-                                       HorizontalAlignment="Right"
-                                       Margin="0,0,12,0">
-                            <StackPanel Orientation="Horizontal">
-                                <materialDesign:PackIcon Kind="Alarm"
-                                                         Width="14"
+                            <Border Margin="6,0,0,0"
+                                    Padding="2,0"
+                                    ToolTipService.ShowOnDisabled="True">
+                                <!-- 省电模式指示器 -->
+                                <materialDesign:PackIcon Width="14"
                                                          Height="14"
-                                                         Foreground="#9E9E9E"
-                                                         VerticalAlignment="Center"/>
-                                <TextBlock Name="clockText"
-                                           Foreground="#616161"
-                                           FontWeight="Normal"
-                                           FontSize="12"
-                                           Margin="6,0,0,0"
-                                           VerticalAlignment="Center"
-                                           Text="{Binding CurrentTime, StringFormat='yyyy-MM-dd HH:mm:ss', FallbackValue='2023-02-01 00:00:00'}"/>
-                            </StackPanel>
-                        </StatusBarItem>
-                    </StatusBar>
+                                                         VerticalAlignment="Center">
+                                    <materialDesign:PackIcon.Style>
+                                        <Style TargetType="materialDesign:PackIcon">
+                                            <Setter Property="Kind"
+                                                    Value="Brightness7"/>
+                                            <Setter Property="Foreground"
+                                                    Value="#4CAF50"/>
+                                            <Setter Property="ToolTip"
+                                                    Value="正常模式"/>
+                                            <Setter Property="Opacity"
+                                                    Value="1.0"/>
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding PowerSaving.IsPowerSavingMode}"
+                                                             Value="True">
+                                                    <Setter Property="Kind"
+                                                            Value="Brightness4"/>
+                                                    <Setter Property="Foreground"
+                                                            Value="#FF9800"/>
+                                                    <Setter Property="ToolTip"
+                                                            Value="省电模式"/>
+                                                </DataTrigger>
+                                                <!-- 当EnableIdleAutoPowerSaving禁用时，图标置灰 -->
+                                                <MultiDataTrigger>
+                                                    <MultiDataTrigger.Conditions>
+                                                        <Condition Binding="{Binding PowerSaving.EnableIdleAutoPowerSaving}"
+                                                                   Value="False"/>
+                                                    </MultiDataTrigger.Conditions>
+                                                    <Setter Property="Opacity"
+                                                            Value="0.3"/>
+                                                    <Setter Property="Foreground"
+                                                            Value="#9E9E9E"/>
+                                                    <Setter Property="ToolTip"
+                                                            Value="空闲自动省电已禁用"/>
+                                                </MultiDataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </materialDesign:PackIcon.Style>
+                                </materialDesign:PackIcon>
+                            </Border>
+                        </StackPanel>
+
+                        <!-- 中间：动态任务区（打包 / 传输） -->
+                        <StackPanel Grid.Column="1"
+                                    Orientation="Horizontal"
+                                    HorizontalAlignment="Center"
+                                    VerticalAlignment="Center">
+                            <Border x:Name="PackageProgressItem"
+                                    Visibility="Collapsed"
+                                    Margin="4,0,0,0">
+                                <Button x:Name="PackageProgressButton"
+                                        Style="{StaticResource MaterialDesignFlatButton}"
+                                        Height="24"
+                                        Padding="8,2"
+                                        Click="PackageProgressButton_Click"
+                                        ToolTip="点击展开进度面板">
+                                    <StackPanel Orientation="Horizontal">
+                                        <materialDesign:PackIcon Kind="Package"
+                                                                 Width="16"
+                                                                 Height="16"
+                                                                 VerticalAlignment="Center"
+                                                                 Foreground="#2196F3"
+                                                                 Margin="0,0,6,0"/>
+                                        <TextBlock x:Name="PackageProgressText"
+                                                   Text="正在打包..."
+                                                   FontSize="12"
+                                                   VerticalAlignment="Center"
+                                                   Margin="0,0,6,0"
+                                                   TextTrimming="CharacterEllipsis"
+                                                   MaxWidth="160"/>
+                                        <TextBlock x:Name="PackageProgressPercentage"
+                                                   Text="0%"
+                                                   FontSize="12"
+                                                   FontWeight="Medium"
+                                                   Foreground="#2196F3"
+                                                   VerticalAlignment="Center"/>
+                                    </StackPanel>
+                                </Button>
+                            </Border>
+
+                            <Border x:Name="TransferStatusItem"
+                                    Visibility="Collapsed"
+                                    Margin="4,0,0,0">
+                                <Button x:Name="TransferStatusButton"
+                                        Style="{StaticResource MaterialDesignFlatButton}"
+                                        Height="24"
+                                        Padding="8,2"
+                                        Click="TransferStatusButton_Click"
+                                        ToolTip="点击打开传输列表">
+                                    <StackPanel Orientation="Horizontal">
+                                        <materialDesign:PackIcon Kind="SwapVertical"
+                                                                 Width="16"
+                                                                 Height="16"
+                                                                 VerticalAlignment="Center"
+                                                                 Foreground="#2196F3"
+                                                                 Margin="0,0,4,0"/>
+                                        <TextBlock x:Name="TransferStatusText"
+                                                   Text=""
+                                                   FontSize="12"
+                                                   VerticalAlignment="Center"
+                                                   Foreground="#616161"
+                                                   TextTrimming="CharacterEllipsis"
+                                                   MaxWidth="180"/>
+                                    </StackPanel>
+                                </Button>
+                            </Border>
+                        </StackPanel>
+
+                        <!-- 右侧：系统状态 + 时间 -->
+                        <StackPanel Grid.Column="2"
+                                    Orientation="Horizontal"
+                                    HorizontalAlignment="Right"
+                                    VerticalAlignment="Center">
+                            <Border x:Name="SystemStatusItem"
+                                    Margin="4,0,0,0"
+                                    ToolTip="系统资源状态"
+                                    Visibility="Visible">
+                                <StackPanel Orientation="Horizontal">
+                                    <materialDesign:PackIcon Kind="Memory"
+                                                             Width="15"
+                                                             Height="15"
+                                                             VerticalAlignment="Center"
+                                                             Foreground="#607D8B"
+                                                             Margin="0,0,4,0"/>
+                                    <TextBlock x:Name="SystemStatusText"
+                                               Text="CPU --% | 内存 --% | GPU --%"
+                                               FontSize="12"
+                                               VerticalAlignment="Center"
+                                               Foreground="#616161"
+                                               TextTrimming="CharacterEllipsis"
+                                               MaxWidth="240"/>
+                                </StackPanel>
+                            </Border>
+
+                            <Border Margin="10,0,0,0">
+                                <StackPanel Orientation="Horizontal">
+                                    <materialDesign:PackIcon Kind="Alarm"
+                                                             Width="14"
+                                                             Height="14"
+                                                             Foreground="#9E9E9E"
+                                                             VerticalAlignment="Center"/>
+                                    <TextBlock Name="clockText"
+                                               Foreground="#616161"
+                                               FontWeight="Normal"
+                                               FontSize="12"
+                                               Margin="6,0,0,0"
+                                               VerticalAlignment="Center"
+                                               Text="{Binding CurrentTime, StringFormat='yyyy-MM-dd HH:mm:ss', FallbackValue='2023-02-01 00:00:00'}"/>
+                                </StackPanel>
+                            </Border>
+                        </StackPanel>
+                    </Grid>
                 </Border>
 
                 <Grid ShowGridLines="False">

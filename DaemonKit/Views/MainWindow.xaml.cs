@@ -84,6 +84,15 @@ namespace DaemonKit
         private TransferTaskManager _transferTaskManager = null!;
         private Views.TransferListWindow? _transferListWindow;
         private Views.ResourceLibraryWindow? _resourceLibraryWindow;
+        private readonly SystemStatusMonitorService _systemStatusMonitorService =
+            new SystemStatusMonitorService();
+
+        // 系统状态告警状态机（避免重复刷日志）
+        private bool _memoryCriticalActive;
+        private bool _cpuCriticalActive;
+        private bool _gpuCriticalActive;
+        private int _cpuCriticalConsecutiveCount;
+        private int _gpuCriticalConsecutiveCount;
 
         // 全局计划任务配置
         public static GlobalScheduleConfig GlobalSchedule { get; set; } = null!;
@@ -188,15 +197,15 @@ namespace DaemonKit
                     });
 
                 this.ProcessTree.DataContext = this.DataContext;
+                _uiCheckpoint = "loadExtensions";
                 loadExtensions();
+                _uiCheckpoint = "loadConfig";
                 loadConfig();
 
                 this.ProcessTree.Items.Add(rootProcessNode);
 
-                // 直接调用 async void 方法：InitializeBackgroundServices 内部首行就是 await Task.Run(...)，
-                // 会立即 yield 回调方, 不阻塞后续步骤 5-9 的同步执行。
-                // 注意：不能用 Dispatcher.InvokeAsync(Background)，因为 200ms/500ms/1s 的定时器
-                // 以 Normal 优先级持续派发, 会永久饿死 Background 优先级的回调。
+                // 同步调用：内部仅排队 Dispatcher.InvokeAsync 和创建 ScheduleTaskEngine，不阻塞。
+                _uiCheckpoint = "initBgSvc";
                 InitializeBackgroundServices(startTime);
 
                 ProcessItem _selectedTreeNode = rootProcessNode;
@@ -391,7 +400,11 @@ namespace DaemonKit
                 // 清空进程树
                 ViewModel.ClearProcessTree.Subscribe(_ =>
                 {
-                    if (rootProcessNode == null || rootProcessNode.Children == null || rootProcessNode.Children.Count == 0)
+                    if (
+                        rootProcessNode == null
+                        || rootProcessNode.Children == null
+                        || rootProcessNode.Children.Count == 0
+                    )
                         return;
 
                     var result = MessageBox.Show(
@@ -680,6 +693,7 @@ namespace DaemonKit
                     NLogger.Info("准备退出程序，请稍后...");
                     rootProcessNode.KillNode();
                     Utils.UnRegisterHotKey(this);
+                    CleanupHooks();
                     Application.Current.Shutdown();
                 });
 
@@ -705,6 +719,7 @@ namespace DaemonKit
                     ViewModel.HideWindow.Execute().Subscribe();
                 }
 
+                _uiCheckpoint = "clockTimer+runNode";
                 this.clockText.Text = DateTime.Now.ToString("yyyy-MM-dd H:mm:ss");
                 Observable
                     .Interval(TimeSpan.FromSeconds(1))
@@ -744,14 +759,15 @@ namespace DaemonKit
                 // 空闲监控已迁移到 IdleMonitorService，在 loadConfig 后启动
 
                 // 网络广播和命令接收已迁移到 NetworkBroadcastService
+                _uiCheckpoint = "networkSvc";
                 _networkBroadcastService = Locator.Current.GetService<NetworkBroadcastService>()!;
                 _networkBroadcastService.Start(rootProcessNode, AppSettings.DaemonInterval);
+                _uiCheckpoint = "p2pSvc";
 
                 // 启动P2P文件传输服务器（应用级，不依赖联调面板打开）
                 // 在后台线程启动，因为端口被占用时可能需要重试等待
                 _p2pService.UpdateMaxConcurrentTransfers(AppSettings.MaxConcurrentTransfers);
-                _p2pService.MachineInfoProvider = () =>
-                    _networkBroadcastService.CurrentMachineInfo;
+                _p2pService.MachineInfoProvider = () => _networkBroadcastService.CurrentMachineInfo;
                 System.Threading.Tasks.Task.Run(() =>
                 {
                     try
@@ -806,6 +822,52 @@ namespace DaemonKit
                     })
                     .DisposeWith(disposables);
 
+                // 系统状态监控（CPU/内存/GPU）
+                // 延迟 15 秒再开始采集，避免启动阶段 WMI 查询与进程树启动争抢资源导致 UI 线程假死
+                Observable
+                    .Timer(TimeSpan.FromSeconds(15))
+                    .SelectMany(
+                        _ =>
+                            Observable.Interval(
+                                TimeSpan.FromMilliseconds(
+                                    Math.Max(2000, AppSettings.SystemStatusIntervalMs)
+                                )
+                            )
+                    )
+                    .Select(
+                        _ =>
+                            Observable.Start(
+                                () =>
+                                    _systemStatusMonitorService.CollectSnapshot(
+                                        AppSettings.EnableGpuUsageMonitoring
+                                    ),
+                                RxApp.TaskpoolScheduler
+                            )
+                    )
+                    .Switch() // 若上一次采集尚未完成则取消，防止 WMI 查询堆积
+                    .ObserveOn(RxApp.MainThreadScheduler)
+                    .Subscribe(snapshot =>
+                    {
+                        try
+                        {
+                            if (!AppSettings.EnableSystemStatusMonitoring)
+                            {
+                                SystemStatusItem.Visibility = Visibility.Collapsed;
+                                return;
+                            }
+
+                            SystemStatusItem.Visibility = Visibility.Visible;
+                            UpdateSystemStatusBar(snapshot);
+                            EvaluateSystemCriticalAlerts(snapshot);
+                        }
+                        catch (Exception ex)
+                        {
+                            // 兜底保护：绝不允许监控异常影响主进程
+                            NLogger.Warn("[系统监控] UI 更新异常（已忽略）: {Message}", ex.Message);
+                        }
+                    })
+                    .DisposeWith(disposables);
+
                 // 设置硬件信息就绪回调，自动更新硬件信息显示
                 _networkBroadcastService.SetHardwareInfoReadyCallback(() =>
                 {
@@ -813,23 +875,23 @@ namespace DaemonKit
                 });
 
                 // 崩溃检测已迁移到 CrashDetectionService
+                _uiCheckpoint = "crashDetect";
                 if (!string.IsNullOrWhiteSpace(AppSettings.CrashWindows))
                 {
                     _crashDetectionService = new CrashDetectionService();
                     _crashDetectionService.Start(rootProcessNode, AppSettings.CrashWindows);
                 }
 
-                var _allChildNodes = rootProcessNode.AllChildren();
-
                 // 订阅网络命令流
+                _uiCheckpoint = "cmdStream";
                 var _recvCommandDisposable = _networkBroadcastService.CommandStream
                     .ObserveOn(RxApp.MainThreadScheduler)
                     .Subscribe(_command =>
                     {
                         NLogger.Info("收到远程命令: EventID={EventID}", _command.EventID);
 
-                        // 提取发送方IP（用于ACK回复）
-                        var senderIP = _command.Data?.Value<string>("requesterIP");
+                        // 发送方 IP 由 NetworkBroadcastService 从 UDP 来源地址自动注入
+                        var senderIP = _command.SenderIP;
 
                         if (_command.EventID == Command.RESTART)
                         {
@@ -1032,16 +1094,22 @@ namespace DaemonKit
                                 }
 
                                 _processPath = _processPath.ToForwardSlash();
-                                var _processNode = _allChildNodes
+                                var _processNode = rootProcessNode
+                                    .AllChildren()
                                     .Where(_node => _node.NodePath.ToForwardSlash() == _processPath)
                                     .FirstOrDefault();
 
                                 if (_processNode == null)
                                 {
-                                    NLogger.Warn("未找到进程节点: {ProcessPath}", _processPath);
+                                    NLogger.Warn("[心跳] 未找到进程节点: {ProcessPath}", _processPath);
                                     return;
                                 }
 
+                                NLogger.Debug(
+                                    "[心跳] 收到 {ProcessName} 心跳, 来源={SenderIP}",
+                                    _processNode.ProcessName,
+                                    _command.SenderIP
+                                );
                                 _processNode.NotifyHeartbeat();
                             }
                             catch (Exception ex)
@@ -1354,8 +1422,11 @@ namespace DaemonKit
                                     }
                                     if (vm != null)
                                     {
-                                        var cmd = vm.GetType().GetProperty("ApplyPowerSavingCommand")
-                                            ?.GetValue(vm) as ReactiveUI.ReactiveCommand<Unit, Unit>;
+                                        var cmd =
+                                            vm.GetType()
+                                                .GetProperty("ApplyPowerSavingCommand")
+                                                ?.GetValue(vm)
+                                            as ReactiveUI.ReactiveCommand<Unit, Unit>;
                                         if (cmd != null && await cmd.CanExecute.FirstAsync())
                                             await cmd.Execute();
                                     }
@@ -1377,8 +1448,11 @@ namespace DaemonKit
                                     var vm = _powerSavingService?.ViewModel;
                                     if (vm != null)
                                     {
-                                        var cmd = vm.GetType().GetProperty("RestoreNormalCommand")
-                                            ?.GetValue(vm) as ReactiveUI.ReactiveCommand<Unit, Unit>;
+                                        var cmd =
+                                            vm.GetType()
+                                                .GetProperty("RestoreNormalCommand")
+                                                ?.GetValue(vm)
+                                            as ReactiveUI.ReactiveCommand<Unit, Unit>;
                                         if (cmd != null && await cmd.CanExecute.FirstAsync())
                                             await cmd.Execute();
                                     }
@@ -1446,14 +1520,21 @@ namespace DaemonKit
                             try
                             {
                                 AppSettings.DisableTouchScreen = !AppSettings.DisableTouchScreen;
-                                if (DeviceManager.SetTouchScreenEnabled(!AppSettings.DisableTouchScreen))
+                                if (
+                                    DeviceManager.SetTouchScreenEnabled(
+                                        !AppSettings.DisableTouchScreen
+                                    )
+                                )
                                 {
-                                    NLogger.Info($"远程触摸屏已{(AppSettings.DisableTouchScreen ? "禁用" : "启用")}");
+                                    NLogger.Info(
+                                        $"远程触摸屏已{(AppSettings.DisableTouchScreen ? "禁用" : "启用")}"
+                                    );
                                     saveConfig();
                                 }
                                 else
                                 {
-                                    AppSettings.DisableTouchScreen = !AppSettings.DisableTouchScreen;
+                                    AppSettings.DisableTouchScreen =
+                                        !AppSettings.DisableTouchScreen;
                                     NLogger.Warn("远程切换触摸屏失败");
                                 }
                             }
@@ -1468,57 +1549,144 @@ namespace DaemonKit
                         }
                     });
 
+                // 所有初始化订阅完成，标记 idle
+                _uiCheckpoint = "idle";
+
                 // UI 线程响应性看门狗：后台线程定期检查 Dispatcher 是否卡住
+                // 策略：连续 2 次未响应才判定为真正卡死，避免 WPF 首次布局/渲染导致的短暂阻塞误报。
+                // WPF 首次 Layout+Render（MaterialDesign 复杂模板 + TreeView + JIT）在冷启动时可达 5-8 秒。
                 var uiThreadId = System.Threading.Thread.CurrentThread.ManagedThreadId;
                 NLogger.Debug("[看门狗] UI线程ID={ThreadId}", uiThreadId);
                 System.Threading.Tasks.Task.Run(async () =>
                 {
-                    // 先等3秒让启动完成
-                    await System.Threading.Tasks.Task.Delay(3000);
+                    // 先等 10 秒让启动 + WPF 首次布局/渲染完成
+                    await System.Threading.Tasks.Task.Delay(10_000);
                     bool dumpWritten = false;
+                    int consecutiveFails = 0; // 连续未响应计数
                     for (int watchdogTick = 0; watchdogTick < 120; watchdogTick++) // 监控10分钟
                     {
                         var checkpoint = _uiCheckpoint;
                         var responded = false;
-                        Dispatcher.InvokeAsync(() => { responded = true; },
-                            System.Windows.Threading.DispatcherPriority.Send);
-                        await System.Threading.Tasks.Task.Delay(2000); // 给 Dispatcher 2秒响应
+                        Dispatcher.InvokeAsync(
+                            () =>
+                            {
+                                responded = true;
+                            },
+                            System.Windows.Threading.DispatcherPriority.Send
+                        );
+                        await System.Threading.Tasks.Task.Delay(3000); // 给 Dispatcher 3秒响应
                         if (!responded)
                         {
-                            // 连续快速采样3次以精确定位
-                            var cp1 = _uiCheckpoint;
-                            await System.Threading.Tasks.Task.Delay(500);
-                            var cp2 = _uiCheckpoint;
-                            await System.Threading.Tasks.Task.Delay(500);
-                            var cp3 = _uiCheckpoint;
-                            NLogger.Warn(
-                                "[看门狗] UI线程无响应！tick={Tick}, 检查点=[{CP0}]->[{CP1}]->[{CP2}]->[{CP3}]",
-                                watchdogTick, checkpoint, cp1, cp2, cp3);
-
-                            // 首次检测到卡死时，写一个 MiniDump 以便分析堆栈
-                            if (!dumpWritten)
+                            consecutiveFails++;
+                            if (consecutiveFails >= 2)
                             {
-                                dumpWritten = true;
-                                try
+                                // 连续 2 次未响应，判定为真正卡死
+                                // 连续快速采样3次以精确定位
+                                var cp1 = _uiCheckpoint;
+                                await System.Threading.Tasks.Task.Delay(500);
+                                var cp2 = _uiCheckpoint;
+                                await System.Threading.Tasks.Task.Delay(500);
+                                var cp3 = _uiCheckpoint;
+                                NLogger.Warn(
+                                    "[看门狗] UI线程无响应！tick={Tick}, 连续未响应={ConsecFails}, 检查点=[{CP0}]->[{CP1}]->[{CP2}]->[{CP3}]",
+                                    watchdogTick,
+                                    consecutiveFails,
+                                    checkpoint,
+                                    cp1,
+                                    cp2,
+                                    cp3
+                                );
+
+                                // 首次检测到卡死时，写一个 MiniDump 以便分析堆栈
+                                if (!dumpWritten)
                                 {
-                                    var dumpPath = System.IO.Path.Combine(
-                                        AppPathes.LogsDir,
-                                        $"DaemonKit_hang_{DateTime.Now:yyyyMMdd_HHmmss}.dmp");
-                                    using var fs = new System.IO.FileStream(dumpPath,
-                                        System.IO.FileMode.Create, System.IO.FileAccess.ReadWrite);
-                                    var proc = System.Diagnostics.Process.GetCurrentProcess();
-                                    MiniDumpWriteDump(
-                                        proc.Handle, (uint)proc.Id,
-                                        fs.SafeFileHandle.DangerousGetHandle(),
-                                        2 /* MiniDumpWithFullMemory */,
-                                        IntPtr.Zero, IntPtr.Zero, IntPtr.Zero);
-                                    NLogger.Warn("[看门狗] 已生成 dump 文件: {DumpPath}", dumpPath);
+                                    dumpWritten = true;
+                                    try
+                                    {
+                                        var dumpPath = System.IO.Path.Combine(
+                                            AppPathes.LogsDir,
+                                            $"DaemonKit_hang_{DateTime.Now:yyyyMMdd_HHmmss}.dmp"
+                                        );
+                                        using var fs = new System.IO.FileStream(
+                                            dumpPath,
+                                            System.IO.FileMode.Create,
+                                            System.IO.FileAccess.ReadWrite
+                                        );
+                                        var proc = System.Diagnostics.Process.GetCurrentProcess();
+                                        MiniDumpWriteDump(
+                                            proc.Handle,
+                                            (uint)proc.Id,
+                                            fs.SafeFileHandle.DangerousGetHandle(),
+                                            2 /* MiniDumpWithFullMemory */
+                                            ,
+                                            IntPtr.Zero,
+                                            IntPtr.Zero,
+                                            IntPtr.Zero
+                                        );
+                                        NLogger.Warn("[看门狗] 已生成 dump 文件: {DumpPath}", dumpPath);
+                                    }
+                                    catch (Exception dumpEx)
+                                    {
+                                        NLogger.Warn("[看门狗] 生成 dump 失败: {Msg}", dumpEx.Message);
+                                    }
                                 }
-                                catch (Exception dumpEx)
+
+                                // 连续 5 次（约 30 秒）仍无响应 → 自动重启进程
+                                if (consecutiveFails >= 5)
                                 {
-                                    NLogger.Warn("[看门狗] 生成 dump 失败: {Msg}", dumpEx.Message);
+                                    NLogger.Error(
+                                        "[看门狗] UI线程持续卡死超过30秒 (连续未响应={ConsecFails}次)，执行自动重启！",
+                                        consecutiveFails
+                                    );
+                                    try
+                                    {
+                                        // 启动新实例
+                                        var exePath = System.Diagnostics.Process
+                                            .GetCurrentProcess()
+                                            .MainModule?.FileName;
+                                        if (!string.IsNullOrEmpty(exePath))
+                                        {
+                                            System.Diagnostics.Process.Start(
+                                                new System.Diagnostics.ProcessStartInfo
+                                                {
+                                                    FileName = exePath,
+                                                    UseShellExecute = true
+                                                }
+                                            );
+                                            NLogger.Info("[看门狗] 已启动新实例: {ExePath}", exePath);
+                                        }
+                                    }
+                                    catch (Exception restartEx)
+                                    {
+                                        NLogger.Error("[看门狗] 启动新实例失败: {Msg}", restartEx.Message);
+                                    }
+
+                                    // 强制终止当前进程（Environment.Exit 可能在UI死锁时无法执行）
+                                    NLogger.Info("[看门狗] 终止当前进程...");
+                                    System.Diagnostics.Process.GetCurrentProcess().Kill();
+                                    return; // 不会执行到这里，但保持代码完整性
                                 }
                             }
+                            else
+                            {
+                                NLogger.Debug(
+                                    "[看门狗] UI线程短暂未响应 (第{ConsecFails}次), tick={Tick}, 检查点={CP}, 等待下一轮确认",
+                                    consecutiveFails,
+                                    watchdogTick,
+                                    checkpoint
+                                );
+                            }
+                        }
+                        else
+                        {
+                            if (consecutiveFails > 0)
+                            {
+                                NLogger.Debug(
+                                    "[看门狗] UI线程已恢复响应 (此前连续未响应 {Count} 次)",
+                                    consecutiveFails
+                                );
+                            }
+                            consecutiveFails = 0;
                         }
                         await System.Threading.Tasks.Task.Delay(3000); // 两次检查间隔
                     }
@@ -1626,11 +1794,21 @@ namespace DaemonKit
 
         #region P/Invoke
 
-        [System.Runtime.InteropServices.DllImport("dbghelp.dll", EntryPoint = "MiniDumpWriteDump",
-            CallingConvention = System.Runtime.InteropServices.CallingConvention.StdCall, SetLastError = true)]
+        [System.Runtime.InteropServices.DllImport(
+            "dbghelp.dll",
+            EntryPoint = "MiniDumpWriteDump",
+            CallingConvention = System.Runtime.InteropServices.CallingConvention.StdCall,
+            SetLastError = true
+        )]
         private static extern bool MiniDumpWriteDump(
-            IntPtr hProcess, uint processId, IntPtr hFile, uint dumpType,
-            IntPtr exceptionParam, IntPtr userStreamParam, IntPtr callbackParam);
+            IntPtr hProcess,
+            uint processId,
+            IntPtr hFile,
+            uint dumpType,
+            IntPtr exceptionParam,
+            IntPtr userStreamParam,
+            IntPtr callbackParam
+        );
 
         #endregion
     }

@@ -142,6 +142,9 @@ namespace DaemonKit
 
         protected override void OnExit(ExitEventArgs e)
         {
+            // 先停止双向守护监测，再停止守护服务
+            GuardServiceHelper.StopMonitoring();
+
             // 正常退出时主动停止守护服务，避免 DaemonGuard 误重启。
             // 崩溃或被 taskkill 终止时 OnExit 不会触发，因此 DaemonGuard 仍会正常重启。
             // 下次启动时 SyncGuardService(true) 会自动重新启动守护服务。
@@ -201,19 +204,13 @@ namespace DaemonKit
                             {
                                 try
                                 {
-                                    NLogger.Info(
-                                        "[退出钩子] 执行: {File}",
-                                        _file
-                                    );
+                                    NLogger.Info("[退出钩子] 执行: {File}", _file);
                                     Process _process = new Process();
                                     _process.StartInfo.FileName = _file;
                                     _process.StartInfo.Verb = "runas";
                                     _process.Start();
                                     _process.WaitForExit();
-                                    NLogger.Info(
-                                        "[退出钩子] 完成: {File}",
-                                        _file
-                                    );
+                                    NLogger.Info("[退出钩子] 完成: {File}", _file);
                                 }
                                 catch (System.Exception e)
                                 {

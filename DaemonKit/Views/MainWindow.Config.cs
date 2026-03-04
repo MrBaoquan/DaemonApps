@@ -230,24 +230,31 @@ namespace DaemonKit
                 NLogger.Info("已注册全局快捷键");
             }
 
+            // 注册前台窗口监听，实现远程工具焦点时自动挂起快捷键
+            RegisterForegroundHook();
+
             // 根据配置决定是否禁用触摸屏
+            // 注意：SetupDI 设备枚举可能耗时数秒（遍历全部设备类），必须移至后台线程
             if (AppSettings.DisableTouchScreen)
             {
-                try
+                System.Threading.Tasks.Task.Run(() =>
                 {
-                    if (DeviceManager.SetTouchScreenEnabled(false))
+                    try
                     {
-                        NLogger.Info("触摸屏已禁用");
+                        if (DeviceManager.SetTouchScreenEnabled(false))
+                        {
+                            NLogger.Info("触摸屏已禁用");
+                        }
+                        else
+                        {
+                            NLogger.Warn("触摸屏禁用失败");
+                        }
                     }
-                    else
+                    catch (Exception ex)
                     {
-                        NLogger.Warn("触摸屏禁用失败");
+                        NLogger.Error("初始化触摸屏状态时发生异常: {Message}", ex.Message);
                     }
-                }
-                catch (Exception ex)
-                {
-                    NLogger.Error("初始化触摸屏状态时发生异常: {Message}", ex.Message);
-                }
+                });
             }
 
             // 初始化服务层（确保 AppSettings 已加载）

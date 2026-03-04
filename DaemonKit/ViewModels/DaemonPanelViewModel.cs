@@ -448,12 +448,17 @@ namespace DaemonKit.ViewModels
                 {
                     // 更新统计信息（必须在UI线程执行，因为设置TotalPages等属性会触发
                     // ReactiveCommand.CanExecute → ButtonBase.UpdateCanExecute → WPF线程检查）
+                    // 重要：必须使用 BeginInvoke（异步投递），不能使用 Invoke（同步等待）！
+                    // 因为此回调可能在后台 Rx 定时器线程上执行，且持有 DynamicData 内部的
+                    // Synchronize 锁。如果使用 Invoke，后台线程会阻塞等待 UI 线程，
+                    // 而 UI 线程可能正在尝试进入同一个 Synchronize 锁（例如通过
+                    // AddOrUpdateMachine → PropertyChanged → AutoRefresh），造成死锁。
                     var totalFiltered = _machineCache.Items.Count(
                         m => MatchesSearch(m, SearchText) && MatchesStatus(m, StatusFilter)
                     );
                     var totalDevices = _machineCache.Count;
 
-                    System.Windows.Application.Current?.Dispatcher?.Invoke(() =>
+                    System.Windows.Application.Current?.Dispatcher?.BeginInvoke(() =>
                     {
                         FilteredCount = totalFiltered;
                         TotalDevices = totalDevices;
