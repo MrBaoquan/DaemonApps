@@ -96,6 +96,22 @@
         "ForEach-Object": true,
         "dotnet new": true,
         "dotnet sln": true,
-        "dotnet add": true
+        "dotnet add": true,
+        "dotnet build": true,
+        "Join-String": true,
+        "/^dotnet --version$/": {
+            "approve": true,
+            "matchCommandLine": true
+        },
+        "dotnet script": true,
+        "New-Item": true,
+        "Out-Null": true,
+        "dotnet run": true,
+        "sc.exe": true,
+        "Get-Process": true,
+        "/^powershell -ExecutionPolicy Bypass -File \"\\.\\\\test_kill_restart\\.ps1\" -Rounds 10 -WaitAfterStart 15 -GuardTimeout 30 -CooldownSec 3$/": {
+            "approve": true,
+            "matchCommandLine": true
+        }
     }
 }

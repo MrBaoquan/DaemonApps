@@ -13,9 +13,9 @@ namespace DaemonKit.Core
     class ProcManager
     {
         /// <summary>
-        /// 检测文件扩展名是否为脚本类型
+        /// 检测文件扩展名是否为脚本类型（供全项目共用）
         /// </summary>
-        private static bool IsScriptFile(string path)
+        internal static bool IsScriptFile(string path)
         {
             if (string.IsNullOrEmpty(path))
                 return false;
@@ -53,18 +53,30 @@ namespace DaemonKit.Core
                         NLogger.Warn("[进程] 批处理文件使用 LF 换行符，自动转换为 CRLF: {0}", path);
                         var content = System.IO.File.ReadAllText(path, System.Text.Encoding.UTF8);
                         content = content.Replace("\r\n", "\n").Replace("\n", "\r\n");
-                        System.IO.File.WriteAllText(path, content, new System.Text.UTF8Encoding(false));
+                        System.IO.File.WriteAllText(
+                            path,
+                            content,
+                            new System.Text.UTF8Encoding(false)
+                        );
                     }
                 }
                 else if (ext == ".ps1")
                 {
                     // 检测是否缺少 UTF-8 BOM（0xEF 0xBB 0xBF）
-                    bool hasBom = bytes.Length >= 3 && bytes[0] == 0xEF && bytes[1] == 0xBB && bytes[2] == 0xBF;
+                    bool hasBom =
+                        bytes.Length >= 3
+                        && bytes[0] == 0xEF
+                        && bytes[1] == 0xBB
+                        && bytes[2] == 0xBF;
                     if (!hasBom)
                     {
                         NLogger.Warn("[进程] PS1 文件缺少 UTF-8 BOM，自动补充（PowerShell 5.1 兼容）: {0}", path);
                         var content = System.IO.File.ReadAllText(path, System.Text.Encoding.UTF8);
-                        System.IO.File.WriteAllText(path, content, new System.Text.UTF8Encoding(true));
+                        System.IO.File.WriteAllText(
+                            path,
+                            content,
+                            new System.Text.UTF8Encoding(true)
+                        );
                     }
                 }
             }
@@ -259,14 +271,23 @@ namespace DaemonKit.Core
                         // 脚本进程：跳过 WaitForInputIdle（控制台无消息循环，会抛 InvalidOperationException）
                         // 直接回调 onStarted，确保 nodeProcess/nodeProcessId 在守护循环首次检查前就已赋值
                         // 避免短生命周期脚本在调度回 MainThread 前就退出导致 onStarted 永不执行
-                        NLogger.Info("[进程] 脚本进程跳过 WaitForInputIdle，直接就绪: {0} (PID: {1})", Path, _process.Id);
+                        NLogger.Info(
+                            "[进程] 脚本进程跳过 WaitForInputIdle，直接就绪: {0} (PID: {1})",
+                            Path,
+                            _process.Id
+                        );
                         try
                         {
                             onStarted?.Invoke(_process);
                         }
                         catch (Exception ex)
                         {
-                            NLogger.Error("执行 onStarted 回调异常: {0}, 错误: {1}\n{2}", Path, ex.Message, ex.StackTrace);
+                            NLogger.Error(
+                                "执行 onStarted 回调异常: {0}, 错误: {1}\n{2}",
+                                Path,
+                                ex.Message,
+                                ex.StackTrace
+                            );
                         }
                     }
                     else
@@ -295,7 +316,9 @@ namespace DaemonKit.Core
                                 {
                                     try
                                     {
-                                        if (onStarted != null && process != null && !process.HasExited)
+                                        // 无条件回调 onStarted，即使启动器已退出
+                                        // 启动器退出后由 daemonNode() 的 FindMonitoredProcess 重绑定接管
+                                        if (onStarted != null && process != null)
                                         {
                                             onStarted(process);
                                         }
@@ -639,7 +662,12 @@ namespace DaemonKit.Core
                 {
                     if (proc.MainWindowHandle != IntPtr.Zero)
                     {
-                        WinAPI.PostMessage(proc.MainWindowHandle, WM_CLOSE, IntPtr.Zero, IntPtr.Zero);
+                        WinAPI.PostMessage(
+                            proc.MainWindowHandle,
+                            WM_CLOSE,
+                            IntPtr.Zero,
+                            IntPtr.Zero
+                        );
                         NLogger.Info("[残留清理] 已发送 WM_CLOSE: PID={Pid}", proc.Id);
                     }
                 }
@@ -667,7 +695,11 @@ namespace DaemonKit.Core
                 {
                     if (!proc.HasExited)
                     {
-                        NLogger.Warn("[残留清理] 进程未在 {Timeout}ms 内退出，强制终止: PID={Pid}", timeoutMs, proc.Id);
+                        NLogger.Warn(
+                            "[残留清理] 进程未在 {Timeout}ms 内退出，强制终止: PID={Pid}",
+                            timeoutMs,
+                            proc.Id
+                        );
                         proc.Kill(true); // Kill entire process tree
                     }
                     killed++;
@@ -699,7 +731,8 @@ namespace DaemonKit.Core
             {
                 // 将路径中的反斜杠转义为 WMI 查询所需的双反斜杠
                 var escapedPath = scriptPath.Replace("\\", "\\\\");
-                var query = $"SELECT ProcessId, CommandLine FROM Win32_Process WHERE CommandLine LIKE '%{escapedPath}%'";
+                var query =
+                    $"SELECT ProcessId, CommandLine FROM Win32_Process WHERE CommandLine LIKE '%{escapedPath}%'";
 
                 using var searcher = new System.Management.ManagementObjectSearcher(query);
                 foreach (System.Management.ManagementObject obj in searcher.Get())
@@ -710,7 +743,11 @@ namespace DaemonKit.Core
                     try
                     {
                         var proc = Process.GetProcessById(pid);
-                        NLogger.Info("[残留清理] 发现脚本残留进程: PID={Pid}, CommandLine={CmdLine}", pid, cmdLine);
+                        NLogger.Info(
+                            "[残留清理] 发现脚本残留进程: PID={Pid}, CommandLine={CmdLine}",
+                            pid,
+                            cmdLine
+                        );
                         proc.Kill(true); // Kill entire process tree
                         NLogger.Info("[残留清理] 已终止脚本残留进程: PID={Pid}", pid);
                         killed++;

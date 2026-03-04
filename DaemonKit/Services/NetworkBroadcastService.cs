@@ -5,6 +5,7 @@ using System.Reactive;
 using System.Reactive.Disposables;
 using System.Reactive.Linq;
 using System.Text;
+using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 using DaemonKit.Models;
@@ -27,7 +28,7 @@ namespace DaemonKit.Services
         private IDisposable? _commandDisposable;
         private CancellationTokenSource? _receiveCts;
 
-        private readonly HardwareInfo _hardwareInfo;
+        private HardwareInfo? _hardwareInfo;
         private readonly MachineInfo _machineInfo;
         private ProcessItem? _rootProcessNode;
         private int _broadcastInterval = 3000; // 默认3秒
@@ -37,14 +38,17 @@ namespace DaemonKit.Services
 
         public NetworkBroadcastService()
         {
-            _hardwareInfo = new HardwareInfo();
             _machineInfo = new MachineInfo();
 
             // 异步预热硬件信息，避免阻塞主线程启动
+            // 关键：HardwareInfo 必须在 MTA 线程（Task.Run）中创建和使用。
+            // WMI 内部使用 COM 对象，若在 STA（UI 线程）上创建，后续从 MTA 线程调用
+            // Refresh* 方法时 COM 会将所有调用编排回 STA 执行，独占 UI 线程导致卡死。
             System.Threading.Tasks.Task.Run(() =>
             {
                 try
                 {
+                    _hardwareInfo = new HardwareInfo();
                     _hardwareInfo.RefreshAll();
                     _hardwareInfoReady = true;
                     NLogger.Info("[Network] 硬件信息预热完成");
@@ -229,15 +233,43 @@ namespace DaemonKit.Services
                     Task.Run(
                         async () =>
                         {
-                            try
+                            while (!cts.Token.IsCancellationRequested)
                             {
-                                while (!cts.Token.IsCancellationRequested)
+                                try
                                 {
                                     var result = await commandClient
                                         .ReceiveAsync()
                                         .ConfigureAwait(false);
                                     var cmdStr = Encoding.UTF8.GetString(result.Buffer);
-                                    var cmd = JsonConvert.DeserializeObject<Command>(cmdStr);
+
+                                    Command cmd;
+                                    try
+                                    {
+                                        cmd = JsonConvert.DeserializeObject<Command>(cmdStr);
+                                    }
+                                    catch (JsonReaderException)
+                                    {
+                                        // 修复非法 JSON 转义序列（如 Windows 路径中的 \U, \D 等未转义反斜杠）
+                                        var fixedStr = Regex.Replace(
+                                            cmdStr,
+                                            @"\\(?![""\\\/bfnrtu])",
+                                            @"\\"
+                                        );
+                                        NLogger.Debug("自动修复非法 JSON 转义: {Original}", cmdStr);
+                                        try
+                                        {
+                                            cmd = JsonConvert.DeserializeObject<Command>(fixedStr);
+                                        }
+                                        catch (Exception retryEx)
+                                        {
+                                            NLogger.Error(
+                                                "修复后仍无法解析命令: {Message}, 原始数据: {Raw}",
+                                                retryEx.Message,
+                                                cmdStr
+                                            );
+                                            continue;
+                                        }
+                                    }
 
                                     if (cmd == null)
                                     {
@@ -261,14 +293,27 @@ namespace DaemonKit.Services
                                         }
                                     }
 
+                                    // 将 UDP 来源 IP 注入 Command，下游无需在 data 中携带 requesterIP
+                                    cmd.SenderIP = result.RemoteEndPoint.Address.ToString();
+
                                     observer.OnNext(cmd);
                                 }
-                            }
-                            catch (Exception ex)
-                            {
-                                if (!cts.Token.IsCancellationRequested)
+                                catch (ObjectDisposedException)
                                 {
-                                    NLogger.Error("接收控制命令异常: {Message}", ex.Message);
+                                    // UdpClient 已关闭，退出循环
+                                    break;
+                                }
+                                catch (SocketException) when (cts.Token.IsCancellationRequested)
+                                {
+                                    break;
+                                }
+                                catch (Exception ex)
+                                {
+                                    if (!cts.Token.IsCancellationRequested)
+                                    {
+                                        NLogger.Error("接收控制命令异常: {Message}", ex.Message);
+                                    }
+                                    // 继续循环，不因单条消息异常而中断整个接收服务
                                 }
                             }
                         },

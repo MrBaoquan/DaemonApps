@@ -1,3 +1,7 @@
+using System;
+using System.Collections.ObjectModel;
+using System.Reactive;
+using System.Reactive.Linq;
 using ReactiveUI;
 
 namespace DaemonKit
@@ -60,6 +64,44 @@ namespace DaemonKit
             set => this.RaiseAndSetIfChanged(ref enableScheduleToggle, value);
         }
 
+        // ── 远程工具焦点挂起 ──
+
+        /// <summary>进程名列表，前台窗口切换到这些进程时自动挂起全局快捷键</summary>
+        public ObservableCollection<string> SuspendOnProcessNames { get; } =
+            new ObservableCollection<string>();
+
+        private string newProcessName = string.Empty;
+        public string NewProcessName
+        {
+            get => newProcessName;
+            set => this.RaiseAndSetIfChanged(ref newProcessName, value);
+        }
+
+        public ReactiveCommand<Unit, Unit> AddProcessName { get; }
+        public ReactiveCommand<string, Unit> RemoveProcessName { get; }
+
+        public HotkeySettingsViewModel()
+        {
+            var canAdd = this.WhenAnyValue(x => x.NewProcessName)
+                .Select(n => !string.IsNullOrWhiteSpace(n));
+
+            AddProcessName = ReactiveCommand.Create(
+                () =>
+                {
+                    var name = NewProcessName.Trim();
+                    if (!string.IsNullOrWhiteSpace(name) && !SuspendOnProcessNames.Contains(name))
+                        SuspendOnProcessNames.Add(name);
+                    NewProcessName = string.Empty;
+                },
+                canAdd
+            );
+
+            RemoveProcessName = ReactiveCommand.Create<string>(name =>
+            {
+                SuspendOnProcessNames.Remove(name);
+            });
+        }
+
         public void LoadFrom(AppSettings settings)
         {
             EnableGlobalHotKey = settings.EnableGlobalHotKey;
@@ -70,6 +112,11 @@ namespace DaemonKit
             EnableDesktopOff = settings.EnableDesktopOff;
             EnableScreenshot = settings.EnableScreenshot;
             EnableScheduleToggle = settings.EnableScheduleToggleHotKey;
+            SuspendOnProcessNames.Clear();
+            var list = settings.SuspendHotkeyOnProcessNames;
+            if (list != null)
+                foreach (var n in list)
+                    SuspendOnProcessNames.Add(n);
         }
 
         public void ApplyTo(AppSettings settings)
@@ -82,6 +129,9 @@ namespace DaemonKit
             settings.EnableDesktopOff = EnableDesktopOff;
             settings.EnableScreenshot = EnableScreenshot;
             settings.EnableScheduleToggleHotKey = EnableScheduleToggle;
+            settings.SuspendHotkeyOnProcessNames = new System.Collections.Generic.List<string>(
+                SuspendOnProcessNames
+            );
         }
     }
 }

@@ -22,6 +22,16 @@ namespace DaemonKit.Models
             set => this.RaiseAndSetIfChanged(ref _scheduleTasksEnabled, value);
         }
 
+        /// <summary>
+        /// 静默设置启用状态（直接写字段，不触发 RaiseAndSetIfChanged，
+        /// 从而不会走 WhenAnyValue 订阅的 saveConfig 路径）。
+        /// 仅用于紧急恢复等运行时控制场景。
+        /// </summary>
+        public void SetEnabledSilently(bool enabled)
+        {
+            _scheduleTasksEnabled = enabled;
+        }
+
         /// <summary>全局任务配置列表</summary>
         [XmlElement("ScheduleTaskConfig")]
         public List<ScheduleTaskConfig> ScheduleTasks { get; set; } =

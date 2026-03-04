@@ -14,7 +14,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("FileSharer")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Release")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+d9fdb15ef05252a9b285317df9222c7ce5bd1025")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+f36dead057ef27498e966a7c491aa961b2cac8ae")]
 [assembly: System.Reflection.AssemblyProductAttribute("FileSharer")]
 [assembly: System.Reflection.AssemblyTitleAttribute("FileSharer")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

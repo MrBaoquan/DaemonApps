@@ -45,6 +45,8 @@
                             <RowDefinition Height="Auto"/>
                             <RowDefinition Height="22"/>
                             <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="22"/>
+                            <RowDefinition Height="Auto"/>
                         </Grid.RowDefinitions>
 
                         <!-- 第一行：进程路径 -->
@@ -88,6 +90,17 @@
                                  materialDesign:HintAssist.Hint="启动参数"
                                  materialDesign:HintAssist.IsFloating="True"
                                  Text="{Binding Arguments}"
+                                 VerticalAlignment="Center"/>
+
+                        <!-- 第四行：守护进程名（启动器场景） -->
+                        <TextBox Grid.Row="6"
+                                 Grid.Column="0"
+                                 Grid.ColumnSpan="3"
+                                 FontSize="15"
+                                 materialDesign:HintAssist.Hint="守护进程名"
+                                 materialDesign:HintAssist.IsFloating="True"
+                                 Text="{Binding ProcessMatchName}"
+                                 ToolTip="启动器类程序需填写实际运行进程名称（不含 .exe），留空则自动使用路径匹配"
                                  VerticalAlignment="Center"/>
                     </Grid>
                 </materialDesign:Card>

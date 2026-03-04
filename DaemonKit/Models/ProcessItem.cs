@@ -61,6 +61,14 @@ namespace DaemonKit.Models
         [XmlAttribute]
         public bool NoDaemon { get; set; } = false;
 
+        /// <summary>
+        /// 守护进程匹配名（不含 .exe）。
+        /// 用于启动器类程序：启动器 exe 退出后，守护逻辑通过此名称查找实际运行的进程。
+        /// 留空则使用 Path 精确路径匹配（默认行为）。
+        /// </summary>
+        [XmlAttribute]
+        public string ProcessMatchName { get; set; } = string.Empty;
+
         [XmlAttribute]
         public bool IsScript { get; set; } = false;
 
@@ -591,6 +599,7 @@ namespace DaemonKit.Models
             this.delayDaemon = appSettings.DelayDaemon;
             this.daemonInterval = appSettings.DaemonInterval;
             this.maxError = appSettings.ErrorCount;
+            this.enableCpuStallDetection = appSettings.EnableCpuStallDetection;
             this.Children
                 .ToList()
                 .ForEach(_childNode =>
