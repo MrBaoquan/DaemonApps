@@ -499,3 +499,32 @@ temp.txt
 *.tmp
 
 **/Release/
+# ---- 补充（DaemonApps 整理）----
+# 发布配置/用户文件
+*.pubxml.user
+*.user
+# PDB 与数据库缓存
+*.pdb
+*.VC.db
+*.VC.VC.opendb
+*.suo
+# 第三方/成本率打包缓存
+Costura64/
+cryptopp/
+packages/
+# 根目录杂项（测试脚本/日志/临时产物）
+build.log
+proc_diff.txt
+queryex
+stop
+test*.log
+test*.txt
+test_v2.ps1
+test_kill_restart.ps1
+P2P_IMPLEMENTATION_PLAN.md
+PLAN_B_IMPLEMENTATION.md
+PROCESS_TREE_EXPORT_IMPORT_RULES.md
+PowerSaving_Diagnostics.md
+REFACTORING_PLAN.md
+SCRIPT_DAEMON_COMPLETION_REPORT.md
+*.bak
