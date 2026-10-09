@@ -1,0 +1,170 @@
+﻿<Window x:Class="AndX.Edge.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:viewmodels="clr-namespace:AndX.Edge.ViewModels"
+        xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes"
+        mc:Ignorable="d"
+        d:DataContext="{d:DesignInstance viewmodels:MainViewModel}"
+        Title="AndXEdge 边缘网关" Height="640" Width="1000" MinHeight="560" MinWidth="820">
+
+    <DockPanel>
+        <!-- 底部状态栏 -->
+        <Border DockPanel.Dock="Bottom" BorderBrush="LightGray" BorderThickness="0,1,0,0" Padding="12,8">
+            <StackPanel Orientation="Horizontal">
+                <Ellipse Width="10" Height="10" VerticalAlignment="Center" Fill="{Binding StatusBrush}" />
+                <TextBlock Margin="8,0,0,0" VerticalAlignment="Center" FontWeight="SemiBold"
+                           Text="{Binding StatusText}" />
+                <TextBlock Margin="16,0,0,0" VerticalAlignment="Center" Foreground="Gray"
+                           Text="{Binding ConfigPathText}" />
+            </StackPanel>
+        </Border>
+
+        <!-- 顶部工具条 -->
+        <Border DockPanel.Dock="Top" BorderBrush="LightGray" BorderThickness="0,0,0,1" Padding="12,10">
+            <DockPanel>
+                <StackPanel Orientation="Horizontal" DockPanel.Dock="Left">
+                    <Button Command="{Binding ToggleServerCommand}" Style="{StaticResource MaterialDesignRaisedButton}">
+                        <StackPanel Orientation="Horizontal">
+                            <materialDesign:PackIcon Kind="Power" VerticalAlignment="Center" />
+                            <TextBlock Margin="8,0,0,0" VerticalAlignment="Center" Text="{Binding ToggleButtonText}" />
+                        </StackPanel>
+                    </Button>
+                    <Button Margin="8,0,0,0" Command="{Binding SelfTestCommand}"
+                            Style="{StaticResource MaterialDesignOutlinedButton}">
+                        <StackPanel Orientation="Horizontal">
+                            <materialDesign:PackIcon Kind="FlaskOutline" VerticalAlignment="Center" />
+                            <TextBlock Margin="8,0,0,0" VerticalAlignment="Center" Text="链路自检" />
+                        </StackPanel>
+                    </Button>
+                    <Button Margin="8,0,0,0" Command="{Binding ClearLogCommand}"
+                            Style="{StaticResource MaterialDesignOutlinedButton}">
+                        <StackPanel Orientation="Horizontal">
+                            <materialDesign:PackIcon Kind="Broom" VerticalAlignment="Center" />
+                            <TextBlock Margin="8,0,0,0" VerticalAlignment="Center" Text="清空日志" />
+                        </StackPanel>
+                    </Button>
+                </StackPanel>
+                <TextBlock Margin="16,0,0,0" VerticalAlignment="Center" TextWrapping="Wrap"
+                           Foreground="#0071cb" Text="{Binding SelfTestText}" />
+            </DockPanel>
+        </Border>
+
+        <TabControl Margin="12" Foreground="DimGray">
+
+            <!-- 概览 -->
+            <TabItem Header="概览">
+                <ScrollViewer VerticalScrollBarVisibility="Auto">
+                    <StackPanel Margin="16">
+                        <TextBlock FontSize="14" FontWeight="SemiBold" Margin="0,0,0,12" Text="运行配置" />
+
+                        <Grid Margin="0,0,0,8">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="130" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Text="监听地址" VerticalAlignment="Center" />
+                            <TextBlock Grid.Column="1" VerticalAlignment="Center" Text="{Binding ListenUrl}" />
+                        </Grid>
+                        <Grid Margin="0,0,0,8">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="130" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Text="上游后端" VerticalAlignment="Center" />
+                            <TextBlock Grid.Column="1" VerticalAlignment="Center" Text="{Binding UpstreamBaseUrl}" />
+                        </Grid>
+                        <Grid Margin="0,0,0,8">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="130" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Text="Edge 密钥" VerticalAlignment="Center" />
+                            <TextBlock Grid.Column="1" VerticalAlignment="Center" Text="{Binding EdgeKeyStatusText}" />
+                        </Grid>
+                        <Grid Margin="0,0,0,16">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="130" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Text="展项 ID" VerticalAlignment="Center" />
+                            <TextBlock Grid.Column="1" VerticalAlignment="Center" Text="{Binding ExhibitId}" />
+                        </Grid>
+
+                        <Border Height="1" Background="LightGray" Margin="0,0,0,16" />
+
+                        <TextBlock FontSize="12" Foreground="Gray" TextWrapping="Wrap"
+                                   Text="AndXEdge 仅监听本机环回地址，为展项插件提供本机信任边界：转发 /api/edge/*（大文件分片亦流式透传，不落盘）并注入边缘密钥，鉴权与展项归属由边缘网关与后端处理，插件侧参数保持最小。" />
+                    </StackPanel>
+                </ScrollViewer>
+            </TabItem>
+
+            <!-- 请求日志 -->
+            <TabItem Header="请求日志">
+                <DataGrid ItemsSource="{Binding Requests}" AutoGenerateColumns="False" IsReadOnly="True"
+                          HeadersVisibility="Column" GridLinesVisibility="Horizontal" CanUserAddRows="False">
+                    <DataGrid.Columns>
+                        <DataGridTextColumn Header="时间" Binding="{Binding Time}" Width="100" />
+                        <DataGridTextColumn Header="方法" Binding="{Binding Method}" Width="70" />
+                        <DataGridTextColumn Header="路径" Binding="{Binding Path}" Width="*" />
+                        <DataGridTextColumn Header="状态" Binding="{Binding Status}" Width="70" />
+                        <DataGridTextColumn Header="耗时" Binding="{Binding Elapsed}" Width="90" />
+                        <DataGridTextColumn Header="请求 ID" Binding="{Binding RequestId}" Width="220" />
+                    </DataGrid.Columns>
+                </DataGrid>
+            </TabItem>
+
+            <!-- 设置 -->
+            <TabItem Header="设置">
+                <ScrollViewer VerticalScrollBarVisibility="Auto">
+                    <StackPanel Margin="16">
+                        <TextBlock FontSize="14" FontWeight="SemiBold" Margin="0,0,0,12" Text="边缘网关配置" />
+
+                        <TextBox Margin="0,8,0,16" Text="{Binding UpstreamBaseUrl}"
+                                 materialDesign:HintAssist.Hint="上游后端地址（如 http://10.0.0.8:3000）"
+                                 Style="{StaticResource MaterialDesignFloatingHintTextBox}" />
+
+                        <Grid Margin="0,0,0,16">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="12" />
+                                <ColumnDefinition Width="160" />
+                            </Grid.ColumnDefinitions>
+                            <TextBox Grid.Column="0" Text="{Binding ListenAddress}"
+                                     materialDesign:HintAssist.Hint="监听地址（默认 127.0.0.1）"
+                                     Style="{StaticResource MaterialDesignFloatingHintTextBox}" />
+                            <TextBox Grid.Column="2" Text="{Binding ListenPortText}"
+                                     materialDesign:HintAssist.Hint="监听端口（默认 6699）"
+                                     Style="{StaticResource MaterialDesignFloatingHintTextBox}" />
+                        </Grid>
+
+                        <TextBox Margin="0,8,0,16" Text="{Binding ExhibitId}"
+                                 materialDesign:HintAssist.Hint="展项 ID（可选）"
+                                 Style="{StaticResource MaterialDesignFloatingHintTextBox}" />
+
+                        <TextBox Margin="0,8,0,8" Text="{Binding EdgeKeyInput}"
+                                 materialDesign:HintAssist.Hint="Edge 密钥（留空则保持不变；保存时 DPAPI 加密）"
+                                 Style="{StaticResource MaterialDesignFloatingHintTextBox}" />
+                        <TextBlock Margin="0,0,0,16" FontSize="12" Foreground="Gray" Text="{Binding EdgeKeyStatusText}" />
+
+                        <StackPanel Orientation="Horizontal">
+                            <Button Command="{Binding SaveConfigCommand}" Style="{StaticResource MaterialDesignRaisedButton}">
+                                <StackPanel Orientation="Horizontal">
+                                    <materialDesign:PackIcon Kind="ContentSave" VerticalAlignment="Center" />
+                                    <TextBlock Margin="8,0,0,0" VerticalAlignment="Center" Text="保存配置" />
+                                </StackPanel>
+                            </Button>
+                        </StackPanel>
+
+                        <TextBlock Margin="0,16,0,0" FontSize="12" Foreground="#1a7f29" TextWrapping="Wrap"
+                                   Text="{Binding SaveStatusText}" />
+
+                        <TextBlock Margin="0,16,0,0" FontSize="12" Foreground="Gray" TextWrapping="Wrap"
+                                   Text="提示：修改监听地址/端口或上游地址后，需重启服务生效。密钥亦可经部署命令注入：echo &quot;edge-key&quot; | AndXEdge.exe --install-edge-key" />
+                    </StackPanel>
+                </ScrollViewer>
+            </TabItem>
+        </TabControl>
+    </DockPanel>
+</Window>
