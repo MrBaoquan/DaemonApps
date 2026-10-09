@@ -1,0 +1,35 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <UseWPF>true</UseWPF>
+    <RootNamespace>AndX.Edge</RootNamespace>
+    <AssemblyName>AndXEdge</AssemblyName>
+    <ApplicationIcon>Assets\logo.ico</ApplicationIcon>
+    <Product>AndXEdge</Product>
+    <AssemblyTitle>AndXEdge</AssemblyTitle>
+    <Description>展项扫码平台本机边缘网关（AndXEdge）：环回反代 + 边缘密钥注入 + 诊断</Description>
+    <Version>0.1.0</Version>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Content Include="Assets\logo.ico" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- 进程内托管 Kestrel + YARP（与 AndXEdge.Core 一致，确保运行时框架随应用发布） -->
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="MaterialDesignThemes" Version="5.1.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\AndXEdge.Core\AndXEdge.Core.csproj" />
+  </ItemGroup>
+
+</Project>
