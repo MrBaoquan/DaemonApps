@@ -99,6 +99,111 @@
                           VerticalScrollBarVisibility="Auto" TextWrapping="Wrap" BorderBrush="LightGray"
                           Text="{Binding LogContent}" />
                 </TabItem>
+
+                <!-- 接口测试页面：走真实链路验证 /api/share -->
+                <TabItem Header="接口测试">
+                    <DockPanel Margin="16">
+                        <TextBlock DockPanel.Dock="Top" FontSize="14" TextWrapping="Wrap" Margin="0,0,0,12">
+                            <Run Text="通过 HTTP 真实链路调用本机 " />
+                            <Run Text="/api/share" FontWeight="Bold" Foreground="#0071cb" />
+                            <Run Text=" 接口，生成一个测试文件并上传，验证整条链路（本地保存 → OSS 上传 → 二维码生成）是否正常。" />
+                        </TextBlock>
+
+                        <TextBlock DockPanel.Dock="Top" FontSize="12" Foreground="Gray" Margin="0,0,0,8"
+                                   Text="{Binding ServerText}" />
+
+                        <Button DockPanel.Dock="Top" HorizontalAlignment="Left"
+                                Command="{Binding TestShareCommand}"
+                                Style="{StaticResource MaterialDesignRaisedButton}">
+                            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                <materialDesign:PackIcon Kind="FlaskOutline" VerticalAlignment="Center" />
+                                <TextBlock Margin="8,0,0,0" VerticalAlignment="Center">执行 Share 接口测试</TextBlock>
+                            </StackPanel>
+                        </Button>
+
+                        <TextBlock DockPanel.Dock="Top" FontSize="12" Foreground="DarkGray" Margin="0,12,0,0"
+                                   Text="测试过程与结果将记录到下方日志，请切换到“服务日志”标签查看详细信息。" />
+                    </DockPanel>
+                </TabItem>
+
+                <!-- 设置：S3 存储凭据（默认自动生成 + 主动轮换） -->
+                <TabItem Header="设置">
+                    <ScrollViewer VerticalScrollBarVisibility="Auto">
+                        <StackPanel Margin="16">
+                            <TextBlock FontSize="14" FontWeight="SemiBold" Margin="0,0,0,8">S3 存储凭据</TextBlock>
+                            <TextBlock FontSize="12" Foreground="Gray" TextWrapping="Wrap" Margin="0,0,0,12">
+                                存储后端为 <Run FontWeight="Bold">s3（MinIO）</Run>。首次运行已自动生成默认密钥并加密保存；如需更换，
+                                请先在 MinIO 侧同步 filesharer 账号密码，再在此填写新凭据并保存轮换。
+                            </TextBlock>
+
+                            <TextBlock FontSize="12" Foreground="#0071cb" Margin="0,0,0,12"
+                                       Text="{Binding S3StatusText}" />
+
+                            <Grid Margin="0,0,0,8">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="110"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Text="存储类型" VerticalAlignment="Center" />
+                                <TextBlock Grid.Column="1" Text="{Binding S3StorageTypeText}" VerticalAlignment="Center" />
+                            </Grid>
+                            <Grid Margin="0,0,0,8">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="110"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Text="Endpoint" VerticalAlignment="Center" />
+                                <TextBlock Grid.Column="1" Text="{Binding S3EndpointText}" VerticalAlignment="Center" />
+                            </Grid>
+                            <Grid Margin="0,0,0,8">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="110"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Text="Bucket" VerticalAlignment="Center" />
+                                <TextBlock Grid.Column="1" Text="{Binding S3BucketText}" VerticalAlignment="Center" />
+                            </Grid>
+                            <Grid Margin="0,0,0,8">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="110"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Text="AccessKey" VerticalAlignment="Center" />
+                                <TextBox Grid.Column="1" Text="{Binding S3AccessKey}" materialDesign:HintAssist.Hint="文件分享账号 AccessKey" />
+                            </Grid>
+                            <Grid Margin="0,0,0,16">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="110"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Text="SecretKey" VerticalAlignment="Center" />
+                                <TextBox Grid.Column="1" Text="{Binding S3SecretKey}" materialDesign:HintAssist.Hint="文件分享账号 SecretKey（加密存储）" />
+                            </Grid>
+
+                            <StackPanel Orientation="Horizontal">
+                                <Button Command="{Binding GenerateSecretCommand}"
+                                        Style="{StaticResource MaterialDesignOutlinedButton}" Margin="0,0,12,0">
+                                    <StackPanel Orientation="Horizontal">
+                                        <materialDesign:PackIcon Kind="DiceMultiple" VerticalAlignment="Center" />
+                                        <TextBlock Margin="8,0,0,0" VerticalAlignment="Center">生成随机密钥</TextBlock>
+                                    </StackPanel>
+                                </Button>
+                                <Button Command="{Binding RotateS3Command}"
+                                        Style="{StaticResource MaterialDesignRaisedButton}">
+                                    <StackPanel Orientation="Horizontal">
+                                        <materialDesign:PackIcon Kind="Refresh" VerticalAlignment="Center" />
+                                        <TextBlock Margin="8,0,0,0" VerticalAlignment="Center">保存轮换</TextBlock>
+                                    </StackPanel>
+                                </Button>
+                            </StackPanel>
+
+                            <TextBlock FontSize="12" Foreground="Gray" TextWrapping="Wrap" Margin="0,16,0,0">
+                                说明：凭据以 Windows DPAPI 加密存储于 ~/.cloud-disk.ini；轮换后需确保 MinIO 侧 filesharer
+                                账号密码一致（在 AndX 服务器执行 minio-init.sh 或 mc admin user）。
+                            </TextBlock>
+                        </StackPanel>
+                    </ScrollViewer>
+                </TabItem>
             </TabControl>
         </Grid>
     </DockPanel>

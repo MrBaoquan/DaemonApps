@@ -36,7 +36,7 @@ namespace FileSharer
                 var _lastContent = string.Empty;
                 ViewModel.LogContentCommand.Subscribe(_ =>
                 {
-                    if(_lastContent!=_)
+                    if (_lastContent != _)
                         this.logBox.ScrollToEnd();
                     _lastContent = _;
                 });
@@ -44,17 +44,23 @@ namespace FileSharer
                 ViewModel.QRFileName = "暂无数据";
                 GenerateQRCode("暂无数据");
 
+                FileController.OnNewQRCode
+                    .SubscribeOn(RxApp.MainThreadScheduler)
+                    .Subscribe(response =>
+                    {
+                        NLogger.Info($"Shared new file: {response.file_url}");
+                        ViewModel.QRFileName = response.filename;
+                        DisplayQRCode(response.qrcode_url);
+                    });
 
-                FileController.OnNewQRCode.SubscribeOn(RxApp.MainThreadScheduler).Subscribe(response =>
+                // 接口测试结果回调：显示下载到的二维码图片
+                ViewModel.OnTestShareQRCode = bmp =>
                 {
-                    NLogger.Info($"Shared new file: {response.file_url}");
-                    ViewModel.QRFileName = response.filename;
-                    DisplayQRCode(response.qrcode_url);
-                });
+                    QRCodeImage.Source = bmp;
+                };
             });
         }
 
-        
         public void DisplayQRCode(string filePath)
         {
             BitmapImage bitmapImage = new BitmapImage();
@@ -86,17 +92,20 @@ namespace FileSharer
         }
 
         private WebServer _webServer;
+
         private void StartWebServer()
         {
-            _webServer = new WebServer(o => o
-                .WithUrlPrefix(AppConfig.Instance.ServerUrl)
-                .WithMode(HttpListenerMode.EmbedIO))
-                .WithWebApi("/api", m => m
-                    .WithController<FileController>())
+            _webServer = new WebServer(
+                o =>
+                    o.WithUrlPrefix(AppConfig.Instance.ServerUrl).WithMode(HttpListenerMode.EmbedIO)
+            )
+                .WithWebApi("/api", m => m.WithController<FileController>())
                 .WithLocalSessionManager()
-                .WithModule(new FileModule("/assets", new FileSystemProvider(Paths.UploadDir,true)));
-            
-            _webServer.StateChanged += (s, e) =>NLogger.Info($"File Sharer Server - {e.NewState}");
+                .WithModule(
+                    new FileModule("/assets", new FileSystemProvider(Paths.UploadDir, true))
+                );
+
+            _webServer.StateChanged += (s, e) => NLogger.Info($"File Sharer Server - {e.NewState}");
 
             _webServer.RunAsync();
             Console.WriteLine("EmbedIO WebServer is running on http://localhost:6699");
@@ -107,6 +116,4 @@ namespace FileSharer
             _webServer.Dispose();
         }
     }
-
-   
 }
