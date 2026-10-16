@@ -29,6 +29,16 @@ internal sealed class FakeUpstream : IAsyncDisposable
 
     public string? LastEdgeKey { get; private set; }
 
+    public string? LastNodeId { get; private set; }
+
+    public string? LastSignature { get; private set; }
+
+    public string? LastTimestamp { get; private set; }
+
+    public string? LastNonce { get; private set; }
+
+    public string? LastBodySha256 { get; private set; }
+
     public string? LastPath { get; private set; }
 
     public string? LastExhibitId { get; private set; }
@@ -48,6 +58,11 @@ internal sealed class FakeUpstream : IAsyncDisposable
         app.Run(async context =>
         {
             self.LastEdgeKey = context.Request.Headers["x-edge-key"];
+            self.LastNodeId = context.Request.Headers[EdgeConstants.DeviceIdHeader];
+            self.LastSignature = context.Request.Headers[EdgeConstants.DeviceSignatureHeader];
+            self.LastTimestamp = context.Request.Headers[EdgeConstants.DeviceTimestampHeader];
+            self.LastNonce = context.Request.Headers[EdgeConstants.DeviceNonceHeader];
+            self.LastBodySha256 = context.Request.Headers[EdgeConstants.DeviceBodySha256Header];
             self.LastPath = context.Request.Path.ToString() + context.Request.QueryString.ToString();
             self.LastExhibitId = context.Request.Query["exhibitId"];
 

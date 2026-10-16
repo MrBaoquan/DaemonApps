@@ -29,12 +29,38 @@ public sealed class EdgeConfig
     /// <summary>可选展项 ID：配置后由 Edge 在 <c>/api/edge/*</c> 查询串上补充（服务端亦可经 ANDX_EDGE_EXHIBIT_ID 默认）。</summary>
     public string? ExhibitId { get; set; }
 
+    /// <summary>
+    /// 角色：<c>local</c>（默认，本机零密钥，代持共享密钥）/ <c>relay</c>（无外网中继，**纯透传**）/
+    /// <c>hub</c>（多展项共用出口，Edge 持**自己的节点身份**，注入展项后重新签名）。见 implementation §13.7。
+    /// </summary>
+    public string Role { get; set; } = EdgeRoles.Local;
+
+    /// <summary>节点编号（Hub 角色必填；与 NodeSecret 配对，来自 <c>POST /api/edge/enroll</c>）。</summary>
+    public string? NodeId { get; set; }
+
+    /// <summary>DPAPI 加密后的节点密钥（持久化字段）。</summary>
+    public string? NodeSecretEncrypted { get; set; }
+
+    /// <summary>明文节点密钥（仅内存，不序列化）。</summary>
+    [JsonIgnore]
+    public string? NodeSecret { get; set; }
+
+    /// <summary>
+    /// Hub 角色的「展项机 IP → 展项 ID」映射（本地表；命中即用，未命中回退 <see cref="ExhibitId"/>）。
+    /// 一机一展项的现场用它把 LAN 内多台展项机区分开。
+    /// </summary>
+    public Dictionary<string, string> HubExhibitMap { get; set; } = new(StringComparer.OrdinalIgnoreCase);
+
     /// <summary>DPAPI 加密后的 Edge 密钥（持久化字段）。</summary>
     public string? EdgeKeyEncrypted { get; set; }
 
     /// <summary>明文 Edge 密钥（仅内存，不序列化）。</summary>
     [JsonIgnore]
     public string? EdgeKey { get; set; }
+
+    /// <summary>解析后的角色枚举。</summary>
+    [JsonIgnore]
+    public EdgeRoleKind RoleKind => EdgeRoles.Parse(Role);
 
     /// <summary>本次加载实际使用的配置文件路径。</summary>
     [JsonIgnore]
@@ -63,9 +89,21 @@ public sealed class EdgeConfig
             {
                 return "上游后端地址无效（需为 http/https 绝对地址）";
             }
-            if (string.IsNullOrWhiteSpace(EdgeKey))
+            // 共享密钥只在 Local 角色需要；Relay 纯透传（不持凭据）、Hub 用节点凭据
+            if (RoleKind == EdgeRoleKind.Local && string.IsNullOrWhiteSpace(EdgeKey))
             {
                 return "未配置 Edge 密钥（x-edge-key）";
+            }
+            if (EdgeRoles.RequiresNodeCredential(RoleKind))
+            {
+                if (string.IsNullOrWhiteSpace(NodeId))
+                {
+                    return "Hub 角色未配置节点编号（nodeId，来自注册令牌换取的节点身份）";
+                }
+                if (string.IsNullOrWhiteSpace(NodeSecret))
+                {
+                    return "Hub 角色未配置节点密钥（nodeSecret）";
+                }
             }
             if (ListenPort is <= 0 or > 65535)
             {
@@ -76,6 +114,18 @@ public sealed class EdgeConfig
                 return "监听地址为空";
             }
             return null;
+        }
+    }
+
+    /// <summary>用于界面展示的脱敏节点密钥。</summary>
+    [JsonIgnore]
+    public string MaskedNodeSecret
+    {
+        get
+        {
+            if (string.IsNullOrEmpty(NodeSecret)) return "（未配置）";
+            if (NodeSecret.Length <= 4) return "****";
+            return "****" + NodeSecret[^4..];
         }
     }
 
@@ -128,6 +178,10 @@ public sealed class EdgeConfig
         {
             config.EdgeKey = SecretProtector.TryUnprotect(config.EdgeKeyEncrypted);
         }
+        if (string.IsNullOrEmpty(config.NodeSecret) && !string.IsNullOrEmpty(config.NodeSecretEncrypted))
+        {
+            config.NodeSecret = SecretProtector.TryUnprotect(config.NodeSecretEncrypted);
+        }
         return config;
     }
 
@@ -140,6 +194,9 @@ public sealed class EdgeConfig
         EdgeKeyEncrypted = string.IsNullOrEmpty(EdgeKey)
             ? null
             : SecretProtector.Protect(EdgeKey);
+        NodeSecretEncrypted = string.IsNullOrEmpty(NodeSecret)
+            ? null
+            : SecretProtector.Protect(NodeSecret);
 
         var dir = Path.GetDirectoryName(path);
         if (!string.IsNullOrEmpty(dir) && !Directory.Exists(dir))
@@ -168,5 +225,14 @@ public sealed class EdgeConfig
 
         var exhibitId = Environment.GetEnvironmentVariable("ANDX_EDGE_EXHIBIT_ID");
         if (!string.IsNullOrWhiteSpace(exhibitId)) ExhibitId = exhibitId!;
+
+        var role = Environment.GetEnvironmentVariable("ANDX_EDGE_ROLE");
+        if (!string.IsNullOrWhiteSpace(role)) Role = role!;
+
+        var nodeId = Environment.GetEnvironmentVariable("ANDX_EDGE_NODE_ID");
+        if (!string.IsNullOrWhiteSpace(nodeId)) NodeId = nodeId!;
+
+        var nodeSecret = Environment.GetEnvironmentVariable("ANDX_EDGE_NODE_SECRET");
+        if (!string.IsNullOrWhiteSpace(nodeSecret)) NodeSecret = nodeSecret!;
     }
 }

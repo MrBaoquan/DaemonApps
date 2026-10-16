@@ -12,6 +12,16 @@ public static class EdgeConstants
     /// <summary>边缘网关共享密钥请求头（与后端 EdgeKeyGuard 一致）。</summary>
     public const string KeyHeader = "x-edge-key";
 
+    /// <summary>节点身份签名头（solution §16.3；Hub 角色用它替代共享密钥）。</summary>
+    public const string DeviceIdHeader = "x-device-id";
+    public const string DeviceTimestampHeader = "x-device-timestamp";
+    public const string DeviceNonceHeader = "x-device-nonce";
+    public const string DeviceBodySha256Header = "x-device-body-sha256";
+    public const string DeviceSignatureHeader = "x-device-signature";
+
+    /// <summary>需要节点/边缘鉴权的控制面路径前缀（Hub 角色据此决定是否注入展项身份并重签）。</summary>
+    public static readonly string[] SignedPathPrefixes = { "/api/edge/", "/api/ai/", "/api/devices/" };
+
     /// <summary>请求关联 ID 头（Edge 在缺失时生成，便于日志串联）。</summary>
     public const string RequestIdHeader = "x-request-id";
 
@@ -20,6 +30,16 @@ public static class EdgeConstants
 
     /// <summary>默认绑定地址：仅环回（本机信任边界）。</summary>
     public const string DefaultListenAddress = "127.0.0.1";
+
+    /// <summary>节点签名头的全部名字（Hub 转发前需先剥离客户端伪造的这些头）。</summary>
+    public static readonly string[] DeviceHeaderNames =
+    {
+        DeviceIdHeader,
+        DeviceTimestampHeader,
+        DeviceNonceHeader,
+        DeviceBodySha256Header,
+        DeviceSignatureHeader,
+    };
 
     /// <summary>被代理的后端路径前缀。</summary>
     public const string EdgePathPrefix = "/api/edge";
