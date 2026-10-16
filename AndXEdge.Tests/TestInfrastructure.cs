@@ -45,6 +45,11 @@ internal sealed class FakeUpstream : IAsyncDisposable
 
     public byte[] LastBody { get; private set; } = Array.Empty<byte>();
 
+    /// <summary>注册端点（POST /api/edge/enroll）的固定应答，便于首启向导用例。</summary>
+    public string? EnrollResponse { get; set; }
+
+    public int EnrollStatus { get; set; } = StatusCodes.Status200OK;
+
     public static async Task<FakeUpstream> StartAsync()
     {
         var self = new FakeUpstream();
@@ -69,6 +74,14 @@ internal sealed class FakeUpstream : IAsyncDisposable
             using var buffer = new MemoryStream();
             await context.Request.Body.CopyToAsync(buffer);
             self.LastBody = buffer.ToArray();
+
+            if (self.EnrollResponse is not null && context.Request.Path == "/api/edge/enroll")
+            {{
+                context.Response.StatusCode = self.EnrollStatus;
+                context.Response.ContentType = "application/json";
+                await context.Response.WriteAsync(self.EnrollResponse);
+                return;
+            }}
 
             context.Response.StatusCode = StatusCodes.Status200OK;
             await context.Response.WriteAsync("ok");
